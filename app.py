@@ -38,24 +38,51 @@ letters were actually heard, and "not heard" feedback per letter); a combined wo
 reference-free signals, fitted on tampered clean pesukim) that the page trusts only on clean takes; the Arabic ear's
 throat vote by its ع/ح peak; the hazzan's reference cache keyed by server version.
 
+v4.2 (Oct 15, on the Hugging Face Space davidsitt/pizmonim-dikduk): the proxy in front of a Space cuts a request
+that runs too long, and the first check of a line did (its hazzan line is analysed on the way) — so a check can be
+queued (POST /check?…&job=1 answers at once with a job id; GET /job/<id> is polled by the page, which shows what
+the server is doing); one worker thread runs the queue. The page also asks for the hazzan's line (/ref) the moment
+a line is picked, so it is analysed while the person records. torch gets the container's real CPU quota as its
+thread count (os.cpu_count() reports the host's cores inside a Space; too many threads crawl).
+
 Endpoints (JSON, CORS open):  GET /health   GET /info   GET /lyrics (the site's lyrics.json + the Tehillim perakim)
   GET  /ref?f=<archive mp3 | tehillim-NNN.mp3>&t0=&t1=&words=<line>   the hazzan's line
-  POST /check?words=<line>[&ref=<f>&t0=&t1=][&nikud=<pointed line>][&drill=throat|plain]  body=audio  the take,
-       against the hazzan when ref is given (fit, throat letters, vowels), against the nikud when given
+  POST /check?words=<line>[&ref=<f>&t0=&t1=][&nikud=<pointed line>][&drill=throat|plain][&job=1]  body=audio  the
+       take, against the hazzan when ref is given (fit, throat letters, vowels), against the nikud when given;
+       with job=1 the answer is {"job": id} and GET /job/<id> returns {state, stage, result} when done
   GET  /drill, /drill/export                                   the drill recordings kept here (features + labels)
   GET  /tehillim/audio/<file>                                  a Rabbi Alouf recording
 Nothing here deploys or changes the site.
 """
-import os, re, sys, json, time, hashlib, subprocess, tempfile, threading
+import os, re, sys, json, time, hashlib, subprocess, tempfile, threading, queue, uuid
 import numpy as np
 import torch
 import requests
 from fastapi import FastAPI, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse, FileResponse, RedirectResponse
+from starlette.concurrency import run_in_threadpool
 
 T_START = time.time()
-torch.set_num_threads(max(1, os.cpu_count() or 1))
+
+def usable_cpus():
+    """the CPUs this process may really use: inside a container os.cpu_count() reports the host's cores (a Space
+       says 2 vCPU, the host has dozens), and torch with more threads than cores crawls. The cgroup quota wins."""
+    n = os.cpu_count() or 1
+    try: n = min(n, len(os.sched_getaffinity(0)))
+    except Exception: pass
+    try:   # cgroup v2
+        q, p = open('/sys/fs/cgroup/cpu.max').read().split()[:2]
+        if q != 'max': n = min(n, max(1, -(-int(q) // int(p))))
+    except Exception: pass
+    try:   # cgroup v1
+        q = int(open('/sys/fs/cgroup/cpu/cpu.cfs_quota_us').read()); p = int(open('/sys/fs/cgroup/cpu/cpu.cfs_period_us').read())
+        if q > 0: n = min(n, max(1, -(-q // p)))
+    except Exception: pass
+    try: n = int(os.environ.get('DK_THREADS') or n)
+    except Exception: pass
+    return max(1, n)
+THREADS = usable_cpus(); torch.set_num_threads(THREADS)
 # DK_DEVICE=cuda runs the two big models on a GPU when one is there (a Colab T4 answers a check in a second or two);
 # anything else, or a GPU that fails to load, means CPU. The heads and the aligner stay on the CPU either way.
 DEV = 'cpu'
@@ -633,7 +660,8 @@ def try_page():
 
 @app.get('/health')
 def health():
-    return {'ok': True, 'version': 4.1, 'device': DEV, 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
+    return {'ok': True, 'version': 4.2, 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
+            'jobs': {'queued': sum(1 for v in JOBS.values() if v['state'] == 'queued'), 'running': sum(1 for v in JOBS.values() if v['state'] == 'running')},
             'ears': {'letter_head': HEAD is not None, 'vowel_head': FULL is not None, 'fine_tuned': FT is not None, 'classifier_v2': bool(CLF2), 'tehillim_lyrics': len(TEHILLIM_LYR), 'tehillim_audio': os.path.isdir(TEHILLIM_DIR) and len(os.listdir(TEHILLIM_DIR)) or (TEHILLIM_BASE or 0)}}
 
 @app.get('/info')
@@ -743,8 +771,46 @@ def drill_export():
     """everything, features included (for training the next classifier)"""
     return [json.load(open(os.path.join(DRILL_DIR, fn), encoding='utf-8')) for fn in sorted(os.listdir(DRILL_DIR)) if fn.endswith('.json')]
 
+# ---- jobs: a check can take longer than the reverse proxy in front of a Space allows one request (the first check of
+# a line analyses the hazzan's line too; on 2 vCPUs that is 30–60 s). With job=1 the check is queued, the request
+# returns at once with a job id, and the page polls /job/<id> every second or two until the result is there. One
+# worker thread runs the queue, so two visitors never run the models at the same time (which would slow both).
+JOBS = {}; JOB_Q = queue.Queue(); JOB_LOCK = threading.Lock()
+
+def new_job(fn):
+    jid = uuid.uuid4().hex[:12]
+    with JOB_LOCK:
+        JOBS[jid] = {'state': 'queued', 'stage': 'waiting for the server', 't': time.time()}
+    JOB_Q.put((jid, fn))
+    return jid
+
+def job_worker():
+    while True:
+        jid, fn = JOB_Q.get()
+        J = JOBS.get(jid)
+        if J is None: continue
+        J['state'] = 'running'; J['stage'] = 'starting'
+        try:
+            J['result'] = fn(lambda s: J.__setitem__('stage', s)); J['state'] = 'done'
+        except Exception as e:
+            J['err'] = str(e)[:300]; J['state'] = 'error'
+        J['t'] = time.time()
+        with JOB_LOCK:   # results are kept a quarter of an hour
+            for k in [k for k, v in JOBS.items() if v['state'] in ('done', 'error') and time.time() - v['t'] > 900]: JOBS.pop(k, None)
+threading.Thread(target=job_worker, daemon=True).start()
+
+@app.get('/job/{jid}')
+def job_status(jid: str):
+    J = JOBS.get(jid)
+    if J is None:
+        return JSONResponse({'err': 'no such job (the server may have restarted); check again', 'state': 'gone'}, status_code=404)
+    out = {'state': J['state'], 'stage': J.get('stage'), 'queued': sum(1 for v in JOBS.values() if v['state'] == 'queued')}
+    if J['state'] == 'done': out['result'] = J['result']
+    if J['state'] == 'error': out['err'] = J.get('err')
+    return out
+
 @app.post('/check')
-async def check(request: Request, words: str = Query(...), ref: str = None, t0: float = 0, t1: float = 0, emb: int = 0, drill: str = None, nikud: str = None):
+async def check(request: Request, words: str = Query(...), ref: str = None, t0: float = 0, t1: float = 0, emb: int = 0, drill: str = None, nikud: str = None, job: int = 0):
     W = he_words(words)
     if not W:
         return JSONResponse({'err': 'no words'}, status_code=400)
@@ -752,13 +818,20 @@ async def check(request: Request, words: str = Query(...), ref: str = None, t0: 
     if len(data) < 1000:
         return JSONResponse({'err': 'no audio'}, status_code=400)
     try:
-        x = decode_audio(data)
+        x = await run_in_threadpool(decode_audio, data)
     except Exception as e:
         return JSONResponse({'err': 'decode: ' + str(e)[:200]}, status_code=400)
     if x.shape[0] < SR * 0.5:
         return JSONResponse({'err': 'too short'}, status_code=400)
     if x.shape[0] > SR * 40:
         x = x[:SR * 40]
+    if job:
+        return JSONResponse({'job': new_job(lambda progress: run_check(x, W, ref, t0, t1, emb, drill, nikud, progress))}, status_code=202)
+    # the plain path (scripts, older pages): the same work in a thread, so /health and the polls keep answering
+    return await run_in_threadpool(run_check, x, W, ref, t0, t1, emb, drill, nikud)
+
+def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None):
+    progress('listening to your take')
     take, lp, spf = analyse(x, W, bool(emb) or bool(drill))
     out = {'words': W, 'take': take}
     for w in take['words']: w['pw'] = word_pw(w, None)
@@ -774,6 +847,7 @@ async def check(request: Request, words: str = Query(...), ref: str = None, t0: 
         out['drill_saved'] = len(os.listdir(DRILL_DIR))
     if ref:
         try:
+            progress("listening to the hazzan's line")
             R = ref_line(ref, t0, t1, W, bool(emb))
             out['ref'] = R
             out['fit'] = fit_against(lp, spf, R['words'])

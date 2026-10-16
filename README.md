@@ -28,6 +28,11 @@ v4.1 retrains the letter head on every synced archive recording (3,510 lines, 70
 Arabic read speech (FLEURS, CC BY 4.0: ع/ح from many throats, mapped onto Hebrew letters), adds a letters-heard
 signal with per-letter "not heard" feedback, and a combined word score the page trusts on clean takes.
 
+v4.2 runs on the Space davidsitt/pizmonim-dikduk: the Dockerfile pulls the code, the heads and `static/` from the
+GitHub repo `davidsitt810-ops/dikduk-space` while building (push there, then rebuild the Space); a check is queued
+(`/check?…&job=1`, polled at `/job/<id>`) so the proxy's request limit cannot cut a long first check; the page asks
+for the hazzan's line as soon as a line is picked; torch uses the container's real CPU quota.
+
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
 - `GET /health`, `GET /info`, `GET /lyrics` (the site's lyrics.json + the Tehillim perakim, with CORS).
 - `GET /ref?f=<archive mp3 | tehillim-NNN.mp3>&t0=&t1=&words=<line>` — the hazzan's line, analysed and cached.

@@ -91,7 +91,7 @@ details summary{cursor:pointer;color:var(--mute);font-size:13px}
    <label class="btn" for="file">Upload a recording</label><input type="file" id="file" accept="audio/*,video/*" hidden>
   </div>
   <p class="note" id="recNote"></p>
-  <div class="row" id="takeRow" hidden><button class="btn" id="playTake">▶ Your take</button><button class="btn gold" id="check">Check it</button><span id="busy" hidden><span class="spin"></span> checking (first call after sleep can take a minute)…</span></div>
+  <div class="row" id="takeRow" hidden><button class="btn" id="playTake">▶ Your take</button><button class="btn gold" id="check">Check it</button><span id="busy" hidden><span class="spin"></span> checking…</span></div>
   <p class="err" id="err"></p>
  </div>
 
@@ -185,7 +185,12 @@ $('#go').onclick=async()=>{await loadLyrics();if(!LY)return;const n=$('#pid').va
  if(q){const Q=heWords(q).map(heL);const hits=[];for(const id in LY.s){const txt=LY.s[id].l.join(' ');const T=heWords(txt).map(heL);let h=0;for(const w of Q)if(T.some(t=>t===w||(w.length>=3&&t.includes(w))))h++;if(h===Q.length)hits.push(id);if(hits.length>12)break;}
   $('#hits').innerHTML=hits.map(id=>`<button class="btn" data-id="${id}">${id} · ${esc(LY.s[id].l[0].split(' ').slice(0,4).join(' '))}</button>`).join('')||'<span class="note">nothing found</span>';
   $('#hits').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('#pid').value=b.dataset.id;openP(b.dataset.id);});}};
-function pickLine(l){LINE=l;TAKE=null;RESULT=null;$('#lines').querySelectorAll('.ln').forEach(b=>b.classList.toggle('on',+b.dataset.k===l.k));
+const PREF=new Set();
+/* the hazzan's line is analysed on the server the moment a line is picked (and cached there), so by the time the
+   person has recorded, the check only has to listen to the take */
+function prefetchRef(l){if(!REC||l.t0==null)return;const k=REC+'|'+l.t0+'|'+l.t1+'|'+l.text;if(PREF.has(k))return;PREF.add(k);
+ fetch(url('/ref?'+new URLSearchParams({f:REC,words:l.text,t0:l.t0,t1:l.t1})),{cache:'no-store'}).catch(()=>PREF.delete(k));}
+function pickLine(l){LINE=l;TAKE=null;RESULT=null;prefetchRef(l);$('#lines').querySelectorAll('.ln').forEach(b=>b.classList.toggle('on',+b.dataset.k===l.k));
  $('#lineWords').innerHTML=heWords(l.text).map(w=>`<span class="w"><b>${hiTh(w)}</b></span>`).join('');
  $('#takeP').hidden=false;$('#takeRow').hidden=true;$('#resP').hidden=true;$('#thP').hidden=true;$('#vwP').hidden=true;$('#phP').hidden=true;$('#vdP').hidden=true;$('#err').textContent='';
  $('#recNote').textContent=l.t0==null?'This recording has no time for this line, so there is no hazzan to compare with; the check still runs on your words alone.':'';
@@ -220,11 +225,23 @@ function playYou(t0,t1){if(!TAKE_URL)return;if(!YOU||YOU.dataset.src!==TAKE_URL)
  YOU.currentTime=t0||0;if(t1!=null)YOU.addEventListener('timeupdate',stop);YOU.play().catch(()=>{});}
 $('#playTake').onclick=()=>playYou(0,null);
 /* ---------- the check ---------- */
-$('#check').onclick=async()=>{if(!TAKE||!LINE)return;$('#busy').hidden=false;$('#check').disabled=true;$('#err').textContent='';
- try{const q=new URLSearchParams({words:LINE.text});if(REC&&LINE.t0!=null){q.set('ref',REC);q.set('t0',LINE.t0);q.set('t1',LINE.t1);}
+function busyText(t){$('#busy').innerHTML='<span class="spin"></span> '+esc(t)+'…';}
+/* the check is queued on the server (job=1) and polled: a long first check no longer dies at the proxy in front of
+   the Space, and the person sees what the server is doing (listening to the take, then to the hazzan's line) */
+async function waitJob(id){const t0=Date.now();let misses=0;
+ for(;;){await new Promise(s=>setTimeout(s,1500));let st;
+  try{const r=await fetch(url('/job/'+id),{cache:'no-store'});st=await r.json();if(r.status===404)throw new Error(st.err||'the server lost the check (it may have restarted) — check again');}
+  catch(e){if(++misses>8)throw e;continue;}
+  misses=0;busyText((st.stage||'working')+' · '+Math.round((Date.now()-t0)/1000)+' s'+(st.queued?' · '+st.queued+' ahead of you':''));
+  if(st.state==='done')return st.result;if(st.state==='error')throw new Error(st.err||'the check failed on the server');
+  if(Date.now()-t0>420000)throw new Error('the server took more than 7 minutes');}}
+$('#check').onclick=async()=>{if(!TAKE||!LINE)return;busyText('sending your take');$('#busy').hidden=false;$('#check').disabled=true;$('#err').textContent='';
+ try{const q=new URLSearchParams({words:LINE.text,job:1});if(REC&&LINE.t0!=null){q.set('ref',REC);q.set('t0',LINE.t0);q.set('t1',LINE.t1);}
   if(P&&P.s.ln&&P.s.ln[LINE.k])q.set('nikud',P.s.ln[LINE.k]);
   const r=await fetch(url('/check?'+q),{method:'POST',body:TAKE.blob,headers:{'content-type':TAKE.blob.type||'application/octet-stream'}});
-  const j=await r.json();if(!r.ok||j.err)throw new Error(j.err||('server said '+r.status));RESULT=j;render(j);}
+  let j=await r.json();if(!r.ok||j.err)throw new Error(j.err||('server said '+r.status));
+  if(j.job)j=await waitJob(j.job);   /* an older server answers with the result itself */
+  RESULT=j;render(j);}
  catch(e){$('#err').textContent='check failed: '+e.message;}
  $('#busy').hidden=true;$('#check').disabled=false;};
 /* the rule for a word, from two signals the server gives: skel = the word's own consonants found in the take
