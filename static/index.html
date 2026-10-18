@@ -1,168 +1,224 @@
-<title>Dikduk Lab</title>
+<title>Dikduk check</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;500;700&family=Heebo:wght@400;500;700&display=swap">
 <style>
-/* Layout: one phone-width column; the line's words are the hero row; everything else sits under them as plain panels.
-   Dark-first, the site's own gold-on-wine look. */
-:root{--bg:#2A1317;--panel:#3A1C22;--line:#5A3038;--fg:#F3E6CF;--mute:#C9AE96;--gold:#D8B060;--good:#9BD3A0;--warn:#F2C230;--bad:#EF7B6E;--him:#D8B060;--you:#F3E6CF;
+/* One phone-width column, four steps in order. The step being worked on is open; finished steps fold to one line
+   with "Change". The Hebrew line is the only large thing on the page. Dark-first, the site's gold-on-wine look. */
+:root{--bg:#2A1317;--panel:#3A1C22;--line:#5A3038;--fg:#F3E6CF;--mute:#C9AE96;--gold:#D8B060;--good:#9BD3A0;--warn:#F2C230;--bad:#EF7B6E;--ink:#2A1317;
  --he:"Frank Ruhl Libre",Georgia,serif;--ui:"Heebo",system-ui,-apple-system,sans-serif;color-scheme:dark}
-@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#FBF6EC;--panel:#FFFFFF;--line:#E6D7C0;--fg:#2A1317;--mute:#6E5A4C;--gold:#A8782A;--good:#2E8B4A;--warn:#B8860B;--bad:#C0392B;--him:#A8782A;--you:#2A1317;color-scheme:light}}
-:root[data-theme="light"]{--bg:#FBF6EC;--panel:#FFFFFF;--line:#E6D7C0;--fg:#2A1317;--mute:#6E5A4C;--gold:#A8782A;--good:#2E8B4A;--warn:#B8860B;--bad:#C0392B;--him:#A8782A;--you:#2A1317;color-scheme:light}
-body{background:var(--bg);color:var(--fg);font-family:var(--ui);font-size:15px;line-height:1.45;margin:0}
-.wrap{max-width:560px;margin:0 auto;padding-block:14px 60px;padding-inline:16px;display:flex;flex-direction:column;gap:14px}
-h1{font:700 22px/1.2 var(--ui);margin:0;letter-spacing:.01em}
-h2{font:500 12px/1.2 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin:0 0 8px}
-.top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.pill{font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);color:var(--mute)}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#FBF6EC;--panel:#FFFFFF;--line:#E6D7C0;--fg:#2A1317;--mute:#6E5A4C;--gold:#A8782A;--good:#2E8B4A;--warn:#B8860B;--bad:#C0392B;--ink:#FFFFFF;color-scheme:light}}
+:root[data-theme="light"]{--bg:#FBF6EC;--panel:#FFFFFF;--line:#E6D7C0;--fg:#2A1317;--mute:#6E5A4C;--gold:#A8782A;--good:#2E8B4A;--warn:#B8860B;--bad:#C0392B;--ink:#FFFFFF;color-scheme:light}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--ui);font-size:16px;line-height:1.45;margin:0;-webkit-text-size-adjust:100%}
+.wrap{max-width:560px;margin:0 auto;padding:16px 16px 72px;display:flex;flex-direction:column;gap:12px}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+h1{font:700 24px/1.15 var(--ui);margin:0}
+.lede{margin:4px 0 0;color:var(--mute);font-size:14px;max-width:34ch}
+.pill{flex:none;font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--mute);white-space:nowrap;margin-top:4px}
 .pill.ok{border-color:var(--good);color:var(--good)}.pill.bad{border-color:var(--bad);color:var(--bad)}.pill.wait{border-color:var(--warn);color:var(--warn)}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+.err{color:var(--bad);font-size:14px;margin:0;padding:10px 12px;border:1px solid var(--bad);border-radius:10px}.err:empty{display:none}
+.step{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.step[hidden]{display:none}
+h2{font:600 19px/1.25 var(--ui);margin:0 0 12px;display:flex;align-items:center;gap:10px}
+h3{font:500 14px/1.3 var(--ui);color:var(--mute);margin:14px 0 6px}
+.n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--gold);color:var(--ink);font:700 14px/26px var(--ui);text-align:center}
+.sum{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--mute)}
+.sum .n{background:transparent;color:var(--gold);border:1px solid var(--gold);line-height:24px}
+.sum .txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg)}
+.sum .txt .he,.he{font-family:var(--he);direction:rtl;unicode-bidi:isolate}
+.link{font:500 14px var(--ui);color:var(--gold);background:none;border:0;padding:4px 2px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-input[type=text],input[type=number],input[type=url]{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
-input[lang=he]{font-family:var(--he);font-size:17px}
-.btn{font:500 14px var(--ui);color:var(--fg);background:transparent;border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer}
-.btn:hover{border-color:var(--gold)}.btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-.btn.gold{background:var(--gold);color:#2A1317;border-color:var(--gold);font-weight:700}
-.btn.rec{background:var(--bad);color:#fff;border-color:var(--bad);font-weight:700}
+.hint{font-size:13px;color:var(--mute);margin:8px 0 0}
+input[type=text],input[type=url],select{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 12px;min-width:0;min-height:46px}
+select{padding-right:28px}
+.seg{display:flex;border:1px solid var(--line);border-radius:999px;padding:3px;margin-bottom:10px}
+.seg button{flex:1;font:500 15px var(--ui);color:var(--mute);background:transparent;border:0;border-radius:999px;padding:9px 10px;cursor:pointer}
+.seg button.on{background:var(--gold);color:var(--ink);font-weight:700}
+.btn{font:500 15px var(--ui);color:var(--fg);background:transparent;border:1px solid var(--line);border-radius:999px;padding:10px 16px;min-height:44px;cursor:pointer}
+.btn:hover{border-color:var(--gold)}.btn:focus-visible,.seg button:focus-visible,.ln:focus-visible,.w:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.btn.gold{background:var(--gold);color:var(--ink);border-color:var(--gold);font-weight:700}
+.btn.rec{background:var(--bad);color:#fff;border-color:var(--bad);font-weight:700;font-size:17px;min-height:54px}
+.btn.wide{width:100%;display:block;margin-top:10px}
 .btn:disabled{opacity:.45;cursor:default}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.chips:empty{display:none}
+.chips .btn{padding:7px 12px;min-height:0;font-size:14px}.chips .btn .he{font-size:16px}
 .lines{display:flex;flex-direction:column;gap:6px}
-.lnrow{display:flex;gap:8px;align-items:center}
-.ln{flex:1;min-width:0;text-align:right;font-family:var(--he);font-size:18px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer;direction:rtl}
+.lnrow{display:flex;gap:8px;align-items:stretch}
+.ln{flex:1;min-width:0;text-align:right;font-family:var(--he);font-size:21px;line-height:1.3;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer;direction:rtl}
 .ln.on{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold)}
-.ln small{font-family:var(--ui);font-size:11px;color:var(--mute);margin-inline-start:6px}
-.words{display:flex;flex-wrap:wrap;gap:8px 10px;direction:rtl;justify-content:flex-start}
-.w{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:64px;padding:8px 8px 6px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer;font-family:var(--he);font-size:22px;line-height:1.1}
-.w b{font-weight:500}.w .th{color:var(--gold)}
-.w.ok{border-color:var(--good)}.w.unsure{border-color:var(--warn)}.w.off{border-color:var(--bad)}.w.sel{box-shadow:0 0 0 2px var(--gold)}
-.bars{display:flex;flex-direction:column;gap:2px;width:100%;direction:ltr}
-.bar{height:5px;border-radius:3px;background:var(--line);overflow:hidden}.bar i{display:block;height:100%}
-.bar.him i{background:var(--him)}.bar.you i{background:var(--you)}
-.w small{font-family:var(--ui);font-size:11px;color:var(--mute);direction:ltr;font-variant-numeric:tabular-nums}
-.legend{font-size:12px;color:var(--mute);display:flex;gap:14px;flex-wrap:wrap}
-.legend i{display:inline-block;width:14px;height:5px;border-radius:3px;vertical-align:middle;margin-inline-end:4px}
-.say{font-size:15px;margin:0}.say.ok{color:var(--good)}.say.bad{color:var(--bad)}.say.warn{color:var(--warn)}
-.throat{display:flex;flex-direction:column;gap:8px}
-.tr{border-top:1px solid var(--line);padding-top:8px;display:flex;flex-direction:column;gap:3px;font-size:13px}
-.tr .hd{display:flex;align-items:baseline;gap:8px}.tr .lt{font-family:var(--he);font-size:22px;color:var(--gold)}
-.tr .k{color:var(--mute);display:inline-block;min-width:52px}.tr .v{font-variant-numeric:tabular-nums}
-.ph{font-size:13px;line-height:1.7;word-break:break-word}.ph b{color:var(--mute);font-weight:500}
-.verdict{display:flex;flex-wrap:wrap;gap:6px;direction:rtl}
-.vd{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-family:var(--he);font-size:18px}
-.vd button{font:600 13px var(--ui);border:1px solid var(--line);background:transparent;color:var(--mute);border-radius:6px;padding:2px 7px;cursor:pointer}
-.vd button.on.r{color:var(--good);border-color:var(--good)}.vd button.on.x{color:var(--bad);border-color:var(--bad)}
-.note{font-size:12px;color:var(--mute);margin:0}
-.score{font-size:13px;display:flex;flex-direction:column;gap:4px}
-.score div{display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding-top:4px}
-textarea{width:100%;min-height:80px;font:12px/1.4 ui-monospace,Menlo,monospace;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;box-sizing:border-box}
-.err{color:var(--bad);font-size:13px}
-.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--gold);border-radius:50%;animation:sp .8s linear infinite;vertical-align:middle}
+.ln small{display:none}
+.hear{flex:none;width:44px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--gold);font-size:16px;cursor:pointer}
+.hear:disabled{opacity:.3}
+.ptitle{margin:0 0 10px;font-size:14px;color:var(--mute)}.ptitle .he{font-size:17px;color:var(--fg)}
+.hero{margin:4px 0 12px;font-family:var(--he);font-size:30px;line-height:1.35;direction:rtl;text-align:right;font-weight:500}
+.hero .th{color:var(--gold)}
+.took{font-size:14px;color:var(--mute)}
+.busy{margin:10px 0 0;font-size:14px;color:var(--mute);display:flex;align-items:center;gap:8px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--gold);border-radius:50%;animation:sp .8s linear infinite;flex:none}
 @keyframes sp{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion: reduce){.spin{animation:none}}
-details summary{cursor:pointer;color:var(--mute);font-size:13px}
-.try #setup,.try #phP,.try #vdP,.try #drillP,.try #scP,.try .lab-only{display:none!important}
-.try .try-only{display:block!important}
+.say{font-size:17px;line-height:1.4;margin:0 0 12px}.say .he{font-size:20px}.say.ok{color:var(--good)}.say.bad{color:var(--bad)}.say.warn{color:var(--warn)}
+.words{display:flex;flex-wrap:wrap;gap:8px;direction:rtl;justify-content:flex-start}
+.w{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:68px;padding:8px 10px 6px;border-radius:12px;border:2px solid var(--line);background:transparent;color:var(--fg);cursor:pointer;font-family:var(--he);font-size:26px;line-height:1.15}
+.w b{font-weight:500}.w .th{color:var(--gold)}.w .th.good{color:var(--good)}.w .th.bad{color:var(--bad)}.w .th.warn{color:var(--warn)}
+.w.ok{border-color:var(--good)}.w.unsure{border-color:var(--warn)}.w.off{border-color:var(--bad)}.w.sel{box-shadow:0 0 0 3px var(--gold)}
+.w small{font-family:var(--ui);font-size:12px;color:var(--mute);direction:ltr;min-height:1em}
+.w.off small{color:var(--bad)}.w.unsure small{color:var(--warn)}.w.ok small{color:var(--good)}
+.notes{margin:12px 0 0;padding:0 0 0 18px;font-size:15px;line-height:1.5}.notes:empty{display:none}
+.notes li{margin:4px 0}.notes .he{font-size:18px}
+.tr{border-top:1px solid var(--line);padding:8px 0;display:flex;flex-direction:column;gap:2px;font-size:14px}
+.tr .hd{display:flex;align-items:baseline;gap:8px}.tr .lt{font-family:var(--he);font-size:24px;color:var(--gold)}
+.tr>div{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline}.tr .k{color:var(--mute);flex:none;min-width:84px}.tr .v{font-variant-numeric:tabular-nums}
+.tr .good{color:var(--good)}.tr .bad{color:var(--bad)}.tr .warn{color:var(--warn)}
+.after{display:flex;gap:8px;margin-top:14px}.after .btn{flex:1;margin-top:0}
+details{border-top:1px solid var(--line);margin-top:14px;padding-top:10px}
+details summary{cursor:pointer;color:var(--mute);font-size:14px;padding:4px 0}
+details.lab{background:var(--panel);border:1px dashed var(--line);border-radius:14px;padding:10px 14px;margin-top:0}
+details.lab summary{font-size:15px;color:var(--fg)}
+.sub{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}
+.nums{font-size:12px;color:var(--mute);width:100%;border-collapse:collapse;margin-top:6px;font-variant-numeric:tabular-nums}
+.nums td,.nums th{padding:3px 6px;text-align:left;border-top:1px solid var(--line)}.nums th{font-weight:500}.nums td.he{font-size:16px;color:var(--fg);text-align:right}
+.ph{font-size:13px;line-height:1.7;word-break:break-word;color:var(--mute)}.ph b{color:var(--fg);font-weight:500}
+.verdict{display:flex;flex-wrap:wrap;gap:6px;direction:rtl}
+.vd{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-family:var(--he);font-size:19px}
+.vd button{font:600 13px var(--ui);border:1px solid var(--line);background:transparent;color:var(--mute);border-radius:6px;padding:3px 8px;cursor:pointer}
+.vd button.on.r{color:var(--good);border-color:var(--good)}.vd button.on.x{color:var(--bad);border-color:var(--bad)}
+.score{font-size:13px;display:flex;flex-direction:column;gap:4px}
+.score div{display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding-top:4px}
+textarea{width:100%;min-height:80px;font:12px/1.4 ui-monospace,Menlo,monospace;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px}
+.ears{display:none}.showEars .ears{display:inline}
+.try .lab-only,.try #lab,.try .ears{display:none!important}
 </style>
 <div class="wrap">
- <div class="top"><h1 id="h1">Dikduk Lab</h1><span class="pill wait" id="srv">checking server…</span></div>
- <p class="note try-only" hidden>Pick a Tehillim pasuk (type <b>t23</b> for perek 23) or a pizmon, hear the hazzan, record yourself reading or singing the line, and tap <b>Check it</b>. It tells you, word by word, whether the words were there, whether each ע and ח came from the throat, and whether the vowels matched. A line takes 10–60 seconds to check on this small server.</p>
+ <header class="top">
+  <div><h1 id="h1">Dikduk check</h1><p class="lede">Pick a line, hear the hazzan, sing it, and see word by word how it went.</p></div>
+  <span class="pill wait" id="srv">Waking the server…</span>
+ </header>
+ <p class="err" id="err"></p>
 
- <div class="panel" id="setup">
-  <h2>Server</h2>
-  <div class="row"><input type="url" id="api" placeholder="https://…hf.space" style="flex:1" aria-label="Server address"><button class="btn" id="apiSave">Use</button></div>
-  <p class="note">The address of the fit-score server (your Hugging Face Space). Kept on this phone only.</p>
- </div>
-
- <div class="panel" id="pickP">
-  <h2 id="pickH">Pizmon</h2>
-  <div class="row"><input type="text" inputmode="text" id="pid" placeholder="number, e.g. 319 — or t23 for Tehillim 23" style="width:220px" aria-label="Pizmon number or t + Tehillim chapter"><input type="text" lang="he" dir="rtl" id="pq" placeholder="or a few words" style="flex:1;min-width:150px" aria-label="Words to search"><button class="btn" id="go">Open</button></div>
-  <div id="hits" class="row" style="margin-top:8px"></div>
-  <div id="recs" class="row" style="margin-top:8px"></div>
- </div>
-
- <div class="panel" id="linesP" hidden>
-  <h2>Lines <span id="ptitle" style="font-family:var(--he);text-transform:none;letter-spacing:0;font-size:15px;color:var(--fg)"></span></h2>
-  <div class="lines" id="lines"></div>
- </div>
-
- <div class="panel" id="takeP" hidden>
-  <h2>Your take</h2>
-  <div class="words" id="lineWords"></div>
-  <div class="row" style="margin-top:10px">
-   <button class="btn" id="hearLine">▶ Hear the hazzan</button>
-   <button class="btn rec" id="recBtn">● Record</button>
-   <label class="btn" for="file">Upload a recording</label><input type="file" id="file" accept="audio/*,video/*" hidden>
+ <section class="step" id="s1">
+  <div class="sum" hidden><span class="n">1</span><span class="txt" id="s1sum"></span><button class="link" data-change="s1">Change</button></div>
+  <div class="body">
+   <h2><span class="n">1</span>What will you sing?</h2>
+   <div class="seg" role="group" aria-label="Kind of text"><button class="on" id="kindPz" type="button">A pizmon</button><button id="kindTh" type="button">Tehillim</button></div>
+   <div class="row"><input type="text" id="pid" placeholder="Pizmon number, e.g. 200" style="flex:1" aria-label="Pizmon number, Tehillim perek, or a few words" autocomplete="off"><button class="btn gold" id="go">Open</button></div>
+   <p class="hint" id="pidHint">You can also type a few words of the pizmon.</p>
+   <div class="chips" id="hits"></div>
   </div>
-  <p class="note" id="recNote"></p>
-  <div class="row" id="takeRow" hidden><button class="btn" id="playTake">▶ Your take</button><button class="btn gold" id="check">Check it</button><span id="busy" hidden><span class="spin"></span> checking…</span></div>
-  <p class="err" id="err"></p>
- </div>
+ </section>
 
- <div class="panel" id="resP" hidden>
-  <h2>Word by word</h2>
-  <div class="words" id="res"></div>
-  <p class="legend" style="margin-top:8px"><span><i style="background:var(--you)"></i>your consonants found</span><span><i style="background:var(--him)"></i>the hazzan's sounds found in your take</span><span>tap a word: hear him, then you</span></p>
-  <p class="say" id="say"></p>
-  <p class="note lab-only">Two numbers per word (0–1): your own consonants found where the word belongs, and the hazzan's sounds for the word found in your take; the third is the Hebrew-letter head's score. Red = both near zero (the word was not there), or — on a clean take — the combined score (consonants, letters heard, vowels) is sure the word was not sung. Yellow = not sure. "Not heard" names the letters the head did not find. A one-consonant word is never marked red on its own. Your scorecard calibrates this.</p>
- </div>
+ <section class="step" id="s2" hidden>
+  <div class="sum" hidden><span class="n">2</span><span class="txt" id="s2sum"></span><button class="link" data-change="s2">Change</button></div>
+  <div class="body">
+   <h2><span class="n">2</span>Pick a line</h2>
+   <p class="ptitle" id="ptitle"></p>
+   <div class="row" id="recs" style="margin-bottom:10px"></div>
+   <div class="lines" id="lines"></div>
+   <p class="hint">▶ plays the hazzan's recording of that line.</p>
+  </div>
+ </section>
 
- <div class="panel" id="thP" hidden>
-  <h2>Throat letters ע ח</h2>
-  <div class="throat" id="th"></div>
-  <p class="note lab-only">Three ears vote on each ע and ח: a Hebrew-letter head trained on the archive's hazzanim, a classifier on the Arabic model's features (taught the plain sounds from Israeli speech), and the Arabic-letter ear that writes ع / ح when it hears the throat. "From the throat" needs two votes and none against; "not sure" is said as such. The throat drill below is what sharpens them for your voice.</p>
- </div>
+ <section class="step" id="s3" hidden>
+  <div class="sum" hidden><span class="n">3</span><span class="txt" id="s3sum">Your recording</span><button class="link" data-change="s3">Record again</button></div>
+  <div class="body">
+   <h2><span class="n">3</span>Sing it</h2>
+   <p class="hero" id="lineWords"></p>
+   <button class="btn wide" id="hearLine" type="button">▶ Hear the hazzan sing it</button>
+   <button class="btn wide rec" id="recBtn" type="button">● Record</button>
+   <p class="hint" id="recNote"></p>
+   <div id="takeRow" hidden>
+    <p class="took" id="took" style="margin:12px 0 8px">Recorded</p><div class="row"><button class="btn" id="playTake" type="button">▶ Play it back</button><button class="btn" id="again" type="button">Record again</button></div>
+    <button class="btn wide gold" id="check" type="button">Check my singing</button>
+    <p class="busy" id="busy" hidden></p>
+   </div>
+   <p class="hint"><label class="link" for="file">Upload a recording instead</label><input type="file" id="file" accept="audio/*,video/*" hidden></p>
+  </div>
+ </section>
 
- <div class="panel" id="vwP" hidden>
-  <h2>Vowels</h2>
-  <div class="throat" id="vw"></div>
-  <p class="note lab-only">A new ear, trained on Rabbi Alouf's pointed Tehillim: it reads which vowel class you sang after each letter and compares it with the hazzan's (and with the nikud, for Tehillim). Only clear disagreements are listed; a word with a different number of vowels is left alone. This does not change a word's ✓/✕ yet — it is being calibrated on your takes.</p>
- </div>
+ <section class="step" id="s4" hidden>
+  <div class="body">
+   <h2><span class="n">4</span>How it went</h2>
+   <p class="say" id="say"></p>
+   <div class="words" id="res"></div>
+   <p class="hint">Tap a word to hear the hazzan sing it, then you.</p>
+   <ul class="notes" id="notes"></ul>
+   <div class="sub" id="thP" hidden><h3 style="margin-top:0">Throat letters ע and ח</h3><div id="th"></div></div>
+   <div class="after"><button class="btn gold" id="againLine" type="button">Sing it again</button><button class="btn" id="otherLine" type="button">Another line</button></div>
+   <details class="lab-only" id="detP"><summary>Details: numbers, vowels, every sound heard</summary>
+    <table class="nums" id="nums"></table>
+    <div id="vwP" hidden><h3>Vowels</h3><div id="vw"></div></div>
+    <p class="ph" id="ph"></p>
+   </details>
+  </div>
+ </section>
 
- <div class="panel" id="phP" hidden>
-  <details><summary>All the sounds heard (you / hazzan)</summary><p class="ph" id="ph"></p></details>
- </div>
-
- <div class="panel" id="vdP" hidden>
-  <h2>Your verdict</h2>
-  <p class="note" style="margin-bottom:6px">Tap ✓ if you sang the word right, ✕ if not. This is the truth the machine is measured against.</p>
-  <div class="verdict" id="vd"></div>
-  <div class="row" style="margin-top:8px"><input type="text" id="vnote" placeholder="note (e.g. said ayin like alef)" style="flex:1" aria-label="Note"><button class="btn gold" id="saveV">Save to scorecard</button></div>
- </div>
-
-
- <div class="panel" id="drillP">
-  <h2>Throat drill</h2>
-  <p class="note" style="margin-bottom:8px">Short recordings that teach the checker your throat ע and ח and the plain ones. Say (or sing) the word alone, about 2 seconds. Each word twice: once from the throat, once the plain way (ע like א, ח like כ). Each one is kept on the server with its features; the verdict shown is the machine's current guess, so you can see where it is wrong.</p>
-  <div class="row" id="drillWords"></div>
-  <div class="row" style="margin-top:8px"><span class="pill" id="drillPick">pick a word</span><button class="btn" id="drillThroat" disabled>● from the throat</button><button class="btn" id="drillPlain" disabled>● plain</button><label class="btn" for="drillFile">Upload</label><input type="file" id="drillFile" accept="audio/*,video/*" hidden><span id="drillBusy" hidden><span class="spin"></span></span></div>
-  <p class="note" id="drillSay"></p>
- </div>
- <div class="panel" id="scP">
-  <h2>Scorecard <span class="pill" id="scN">0</span></h2>
-  <div class="score" id="sc"></div>
-  <div class="row" style="margin-top:8px"><button class="btn" id="copySc">Copy scorecard</button><button class="btn" id="clearSc">Clear</button></div>
-  <textarea id="scTxt" hidden aria-label="Scorecard as text"></textarea>
- </div>
+ <details class="lab lab-only" id="lab"><summary>For David: was the checker right? · scorecard · throat drill</summary>
+  <div class="sub" id="setup" hidden>
+   <h3 style="margin-top:0">Server</h3>
+   <div class="row"><input type="url" id="api" placeholder="https://…hf.space" style="flex:1" aria-label="Server address"><button class="btn" id="apiSave" type="button">Use</button></div>
+   <p class="hint">The address of the checker server. Kept on this phone only.</p>
+  </div>
+  <div class="sub" id="vdP" hidden>
+   <h3 style="margin-top:0">Was the checker right?</h3>
+   <p class="hint" style="margin:0 0 8px">For each word: ✓ if you really sang it right, ✕ if not. The machine is measured against this.</p>
+   <div class="verdict" id="vd"></div>
+   <div class="row" style="margin-top:8px"><input type="text" id="vnote" placeholder="note (e.g. said ayin like alef on purpose)" style="flex:1" aria-label="Note"><button class="btn gold" id="saveV" type="button">Save to scorecard</button></div>
+  </div>
+  <div class="sub" id="scP">
+   <h3 style="margin-top:0">Scorecard <span class="pill" id="scN">0</span></h3>
+   <div class="score" id="sc"></div>
+   <div class="row" style="margin-top:8px"><button class="btn" id="copySc" type="button">Copy scorecard</button><button class="btn" id="clearSc" type="button">Clear</button></div>
+   <textarea id="scTxt" hidden aria-label="Scorecard as text"></textarea>
+  </div>
+  <div class="sub" id="drillP">
+   <h3 style="margin-top:0">Throat drill</h3>
+   <p class="hint" style="margin:0 0 8px">Pick a word, then record it twice, about two seconds each: once from the throat, once the plain way (ע like א, ח like כ). The verdict shown is the machine's current guess.</p>
+   <div class="chips" id="drillWords" style="margin:0"></div>
+   <div class="row" style="margin-top:8px"><span class="pill" id="drillPick">pick a word</span><button class="btn" id="drillThroat" type="button" disabled>● From the throat</button><button class="btn" id="drillPlain" type="button" disabled>● Plain</button><label class="btn" for="drillFile">Upload</label><input type="file" id="drillFile" accept="audio/*,video/*" hidden><span id="drillBusy" hidden><span class="spin"></span></span></div>
+   <p class="hint" id="drillSay"></p>
+  </div>
+ </details>
 </div>
 <script>
 /* ---------- settings ---------- */
 const $=s=>document.querySelector(s);
-const TRY=/\/try\/?$/.test(location.pathname);   /* the visitor page: the same checker, lab panels hidden */
-const onSpace=/^https?:$/.test(location.protocol)&&(location.pathname==='/'||TRY)&&!/claude/.test(location.hostname);  /* served by the server itself: same origin */
-if(TRY){document.documentElement.classList.add('try');document.title='Dikduk check';document.addEventListener('DOMContentLoaded',()=>{document.getElementById('h1').textContent='Dikduk check';document.getElementById('pickH').textContent='Text';document.querySelectorAll('.try-only').forEach(e=>{e.hidden=false;});});}
+const TRY=/\/try\/?$/.test(location.pathname);   /* the visitor page: the same checker without the lab section */
+const onSpace=/^https?:$/.test(location.protocol)&&(location.pathname==='/'||TRY)&&!/claude/.test(location.hostname);  /* served by the server itself */
+if(TRY)document.documentElement.classList.add('try');
 let API='';try{API=localStorage.getItem('dk.api')||'';}catch(e){}
 if(onSpace&&!API)API=location.origin;
 $('#api').value=API;
+if(!onSpace){$('#setup').hidden=false;if(!API)$('#lab').open=true;}
 const ls=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v);}catch(e){return null;}};
 $('#apiSave').onclick=()=>{API=$('#api').value.trim().replace(/\/$/,'');ls('dk.api',API);health();};
 const url=p=>API.replace(/\/$/,'')+p;
-async function health(){const el=$('#srv');if(!API){el.className='pill bad';el.textContent='no server address';return;}
- el.className='pill wait';el.textContent='waking the server…';
- try{const r=await fetch(url('/health'),{cache:'no-store'});const j=await r.json();SRV=j;el.className='pill ok';el.textContent='server awake · v'+(j.version||3)+(j.ears&&j.ears.vowel_head?' · vowels':'')+(j.ears&&j.ears.tehillim_audio?' · Tehillim audio':'');loadLyrics();}
- catch(e){el.className='pill bad';el.textContent='server not reachable';}}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const he=w=>`<span class="he" lang="he">${esc(w)}</span>`;
+const err=t=>{$('#err').textContent=t||'';if(t)$('#err').scrollIntoView({behavior:'smooth',block:'nearest'});};
+let SRV=null;
+async function health(){const el=$('#srv');if(!API){el.className='pill bad';el.textContent='No server address';return;}
+ el.className='pill wait';el.textContent='Waking the server…';
+ try{const r=await fetch(url('/health'),{cache:'no-store'});const j=await r.json();SRV=j;el.className='pill ok';el.textContent='Ready';loadLyrics();kindHint();}
+ catch(e){el.className='pill bad';el.textContent='Server not reachable';err('The server did not answer. It may be waking up — try again in a minute.');}}
+/* ---------- steps: the one being worked on is open, finished ones fold to a line ---------- */
+const STEPS=['s1','s2','s3','s4'];
+function foldStep(id,html){const s=$('#'+id);s.querySelector('.body').hidden=true;const sum=s.querySelector('.sum');if(sum){sum.hidden=false;if(html!=null)sum.querySelector('.txt').innerHTML=html;}}
+function openStep(id){const s=$('#'+id);s.hidden=false;s.querySelector('.body').hidden=false;const sum=s.querySelector('.sum');if(sum)sum.hidden=true;
+ for(const k of STEPS.slice(STEPS.indexOf(id)+1))$('#'+k).hidden=true;err('');}
+document.querySelectorAll('[data-change]').forEach(b=>b.onclick=()=>{const id=b.dataset.change;if(id==='s3')resetTake();openStep(id);$('#'+id).scrollIntoView({behavior:'smooth',block:'start'});});
+/* ---------- step 1: what to sing ---------- */
+let KIND='pz';
+const TH_AUDIO=[1,23,117,121,130,133,134,150];   /* perakim with Rabbi Alouf's recording on the server (the server lists its own when it can) */
+function kindHint(){const th=KIND==='th';$('#pid').placeholder=th?'Perek number, e.g. 23':'Pizmon number, e.g. 200';
+ const have=(SRV&&SRV.ears&&SRV.ears.tehillim_perakim)||TH_AUDIO;
+ $('#pidHint').textContent=th?'Perakim with Rabbi Alouf’s recording to compare with: '+have.join(', ')+'. Other perakim are checked against the nikud only.':'You can also type a few words of the pizmon.';}
+$('#kindPz').onclick=()=>{KIND='pz';$('#kindPz').classList.add('on');$('#kindTh').classList.remove('on');kindHint();$('#pid').focus();};
+$('#kindTh').onclick=()=>{KIND='th';$('#kindTh').classList.add('on');$('#kindPz').classList.remove('on');kindHint();$('#pid').focus();};
 /* ---------- lyrics ---------- */
-let LY=null,P=null,REC=null,LINE=null,TAKE=null,RESULT=null,SRV=null;
+let LY=null,P=null,REC=null,LINE=null,TAKE=null,RESULT=null;
 const NIK=/[֑-ׇ]/g,FIN={'ך':'כ','ם':'מ','ן':'נ','ף':'פ','ץ':'צ'};
 const heL=w=>String(w||'').replace(NIK,'').replace(/[ךםןףץ]/g,c=>FIN[c]).replace(/[^א-ת]/g,'');
 const heWords=t=>String(t||'').replace(/[־\-]/g,' ').split(/[\s,.;:!?"'״׳()\[\]{}|/\\]+/).filter(w=>heL(w));
-async function loadLyrics(){if(LY)return;try{LY=await (await fetch(url('/lyrics'))).json();}catch(e){$('#err').textContent='could not load the lyrics from the server';}}
+async function loadLyrics(){if(LY)return;try{LY=await (await fetch(url('/lyrics'))).json();}catch(e){err('Could not load the words from the server.');}}
 /* phrase times for 319's hazzan (md cd08 15.mp3), hand-checked on the site; other recordings use the sync events */
 const PHR={"md cd08 15.mp3":[[0.35,6.9,0],[7.4,14,1],[20.75,27.7,2],[28.1,34.35,3],[41.4,50.25,4],[50.5,55.25,5],[55.7,61.35,6],[61.85,66.5,7]]};
 function recLines(pid,f){const s=LY.s[pid];const ev=(s.t&&s.t[f]||'').split(';').filter(Boolean).map(x=>x.split(',').map(Number));
@@ -170,34 +226,44 @@ function recLines(pid,f){const s=LY.s[pid];const ev=(s.t&&s.t[f]||'').split(';')
  if(PHR[f]){for(const [a,b,k] of PHR[f])if(out[k]&&out[k].t0==null){out[k].t0=a;out[k].t1=b;}return out;}
  for(let i=0;i<ev.length;i++){const [t,k]=ev[i];if(k<0||!out[k]||out[k].t0!=null)continue;out[k].t0=t/10;out[k].t1=i+1<ev.length?ev[i+1][0]/10:t/10+8;}
  return out;}
-function openP(pid){P=null;const s=LY&&LY.s[String(pid)];if(!s){$('#err').textContent='no words for pizmon '+pid;return;}P={id:String(pid),s};$('#err').textContent='';
- $('#ptitle').textContent='· '+(/^t\d+$/.test(P.id)?'תהלים '+P.id.slice(1)+' · ':'')+s.l[0];$('#linesP').hidden=false;
- const recs=Object.keys(s.t||{});REC=recs.includes(s.b)?s.b:recs[0]||null;
- const noAudio=/^t\d+$/.test(P.id)&&SRV&&SRV.ears&&!SRV.ears.tehillim_audio;if(noAudio)REC=null;
- $('#recs').innerHTML=noAudio?'<span class="note">Rabbi Alouf\u2019s recording is not on this server (put the mp3s in static/tehillim, see SPACE_SETUP): the check runs against the nikud only, no hazzan to hear.</span>':(recs.map(f=>`<button class="btn${f===REC?' gold':''}" data-f="${esc(f)}">${esc(f.replace(/\.mp3$/i,''))}</button>`).join('')||'<span class="note">no synced recording</span>');
- $('#recs').querySelectorAll('button').forEach(b=>b.onclick=()=>{REC=b.dataset.f;openP(pid);});
- const L=recLines(P.id,REC||recs[0]||null);if(noAudio)L.forEach(l=>{l.t0=null;l.t1=null;});$('#lines').innerHTML=L.map(l=>`<div class="lnrow"><button class="ln" data-k="${l.k}">${esc(l.text)}${l.t0!=null?`<small>${l.t0.toFixed(1)}–${l.t1.toFixed(1)} s</small>`:'<small>no time</small>'}</button><button class="btn" data-hear="${l.k}" ${l.t0==null?'disabled':''}>▶</button></div>`).join('');
+const isTh=id=>/^t\d+$/.test(String(id));
+const nice=f=>String(f).replace(/\.mp3$/i,'').replace(/^tehillim-0*/,'Rabbi Alouf, perek ').replace(/^extra-/,'');
+function openP(pid){P=null;const s=LY&&LY.s[String(pid)];if(!s){err(isTh(pid)?'No perek '+String(pid).slice(1)+' here.':'No pizmon '+pid+' here.');return;}P={id:String(pid),s};
+ const recs=Object.keys(s.t||{});if(!REC||!recs.includes(REC))REC=recs.includes(s.b)?s.b:recs[0]||null;
+ const noAudio=isTh(P.id)&&SRV&&SRV.ears&&!SRV.ears.tehillim_audio;if(noAudio)REC=null;
+ const label=isTh(P.id)?'Tehillim '+P.id.slice(1):'Pizmon '+P.id;
+ foldStep('s1',label);$('#ptitle').innerHTML=label+' · '+he(s.l[0]);
+ /* which hazzan recording the singing is compared with (most pizmonim have several) */
+ if(!REC)$('#recs').innerHTML='<span class="hint" style="margin:0">'+(isTh(P.id)?'Rabbi Alouf’s recording of this perek is not on the server, so there is no hazzan to hear; the words and vowels are checked against the nikud.':'No synced recording of this pizmon: the words are checked on their own.')+'</span>';
+ else if(recs.length===1)$('#recs').innerHTML='<span class="hint" style="margin:0">Compared with the recording <b>'+esc(nice(REC))+'</b>.</span>';
+ else{$('#recs').innerHTML='<label class="hint" style="margin:0;display:flex;align-items:center;gap:8px;flex:1">Compared with <select id="recSel" style="flex:1">'+recs.map(f=>`<option value="${esc(f)}"${f===REC?' selected':''}>${esc(nice(f))}${f===s.b?' (main)':''}</option>`).join('')+'</select></label>';
+  $('#recSel').onchange=e=>{REC=e.target.value;openP(pid);};}
+ const L=recLines(P.id,REC||recs[0]||null);if(noAudio)L.forEach(l=>{l.t0=null;l.t1=null;});
+ $('#lines').innerHTML=L.map(l=>`<div class="lnrow"><button class="hear" data-hear="${l.k}" ${l.t0==null?'disabled':''} aria-label="Hear the hazzan sing line ${l.k+1}">▶</button><button class="ln" data-k="${l.k}" lang="he">${esc(l.text)}</button></div>`).join('');
  $('#lines').querySelectorAll('.ln').forEach(b=>b.onclick=()=>pickLine(L[+b.dataset.k]));
  $('#lines').querySelectorAll('[data-hear]').forEach(b=>b.onclick=()=>{const l=L[+b.dataset.hear];playHim(l.t0,l.t1);});
- $('#takeP').hidden=true;$('#resP').hidden=true;$('#thP').hidden=true;$('#vwP').hidden=true;$('#phP').hidden=true;$('#vdP').hidden=true;}
-$('#go').onclick=async()=>{await loadLyrics();if(!LY)return;const n=$('#pid').value.trim(),q=$('#pq').value.trim();$('#hits').innerHTML='';
- if(n){openP(/^t/i.test(n)?'t'+n.replace(/\D/g,''):n);return;}
- if(q){const Q=heWords(q).map(heL);const hits=[];for(const id in LY.s){const txt=LY.s[id].l.join(' ');const T=heWords(txt).map(heL);let h=0;for(const w of Q)if(T.some(t=>t===w||(w.length>=3&&t.includes(w))))h++;if(h===Q.length)hits.push(id);if(hits.length>12)break;}
-  $('#hits').innerHTML=hits.map(id=>`<button class="btn" data-id="${id}">${id} · ${esc(LY.s[id].l[0].split(' ').slice(0,4).join(' '))}</button>`).join('')||'<span class="note">nothing found</span>';
-  $('#hits').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('#pid').value=b.dataset.id;openP(b.dataset.id);});}};
+ openStep('s2');$('#s2').scrollIntoView({behavior:'smooth',block:'start'});}
+$('#go').onclick=async()=>{await loadLyrics();if(!LY){err('The words have not loaded yet — wait a moment and tap Open again.');return;}const v=$('#pid').value.trim();$('#hits').innerHTML='';if(!v)return;REC=null;
+ if(/^t\s*\d+$/i.test(v)){openP('t'+v.replace(/\D/g,''));return;}
+ if(/^\d+$/.test(v)){openP(KIND==='th'?'t'+v:v);return;}
+ const Q=heWords(v).map(heL);if(!Q.length){err('Type a number, or a few Hebrew words.');return;}
+ const hits=[];for(const id in LY.s){if(isTh(id))continue;const T=heWords(LY.s[id].l.join(' ')).map(heL);let h=0;for(const w of Q)if(T.some(t=>t===w||(w.length>=3&&t.includes(w))))h++;if(h===Q.length)hits.push(id);if(hits.length>12)break;}
+ $('#hits').innerHTML=hits.map(id=>`<button class="btn" data-id="${id}" type="button">${id} · ${he(LY.s[id].l[0].split(' ').slice(0,4).join(' '))}</button>`).join('')||'<span class="hint" style="margin:0">No pizmon with those words.</span>';
+ $('#hits').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('#pid').value=b.dataset.id;openP(b.dataset.id);});};
+$('#pid').addEventListener('keydown',e=>{if(e.key==='Enter')$('#go').click();});
+/* ---------- step 2 → 3: a line ---------- */
 const PREF=new Set();
 /* the hazzan's line is analysed on the server the moment a line is picked (and cached there), so by the time the
    person has recorded, the check only has to listen to the take */
 function prefetchRef(l){if(!REC||l.t0==null)return;const k=REC+'|'+l.t0+'|'+l.t1+'|'+l.text;if(PREF.has(k))return;PREF.add(k);
  fetch(url('/ref?'+new URLSearchParams({f:REC,words:l.text,t0:l.t0,t1:l.t1})),{cache:'no-store'}).catch(()=>PREF.delete(k));}
+const hiTh=(w,cls)=>esc(w).replace(/[עח]/g,c=>`<span class="th${cls?' '+cls(c):''}">${c}</span>`);
 function pickLine(l){LINE=l;TAKE=null;RESULT=null;prefetchRef(l);$('#lines').querySelectorAll('.ln').forEach(b=>b.classList.toggle('on',+b.dataset.k===l.k));
- $('#lineWords').innerHTML=heWords(l.text).map(w=>`<span class="w"><b>${hiTh(w)}</b></span>`).join('');
- $('#takeP').hidden=false;$('#takeRow').hidden=true;$('#resP').hidden=true;$('#thP').hidden=true;$('#vwP').hidden=true;$('#phP').hidden=true;$('#vdP').hidden=true;$('#err').textContent='';
- $('#recNote').textContent=l.t0==null?'This recording has no time for this line, so there is no hazzan to compare with; the check still runs on your words alone.':'';
- $('#takeP').scrollIntoView({behavior:'smooth',block:'start'});}
-const hiTh=w=>esc(w).replace(/[עח]/g,c=>`<span class="th">${c}</span>`);
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-/* ---------- hearing the hazzan: the archive mp3 plays straight from pizmonim.org (no download needed) ---------- */
+ foldStep('s2','Line '+(l.k+1)+' · '+he(l.text));
+ $('#lineWords').innerHTML=hiTh(l.text);$('#hearLine').disabled=l.t0==null;$('#takeRow').hidden=true;if(canRec)$('#recBtn').hidden=false;
+ $('#recNote').textContent=l.t0==null?'There is no hazzan recording for this line, so the check looks at your words on their own.':'Sing or read the line, then tap Stop.';
+ openStep('s3');$('#s3').scrollIntoView({behavior:'smooth',block:'start'});}
+/* ---------- hearing the hazzan: the archive mp3 plays straight from pizmonim.org; Tehillim from this server ---------- */
 let HIM=null;
 const himSrc=f=>/^(tehillim-|extra-)/.test(f)?url('/tehillim/audio/'+encodeURIComponent(f)):'https://www.pizmonim.org/MP3/'+encodeURIComponent(f);
 function playHim(t0,t1){if(!REC||t0==null)return;const src=himSrc(REC);
@@ -205,7 +271,7 @@ function playHim(t0,t1){if(!REC||t0==null)return;const src=himSrc(REC);
  HIM.pause();const stop=()=>{if(HIM.currentTime>=t1-.02){HIM.pause();HIM.removeEventListener('timeupdate',stop);}};
  HIM.currentTime=Math.max(0,t0);HIM.addEventListener('timeupdate',stop);HIM.play().catch(()=>{});}
 $('#hearLine').onclick=()=>LINE&&playHim(LINE.t0,LINE.t1);
-/* ---------- the take: record on the phone (where the browser allows a microphone) or upload a file ---------- */
+/* ---------- the take: record on the phone, or upload a file ---------- */
 let MR=null,CH=[],T0=0,TK=null;
 const canRec=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.MediaRecorder);
 if(!canRec){$('#recBtn').hidden=true;$('#recNote').textContent='Recording inside this page is not allowed here: record with Voice Memos, then upload the file.';}
@@ -213,21 +279,23 @@ $('#recBtn').onclick=async()=>{if(MR&&MR.state==='recording'){MR.stop();return;}
  try{const st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
   const mt=['audio/mp4','audio/webm;codecs=opus','audio/webm',''].find(t=>!t||MediaRecorder.isTypeSupported(t));
   MR=new MediaRecorder(st,mt?{mimeType:mt}:undefined);CH=[];MR.ondataavailable=e=>{if(e.data.size)CH.push(e.data);};
-  MR.onstop=()=>{st.getTracks().forEach(t=>t.stop());clearInterval(TK);$('#recBtn').textContent='● Record';setTake(new Blob(CH,{type:MR.mimeType||'audio/mp4'}),'rec');};
-  MR.start(250);T0=Date.now();$('#recBtn').textContent='■ Stop 0.0 s';TK=setInterval(()=>{$('#recBtn').textContent='■ Stop '+((Date.now()-T0)/1000).toFixed(1)+' s';if(Date.now()-T0>45000)MR.stop();},200);}
- catch(e){$('#err').textContent='microphone: '+e.message;}};
-$('#file').onchange=e=>{const f=e.target.files[0];if(f)setTake(f,f.name);};
+  MR.onstop=()=>{st.getTracks().forEach(t=>t.stop());clearInterval(TK);$('#recBtn').textContent='● Record';setTake(new Blob(CH,{type:MR.mimeType||'audio/mp4'}),'rec',(Date.now()-T0)/1000);};
+  MR.start(250);T0=Date.now();$('#takeRow').hidden=true;$('#recBtn').textContent='■ Stop · 0.0 s';$('#recNote').textContent='Recording… tap Stop when you are done.';
+  TK=setInterval(()=>{$('#recBtn').textContent='■ Stop · '+((Date.now()-T0)/1000).toFixed(1)+' s';if(Date.now()-T0>45000)MR.stop();},200);}
+ catch(e){err('The microphone could not be used: '+e.message);}};
+$('#file').onchange=e=>{const f=e.target.files[0];if(f)setTake(f,f.name,null);e.target.value='';};
+function resetTake(){TAKE=null;$('#takeRow').hidden=true;$('#recNote').textContent='';if(canRec)$('#recBtn').hidden=false;}
+$('#again').onclick=()=>{resetTake();if(canRec)$('#recBtn').click();};
 let TAKE_URL=null;
-function setTake(blob,name){TAKE={blob,name};if(TAKE_URL)URL.revokeObjectURL(TAKE_URL);TAKE_URL=URL.createObjectURL(blob);$('#takeRow').hidden=false;$('#err').textContent='';$('#recNote').textContent=name==='rec'?'Recorded. Tap Check it.':'Loaded '+name+'. Tap Check it.';}
+function setTake(blob,name,secs){TAKE={blob,name};if(TAKE_URL)URL.revokeObjectURL(TAKE_URL);TAKE_URL=URL.createObjectURL(blob);$('#takeRow').hidden=false;$('#recBtn').hidden=true;err('');
+ $('#took').textContent=name==='rec'?'Recorded · '+secs.toFixed(1)+' s':'Loaded '+name;$('#recNote').textContent='';$('#check').scrollIntoView({behavior:'smooth',block:'nearest'});}
 let YOU=null;
 function playYou(t0,t1){if(!TAKE_URL)return;if(!YOU||YOU.dataset.src!==TAKE_URL){YOU=new Audio(TAKE_URL);YOU.dataset.src=TAKE_URL;}
  YOU.pause();const stop=()=>{if(t1!=null&&YOU.currentTime>=t1-.02){YOU.pause();YOU.removeEventListener('timeupdate',stop);}};
  YOU.currentTime=t0||0;if(t1!=null)YOU.addEventListener('timeupdate',stop);YOU.play().catch(()=>{});}
 $('#playTake').onclick=()=>playYou(0,null);
-/* ---------- the check ---------- */
-function busyText(t){$('#busy').innerHTML='<span class="spin"></span> '+esc(t)+'…';}
-/* the check is queued on the server (job=1) and polled: a long first check no longer dies at the proxy in front of
-   the Space, and the person sees what the server is doing (listening to the take, then to the hazzan's line) */
+/* ---------- the check: queued on the server and polled, so a long first check cannot time out ---------- */
+function busyText(t){$('#busy').innerHTML='<span class="spin"></span><span>'+esc(t)+'…</span>';}
 async function waitJob(id){const t0=Date.now();let misses=0;
  for(;;){await new Promise(s=>setTimeout(s,1500));let st;
   try{const r=await fetch(url('/job/'+id),{cache:'no-store'});st=await r.json();if(r.status===404)throw new Error(st.err||'the server lost the check (it may have restarted) — check again');}
@@ -235,50 +303,49 @@ async function waitJob(id){const t0=Date.now();let misses=0;
   misses=0;busyText((st.stage||'working')+' · '+Math.round((Date.now()-t0)/1000)+' s'+(st.queued?' · '+st.queued+' ahead of you':''));
   if(st.state==='done')return st.result;if(st.state==='error')throw new Error(st.err||'the check failed on the server');
   if(Date.now()-t0>420000)throw new Error('the server took more than 7 minutes');}}
-$('#check').onclick=async()=>{if(!TAKE||!LINE)return;busyText('sending your take');$('#busy').hidden=false;$('#check').disabled=true;$('#err').textContent='';
+$('#check').onclick=async()=>{if(!TAKE||!LINE)return;busyText('sending your recording');$('#busy').hidden=false;$('#check').disabled=true;err('');
  try{const q=new URLSearchParams({words:LINE.text,job:1});if(REC&&LINE.t0!=null){q.set('ref',REC);q.set('t0',LINE.t0);q.set('t1',LINE.t1);}
   if(P&&P.s.ln&&P.s.ln[LINE.k])q.set('nikud',P.s.ln[LINE.k]);
   const r=await fetch(url('/check?'+q),{method:'POST',body:TAKE.blob,headers:{'content-type':TAKE.blob.type||'application/octet-stream'}});
   let j=await r.json();if(!r.ok||j.err)throw new Error(j.err||('server said '+r.status));
   if(j.job)j=await waitJob(j.job);   /* an older server answers with the result itself */
   RESULT=j;render(j);}
- catch(e){$('#err').textContent='check failed: '+e.message;}
+ catch(e){err('The check did not go through: '+e.message);}
  $('#busy').hidden=true;$('#check').disabled=false;};
-/* the rule for a word, from two signals the server gives: skel = the word's own consonants found in the take
-   (reference-free), fit = the hazzan's sounds for the word found in the take. Measured Oct 13 on the archive
-   (other hazzanim singing the same lines, clean recordings): a word cut out or put in another word's place drops to
-   ~.00 on both; words sung right mostly .5-.99 on skel, .3-.7 on fit, but short words and barely voiced sounds
-   can score low while right. So: "off" needs BOTH low and at least two consonants; the in-between is "unsure", said
-   as such; a one-consonant word is never flagged on its own. Your scorecard calibrates these numbers. */
-let CLEAN=false;  /* the line's audio is clean enough for the combined score to be trusted: median letter-head score >= .7 (Rabbi Alouf's reading: .93; the archive's accompanied takes: .31) */
+/* the rule for a word, from the server's signals: skel = the word's own consonants found in the take, fit = the
+   hazzan's sounds for the word found in the take, kept = letters the trained head heard, pw = the combined score
+   (trusted only on a clean take). "off" = the word was not there; the in-between is "unsure", said as such; a
+   one-consonant word is never flagged on its own. The scorecard calibrates these numbers. */
+let CLEAN=false;
 function markOf(y,f){const n=y&&y.n||0,sk=y&&y.skel!=null?y.skel:null,ft=f&&f.fit!=null?f.fit:null;
  if(!n||sk==null)return '';
- const kp=y&&y.kept!=null?y.kept:null;
- const pw=y&&y.pw!=null?y.pw:null;
+ const kp=y&&y.kept!=null?y.kept:null,pw=y&&y.pw!=null?y.pw:null;
  if(n>=2){if(sk<.2&&(ft==null||ft<.15))return 'off';if(CLEAN&&pw!=null&&pw>=.95)return 'off';if(sk<.4||(ft!=null&&ft<.2)||(kp!=null&&kp<.5)||(pw!=null&&pw>=.8))return 'unsure';return 'ok';}
  return sk<.2?'unsure':'ok';}
-/* a throat letter's line, from the server's verdict: v = throat / plain / unsure, p = the archive-trained
-   classifier (ח: reliable, ע: partial), ar_heard = what the Arabic-letter ear aligned there (ع = throat ayin, ا/أ/ء =
-   plain; ح = throat het, خ = scraped like כ, ه = plain h), ar = its peaks in the window */
-function thSay(t){if(!t||!t.v)return {v:'?',s:'not found'};const f=x=>x==null?'–':(+x).toFixed(2);const ar=t.ar||{};
- const ears=[];ears.push('archive classifier '+f(t.p)+(t.p2!=null?' / v2 '+f(t.p2):''));
+/* a throat letter's verdict in words: v = throat / plain / unsure; the ears (classifier, Arabic-letter ear, trained
+   head) are for the lab */
+function thSay(t){if(!t||!t.v)return {v:'?',lead:'not found',ears:''};const f=x=>x==null?'–':(+x).toFixed(2);const ar=t.ar||{};
+ const ears=['classifier '+f(t.p)+(t.p2!=null?' / v2 '+f(t.p2):'')];
  if(t.c==='ע')ears.push('Arabic ear '+(t.ar_heard||'–')+' (ع '+f(ar['ع'])+', alef '+f(ar['alef'])+')');
  else ears.push('Arabic ear '+(t.ar_heard||'–')+' (ح '+f(ar['ح'])+', خ '+f(ar['خ'])+', ه '+f(ar['ه'])+')');
- if(t.head)ears.push('trained head heard '+t.head.heard+' ('+Object.entries(t.head.mass||{}).map(([k,v])=>k+' '+f(v)).join(', ')+')');
+ if(t.head)ears.push('head heard '+t.head.heard+' ('+Object.entries(t.head.mass||{}).map(([k,v])=>k+' '+f(v)).join(', ')+')');
  const lead=t.v==='throat'?'from the throat ✓':t.v==='plain'?(t.c==='ע'?'said like alef ✕':'not from the throat ✕'):'not sure';
- return {v:t.v,s:lead+' · '+ears.join(' · '),lead,ears:ears.join(' · ')};}
+ return {v:t.v,lead,ears:ears.join(' · '),s:lead+' · '+ears.join(' · ')};}
+const VCLS={throat:'good',plain:'bad',unsure:'warn'};
 function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=j.fit||null;
  const hs=TW.filter(t=>(t.n||0)>=2&&t.hskel!=null).map(t=>t.hskel).sort((a,b)=>a-b);CLEAN=hs.length>0&&hs[Math.floor(hs.length/2)]>=.7;
- $('#res').innerHTML=W.map((w,i)=>{const y=TW[i],f=F&&F[i];const m=markOf(y,f);const sk=y.skel==null?0:y.skel,ft=f&&f.fit!=null?f.fit:null;
-  return `<button class="w ${m}" data-i="${i}"><b>${hiTh(w)}</b><span class="bars"><span class="bar you"><i style="width:${(sk*100).toFixed(0)}%"></i></span>${ft!=null?`<span class="bar him"><i style="width:${(ft*100).toFixed(0)}%"></i></span>`:''}</span><small>${y.skel==null?'–':sk.toFixed(2)}${ft!=null?' / '+ft.toFixed(2):''}${y.hskel!=null?' · '+y.hskel.toFixed(2):''}${(m!=='ok'&&y.miss&&y.miss.length)?` · <span lang="he" style="font-family:var(--he);color:var(--warn)">${esc(y.miss.join(' '))}</span> not heard`:''}</small></button>`;}).join('');
+ const marks=W.map((w,i)=>markOf(TW[i],F&&F[i]));
+ const LABEL={ok:'✓',unsure:'not sure',off:'not heard','':''};
+ /* the words: colour = was the word there; the ע/ח inside each word coloured by its own verdict */
+ $('#res').innerHTML=W.map((w,i)=>{const t=TW[i];let n=0;const ths=(t.throat||[]);
+  const cls=c=>{const th=ths[n++];return th?VCLS[th.v]||'':'';};
+  return `<button class="w ${marks[i]}" data-i="${i}" type="button" lang="he"><b>${hiTh(w,cls)}</b><small>${LABEL[marks[i]]}</small></button>`;}).join('');
  $('#res').querySelectorAll('.w').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;$('#res').querySelectorAll('.w').forEach(x=>x.classList.toggle('sel',x===b));const r=RW&&RW[i],f=F&&F[i],t=TW[i];
   const mine=f&&f.t0!=null?[f.t0,f.t1]:t&&t.t0!=null?[t.t0,t.t1]:null;
   if(r&&LINE.t0!=null){playHim(LINE.t0+r.t0-.1,LINE.t0+r.t1+.1);const wait=(r.t1-r.t0+.4)*1000;setTimeout(()=>{if(mine)playYou(Math.max(0,mine[0]-.15),mine[1]+.15);},wait+150);}
   else if(mine)playYou(Math.max(0,mine[0]-.15),mine[1]+.15);});
- const say=$('#say');const marks=W.map((w,i)=>markOf(TW[i],F&&F[i]));
- const off=marks.map((m,i)=>m==='off'?W[i]:null).filter(Boolean),uns=marks.map((m,i)=>m==='unsure'?W[i]:null).filter(Boolean);
- const he=w=>`<b lang="he" style="font-family:var(--he)">${esc(w)}</b>`;const VN=j.vowel_names||{};
- /* one sentence per word that needs work: the word, the letters not heard, its throat letters, its vowels */
+ /* one line per word that needs work: the word, the letters not heard, its throat letters, its vowels */
+ const VN=j.vowel_names||{};const vname=k=>esc((VN[k]||k).split(' ')[0]);
  const lines=[];
  W.forEach((w,i)=>{const t=TW[i];const parts=[];
   if(marks[i]==='off')parts.push('not heard where it belongs');else if(marks[i]==='unsure')parts.push('not sure it was there');
@@ -286,34 +353,38 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=j
   (t.throat||[]).forEach(th=>{if(th.v==='plain')parts.push(th.c==='ע'?'the ע was said like alef':'the ח was not from the throat');});
   (t.notes||[]).forEach(n=>{if(n.say==='sav')parts.push('the ת sounded like a samekh');});
   const vd=(j.vowels&&j.vowels[i])||[],vn=(j.vowels_nikud&&j.vowels_nikud[i])||[];
-  vd.forEach(d=>parts.push(`you sang ${esc((VN[d.you]||d.you).split(' ')[0])} where the hazzan sang ${esc((VN[d.ref]||d.ref).split(' ')[0])}`));
-  vn.forEach(d=>{if(!vd.some(x=>x.k===d.k))parts.push(`you sang ${esc((VN[d.you]||d.you).split(' ')[0])} where the nikud says ${esc((VN[d.ref]||d.ref).split(' ')[0])}`);});
-  if(parts.length)lines.push(`${he(w)}: ${parts.join('; ')}.`);});
- if(!F&&j.ref_err&&!/Tehillim/.test(j.ref_err)){say.className='say warn';say.innerHTML='No hazzan to compare with ('+esc(j.ref_err)+'): only your own consonants were checked.'+(lines.length?'<br>'+lines.join('<br>'):'');}
- else if(!lines.length){say.className='say ok';say.textContent=F?'Every word came through as the hazzan sings it.':'Every word\u2019s consonants came through.';}
- else{say.className=off.length?'say bad':'say warn';say.innerHTML=(off.length?`${off.length} of ${W.length} words ${off.length===1?'was':'were'} not heard where ${off.length===1?'it belongs':'they belong'}`:(uns.length?`Not sure about ${uns.length} of ${W.length} words`:'The words are there'))+(uns.length&&off.length?`, not sure about ${uns.length} more`:'')+' — tap a word to hear him, then you.<br>'+lines.join('<br>');}
- $('#resP').hidden=false;
- /* throat letters: the server's verdict per ע / ח, you and the hazzan */
+  vd.forEach(d=>parts.push(`you sang ${vname(d.you)} where the hazzan sings ${vname(d.ref)}`));
+  vn.forEach(d=>{if(!vd.some(x=>x.k===d.k))parts.push(`you sang ${vname(d.you)} where the nikud says ${vname(d.ref)}`);});
+  if(parts.length)lines.push(`<li>${he(w)}: ${parts.join('; ')}.</li>`);});
+ const off=marks.filter(m=>m==='off').length,uns=marks.filter(m=>m==='unsure').length,say=$('#say');
+ if(!F&&j.ref_err&&!/Tehillim/.test(j.ref_err)){say.className='say warn';say.textContent='No hazzan recording to compare with, so only your own consonants were checked.';}
+ else if(!lines.length){say.className='say ok';say.textContent=F?'Every word came through as the hazzan sings it.':'Every word came through.';}
+ else if(off){const ow=W.filter((w,i)=>marks[i]==='off'),uw=W.filter((w,i)=>marks[i]==='unsure');say.className='say bad';say.innerHTML=(W.length-off)+' of '+W.length+' words came through. Not heard: '+ow.map(he).join(', ')+(uw.length?'. Not sure: '+uw.map(he).join(', '):'')+'.';}
+ else if(uns){const uw=W.filter((w,i)=>marks[i]==='unsure');say.className='say warn';say.innerHTML='The words are there; not sure about '+uw.map(he).join(', ')+'.';}
+ else{say.className='say warn';say.textContent='The words are there, with a few things to hear.';}
+ $('#notes').innerHTML=lines.join('');
+ /* throat letters: the verdict per ע / ח, you and the hazzan */
  const rows=[];TW.forEach((t,i)=>(t.throat||[]).forEach(th=>{const r=RW&&RW[i]&&(RW[i].throat||[]).find(x=>x.k===th.k);rows.push({w:W[i],c:th.c,you:th,him:r});}));
- const VC={throat:'var(--good)',plain:'var(--bad)',unsure:'var(--warn)'};
  if(rows.length){$('#th').innerHTML=rows.map(x=>{const a=thSay(x.you),b=thSay(x.him);
-   return `<div class="tr"><div class="hd"><span class="lt">${esc(x.c)}</span><span class="k" style="min-width:0">in <b lang="he" style="font-family:var(--he);font-size:17px;color:var(--fg)">${esc(x.w)}</b></span></div><div><span class="k">you</span><span class="v" style="color:${VC[a.v]||'inherit'}">${esc(a.lead)}<span class="lab-only"> · ${esc(a.ears)}</span></span></div><div><span class="k">hazzan</span><span class="v">${x.him?esc(b.lead)+`<span class="lab-only"> · ${esc(b.ears)}</span>`:'–'}</span></div></div>`;}).join('');
+   return `<div class="tr"><div class="hd"><span class="lt">${esc(x.c)}</span><span>in ${he(x.w)}</span></div><div><span class="k">you</span><span class="v ${VCLS[a.v]||''}">${esc(a.lead)}</span><span class="ears hint" style="margin:0"> · ${esc(a.ears)}</span></div><div><span class="k">the hazzan</span><span class="v">${x.him?esc(b.lead):'–'}</span>${x.him?`<span class="ears hint" style="margin:0"> · ${esc(b.ears)}</span>`:''}</div></div>`;}).join('');
   $('#thP').hidden=false;}else $('#thP').hidden=true;
- /* vowels: the student's against the hazzan's, and against the nikud when the line has it */
- const vrows=[];
- const addV=(src,label)=>{for(const i in (src||{}))for(const d of src[i])vrows.push({w:W[i],d,label});};
- addV(j.vowels,'hazzan');addV(j.vowels_nikud,'nikud');
- if(j.vowel_names){const lt=w=>heL(w);
-  $('#vw').innerHTML=vrows.length?vrows.map(x=>`<div class="tr"><div class="hd"><span class="lt">${esc(lt(x.w)[x.d.k]||'')}</span><span class="k" style="min-width:0">in <b lang="he" style="font-family:var(--he);font-size:17px;color:var(--fg)">${esc(x.w)}</b></span></div><div><span class="k">you</span><span class="v" style="color:var(--warn)">${esc(VN[x.d.you]||x.d.you)}</span></div><div><span class="k">${esc(x.label)}</span><span class="v">${esc(VN[x.d.ref]||x.d.ref)}</span></div></div>`).join('')
-   :'<p class="note" style="margin:0">No clear vowel differences from the hazzan'+(j.vowels_nikud?' or the nikud':'')+'.</p>';
-  $('#vwP').hidden=false;}else $('#vwP').hidden=true;
- $('#ph').innerHTML=`<b>you:</b> ${esc(TW.map(t=>'['+t.phones.join(' ')+']').join(' '))}<br><b>hazzan:</b> ${RW?esc(RW.map(t=>'['+t.phones.join(' ')+']').join(' ')):'–'}<br><b>took</b> ${j.take.ms} ms`;
- $('#phP').hidden=false;
- /* verdict row */
- $('#vd').innerHTML=W.map((w,i)=>`<span class="vd"><span>${esc(w)}</span><button class="r on" data-i="${i}" data-v="1">✓</button><button class="x" data-i="${i}" data-v="0">✕</button></span>`).join('');
+ /* lab details: the numbers per word, the vowel comparison, every sound heard */
+ const f2=x=>x==null?'–':(+x).toFixed(2);
+ $('#nums').innerHTML='<tr><th>word</th><th>cons</th><th>fit</th><th>head</th><th>kept</th><th>pw</th><th>not heard</th></tr>'+W.map((w,i)=>{const t=TW[i],f=F&&F[i];return `<tr><td class="he" lang="he">${esc(w)}</td><td>${f2(t.skel)}</td><td>${f2(f&&f.fit)}</td><td>${f2(t.hskel)}</td><td>${f2(t.kept)}</td><td>${f2(t.pw)}</td><td class="he" lang="he">${esc((t.miss||[]).join(' '))}</td></tr>`;}).join('')+`<tr><td colspan="7">clean take: ${CLEAN?'yes':'no'} · took ${j.take.ms} ms</td></tr>`;
+ const vrows=[];const addV=(src,label)=>{for(const i in (src||{}))for(const d of src[i])vrows.push({w:W[i],d,label});};
+ addV(j.vowels,'the hazzan');addV(j.vowels_nikud,'the nikud');
+ if(j.vowel_names){$('#vw').innerHTML=vrows.length?vrows.map(x=>`<div class="tr"><div class="hd"><span class="lt">${esc(heL(x.w)[x.d.k]||'')}</span><span>in ${he(x.w)}</span></div><div><span class="k">you</span><span class="v warn">${esc(VN[x.d.you]||x.d.you)}</span></div><div><span class="k">${esc(x.label)}</span><span class="v">${esc(VN[x.d.ref]||x.d.ref)}</span></div></div>`).join('')
+   :'<p class="hint" style="margin:0">No clear vowel differences from the hazzan'+(j.vowels_nikud?' or the nikud':'')+'.</p>';$('#vwP').hidden=false;}else $('#vwP').hidden=true;
+ $('#ph').innerHTML=`<b>you:</b> ${esc(TW.map(t=>'['+t.phones.join(' ')+']').join(' '))}<br><b>hazzan:</b> ${RW?esc(RW.map(t=>'['+t.phones.join(' ')+']').join(' ')):'–'}`;
+ /* David's verdict row (lab) */
+ $('#vd').innerHTML=W.map((w,i)=>`<span class="vd"><span>${esc(w)}</span><button class="r on" data-i="${i}" data-v="1" type="button">✓</button><button class="x" data-i="${i}" data-v="0" type="button">✕</button></span>`).join('');
  $('#vd').querySelectorAll('button').forEach(b=>b.onclick=()=>{const i=b.dataset.i;$('#vd').querySelectorAll(`button[data-i="${i}"]`).forEach(x=>x.classList.toggle('on',x===b));});
- $('#vnote').value='';$('#vdP').hidden=false;}
-/* ---------- scorecard: kept on this phone; "Copy" gives the text to paste into the chat ---------- */
+ $('#vnote').value='';$('#vdP').hidden=false;
+ foldStep('s3');$('#s4').hidden=false;$('#s4').querySelector('.body').hidden=false;$('#s4').scrollIntoView({behavior:'smooth',block:'start'});}
+$('#detP').addEventListener('toggle',()=>document.body.classList.toggle('showEars',$('#detP').open));
+$('#againLine').onclick=()=>{resetTake();openStep('s3');$('#s3').scrollIntoView({behavior:'smooth',block:'start'});};
+$('#otherLine').onclick=()=>{openStep('s2');$('#s2').scrollIntoView({behavior:'smooth',block:'start'});};
+/* ---------- scorecard (lab): kept on this phone; "Copy" gives the text to paste into the chat ---------- */
 let SC=[];try{SC=JSON.parse(ls('dk.sc')||'[]');}catch(e){SC=[];}
 function drawSc(){$('#scN').textContent=SC.length;$('#sc').innerHTML=SC.slice().reverse().map(s=>`<div><span>${s.kind==='drill'?'drill '+esc(s.word)+' · '+esc(s.style)+' → '+esc(s.v||'?'):esc(s.pid)+' line '+(s.line+1)+' · '+s.agree+'/'+s.n+' agree'}</span><span>${new Date(s.t).toLocaleString()}</span></div>`).join('');}
 drawSc();
@@ -327,11 +398,10 @@ $('#saveV').onclick=()=>{if(!RESULT||!LINE)return;const W=RESULT.words,TW=RESULT
  ls('dk.sc',JSON.stringify(SC));drawSc();$('#vnote').value='saved';setTimeout(()=>{if($('#vnote').value==='saved')$('#vnote').value='';},800);};
 $('#copySc').onclick=async()=>{const txt=JSON.stringify(SC);try{await navigator.clipboard.writeText(txt);$('#copySc').textContent='Copied';}catch(e){$('#scTxt').hidden=false;$('#scTxt').value=txt;$('#scTxt').select();}setTimeout(()=>{$('#copySc').textContent='Copy scorecard';},1200);};
 $('#clearSc').onclick=()=>{SC=[];ls('dk.sc','[]');drawSc();};
-
-/* ---------- throat drill: one word, said from the throat or plain, kept with the model's numbers and embedding ---------- */
+/* ---------- throat drill (lab): one word, said from the throat or plain, kept on the server with its features ---------- */
 const DRILL=['עמי','עשה','עזבי','שמע','נעימה','עולם','חביבה','נחמה','רחמן','שבח','חסד','אחי'];
 let DW=null,DSTYLE=null;
-$('#drillWords').innerHTML=DRILL.map(w=>`<button class="btn" data-w="${w}" lang="he" style="font-family:var(--he);font-size:18px">${w}</button>`).join('');
+$('#drillWords').innerHTML=DRILL.map(w=>`<button class="btn" data-w="${w}" lang="he" type="button" style="font-family:var(--he);font-size:18px">${w}</button>`).join('');
 $('#drillWords').querySelectorAll('button').forEach(b=>b.onclick=()=>{DW=b.dataset.w;$('#drillWords').querySelectorAll('button').forEach(x=>x.classList.toggle('gold',x===b));$('#drillPick').textContent=DW;$('#drillThroat').disabled=!canRec;$('#drillPlain').disabled=!canRec;const done=SC.filter(s=>s.kind==='drill'&&s.word===DW).map(s=>s.style);$('#drillSay').textContent=done.length?'saved so far: '+done.join(', '):'';});
 if(!canRec)$('#drillSay').textContent='No microphone here: record the word with Voice Memos, pick the word, then Upload (it asks throat or plain).';
 let DMR=null,DCH=[],DTK=null;
@@ -344,7 +414,7 @@ async function drillRec(style){if(!DW)return;if(DMR&&DMR.state==='recording'){DM
  catch(e){$('#drillSay').textContent='microphone: '+e.message;}}
 $('#drillThroat').onclick=()=>drillRec('throat');$('#drillPlain').onclick=()=>drillRec('plain');
 $('#drillFile').onchange=e=>{const f=e.target.files[0];if(!f||!DW){$('#drillSay').textContent='pick a word first';return;}
- $('#drillSay').innerHTML='Was this one from the throat or plain? <button class="btn" id="dfT">throat</button> <button class="btn" id="dfP">plain</button>';
+ $('#drillSay').innerHTML='Was this one from the throat or plain? <button class="btn" id="dfT" type="button">throat</button> <button class="btn" id="dfP" type="button">plain</button>';
  $('#dfT').onclick=()=>drillSend(f,'throat');$('#dfP').onclick=()=>drillSend(f,'plain');};
 async function drillSend(blob,style){$('#drillBusy').hidden=false;$('#drillSay').textContent='checking…';
  try{const r=await fetch(url('/check?'+new URLSearchParams({words:DW,drill:style})),{method:'POST',body:blob,headers:{'content-type':blob.type||'application/octet-stream'}});const j=await r.json();if(!r.ok||j.err)throw new Error(j.err||('server said '+r.status));
