@@ -642,11 +642,28 @@ def fit_against(lp, spf, ref_words):
 # ---------------------------------------------------------------- routes
 STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'index.html')
 
+# On a Space the page is served from the newest copy in the GitHub repo (refreshed at most once a minute, GitHub's
+# own cache adds a few minutes), so the page can change without rebuilding the Space; the file shipped in static/ is
+# the fallback when GitHub does not answer. DK_PAGE_URL overrides (empty = always the local file; locally the default).
+PAGE_URL = os.environ.get('DK_PAGE_URL', 'https://raw.githubusercontent.com/davidsitt810-ops/dikduk-space/main/static/index.html' if os.environ.get('SPACE_ID') else '')
+_PAGE = {'t': 0.0, 'body': None}
+
+def page_body():
+    now = time.time()
+    if PAGE_URL and now - _PAGE['t'] > 60:
+        _PAGE['t'] = now
+        try:
+            r = requests.get(PAGE_URL, timeout=8, headers={'Cache-Control': 'no-cache'})
+            if r.ok and '<script>' in r.text and '</script>' in r.text: _PAGE['body'] = r.text
+        except Exception as e:
+            print('page from github failed:', e, flush=True)
+    return _PAGE['body'] or open(STATIC, encoding='utf-8').read()
+
 @app.get('/', response_class=HTMLResponse)
 def home():
     """the lab page itself, from the same origin so the phone's microphone works in it"""
     try:
-        body = open(STATIC, encoding='utf-8').read()
+        body = page_body()
     except Exception:
         return HTMLResponse('<p>dikduk fit-score server is running. See /health.</p>')
     return ('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
@@ -661,7 +678,7 @@ def try_page():
 @app.get('/health')
 def health():
     return {'ok': True, 'version': 4.2, 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
-            'jobs': {'queued': sum(1 for v in JOBS.values() if v['state'] == 'queued'), 'running': sum(1 for v in JOBS.values() if v['state'] == 'running')},
+            'page_from': 'github' if _PAGE['body'] else 'local', 'jobs': {'queued': sum(1 for v in JOBS.values() if v['state'] == 'queued'), 'running': sum(1 for v in JOBS.values() if v['state'] == 'running')},
             'ears': {'letter_head': HEAD is not None, 'vowel_head': FULL is not None, 'fine_tuned': FT is not None, 'classifier_v2': bool(CLF2), 'tehillim_lyrics': len(TEHILLIM_LYR), 'tehillim_audio': os.path.isdir(TEHILLIM_DIR) and len(os.listdir(TEHILLIM_DIR)) or (TEHILLIM_BASE or 0)}}
 
 @app.get('/info')
