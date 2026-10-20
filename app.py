@@ -642,22 +642,29 @@ def fit_against(lp, spf, ref_words):
 # ---------------------------------------------------------------- routes
 STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'index.html')
 
-# On a Space the page is served from the newest copy in the GitHub repo (refreshed at most once a minute, GitHub's
-# own cache adds a few minutes), so the page can change without rebuilding the Space; the file shipped in static/ is
-# the fallback when GitHub does not answer. DK_PAGE_URL overrides (empty = always the local file; locally the default).
-PAGE_URL = os.environ.get('DK_PAGE_URL', 'https://raw.githubusercontent.com/davidsitt810-ops/dikduk-space/main/static/index.html' if os.environ.get('SPACE_ID') else '')
-_PAGE = {'t': 0.0, 'body': None}
+# On a Space the page (and the recording booth and its scripts) are served from the newest copy in the GitHub repo
+# (refreshed at most once a minute; GitHub's own cache adds a few minutes), so they can change without rebuilding the
+# Space; the files shipped in static/ are the fallback when GitHub does not answer. DK_PAGE_BASE overrides the base
+# URL (empty = always the local files; locally the default).
+PAGE_BASE = os.environ.get('DK_PAGE_BASE', 'https://raw.githubusercontent.com/davidsitt810-ops/dikduk-space/main/static/' if os.environ.get('SPACE_ID') else '')
+_PAGES = {}
+STATIC_OK = {'index.html': '<script>', 'record.html': '<script>', 'scripts.json': '{'}
+
+def static_text(name):
+    """a static file by name: GitHub's copy when it answers and looks whole, else the local file"""
+    assert name in STATIC_OK
+    now = time.time(); P = _PAGES.setdefault(name, {'t': 0.0, 'body': None})
+    if PAGE_BASE and now - P['t'] > 60:
+        P['t'] = now
+        try:
+            r = requests.get(PAGE_BASE + name, timeout=8, headers={'Cache-Control': 'no-cache'})
+            if r.ok and STATIC_OK[name] in r.text and (not name.endswith('.html') or '</script>' in r.text): P['body'] = r.text
+        except Exception as e:
+            print('static from github failed:', name, e, flush=True)
+    return P['body'] or open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', name), encoding='utf-8').read()
 
 def page_body():
-    now = time.time()
-    if PAGE_URL and now - _PAGE['t'] > 60:
-        _PAGE['t'] = now
-        try:
-            r = requests.get(PAGE_URL, timeout=8, headers={'Cache-Control': 'no-cache'})
-            if r.ok and '<script>' in r.text and '</script>' in r.text: _PAGE['body'] = r.text
-        except Exception as e:
-            print('page from github failed:', e, flush=True)
-    return _PAGE['body'] or open(STATIC, encoding='utf-8').read()
+    return static_text('index.html')
 
 @app.get('/', response_class=HTMLResponse)
 def home():
@@ -678,7 +685,7 @@ def try_page():
 @app.get('/health')
 def health():
     return {'ok': True, 'version': 4.2, 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
-            'page_from': 'github' if _PAGE['body'] else 'local', 'jobs': {'queued': sum(1 for v in JOBS.values() if v['state'] == 'queued'), 'running': sum(1 for v in JOBS.values() if v['state'] == 'running')},
+            'page_from': 'github' if (_PAGES.get('index.html') or {}).get('body') else 'local', 'jobs': {'queued': sum(1 for v in JOBS.values() if v['state'] == 'queued'), 'running': sum(1 for v in JOBS.values() if v['state'] == 'running')},
             'ears': {'letter_head': HEAD is not None, 'vowel_head': FULL is not None, 'fine_tuned': FT is not None, 'classifier_v2': bool(CLF2), 'tehillim_lyrics': len(TEHILLIM_LYR), 'tehillim_audio': os.path.isdir(TEHILLIM_DIR) and len(os.listdir(TEHILLIM_DIR)) or (TEHILLIM_BASE or 0),
                      'tehillim_perakim': sorted(int(m.group(1)) for m in (re.match(r'tehillim-(\d{3})\.mp3$', f) for f in (os.listdir(TEHILLIM_DIR) if os.path.isdir(TEHILLIM_DIR) else [])) if m)}}
 
@@ -883,3 +890,315 @@ def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None):
             out['nikud_err'] = str(e)[:200]
     out['vowel_names'] = VOWEL_NAME
     return out
+
+# ================================================================= the recording booth (/record)
+# A page that walks a person through a list of short recordings — read this line right; read it with the ayin in
+# this word said like alef; leave a word out and tap which — and keeps every recording with its label. Nothing is
+# judged on the page: the person records, the server checks each take in the background and keeps the verdicts
+# next to the audio, and the scoreboard (/score) compares the two. That is the training and testing data in one.
+# Recordings live in TAKES_DIR: /data/takes when the Space has persistent storage, else under DK_CACHE (gone on a
+# rebuild) — and every file is mirrored to a private GitHub repo when GH_TOKEN is set (a fine-grained token with
+# "Contents: read and write" on that one repo), so nothing is lost either way.
+import base64, uuid as _uuid
+TAKES_DIR = os.path.join('/data', 'takes') if os.path.isdir('/data') and os.access('/data', os.W_OK) else os.path.join(CACHE_DIR, 'takes')
+os.makedirs(TAKES_DIR, exist_ok=True)
+GH_TOKEN = os.environ.get('GH_TOKEN', '') if os.environ.get('DK_MIRROR', 'github' if os.environ.get('SPACE_ID') else '') == 'github' else ''
+GH_REPO = os.environ.get('GH_REPO', 'davidsitt810-ops/dikduk-recordings')
+# Other people's recordings and names are not public: listing them, fetching their audio and the all-hands scoreboard
+# need the key David sets as the Space secret DK_KEY. A person sees their own scoreboard with the token their phone
+# made (sent with each take). Locally, with no key set, everything is open; on a Space with no key set, it is closed.
+DK_KEY = os.environ.get('DK_KEY', '')
+
+def key_ok(key):
+    if DK_KEY: return key == DK_KEY
+    return not os.environ.get('SPACE_ID')
+
+def need_key(key):
+    if not key_ok(key): return JSONResponse({'err': 'this needs the key (the Space secret DK_KEY)' if DK_KEY or os.environ.get('SPACE_ID') else 'no key set'}, status_code=403)
+PHR_TIMES = {"md cd08 15.mp3": [[0.35, 6.9, 0], [7.4, 14, 1], [20.75, 27.7, 2], [28.1, 34.35, 3], [41.4, 50.25, 4], [50.5, 55.25, 5], [55.7, 61.35, 6], [61.85, 66.5, 7]]}
+
+def sync_lines(s, f):
+    """line k -> (t0, t1) from a recording's sync events, as the page computes them"""
+    if f in PHR_TIMES: return {k: (a, b) for a, b, k in PHR_TIMES[f]}
+    ev = [tuple(map(int, x.split(','))) for x in ((s.get('t') or {}).get(f) or '').split(';') if x]; out = {}
+    for i, (t, k) in enumerate(ev):
+        if k < 0 or k in out: continue
+        out[k] = (t / 10, ev[i + 1][0] / 10 if i + 1 < len(ev) else t / 10 + 8)
+    return out
+
+def resolve_text(spec: str):
+    """'t23:1' (Tehillim perek:pasuk) or '200:3' (pizmon:line) or plain Hebrew words -> what a check needs"""
+    data = lyrics(); S = data.get('s', {}) if isinstance(data, dict) else {}
+    m = re.fullmatch(r't(\d+):(\d+)', spec.strip())
+    if m:
+        n, k = int(m.group(1)), int(m.group(2)) - 1; s = S.get(f't{n}')
+        if not s or k >= len(s['l']): raise ValueError(f'no Tehillim {n}:{k + 1}')
+        out = {'label': f'Tehillim {n}:{k + 1}', 'words': s['l'][k], 'nikud': (s.get('ln') or [None] * len(s['l']))[k], 'ref': None, 't0': None, 't1': None}
+        f = f'tehillim-{n:03d}.mp3'
+        if tehillim_file(f) and f in (s.get('t') or {}):
+            L = sync_lines(s, f)
+            if k in L: out.update({'ref': f, 't0': L[k][0], 't1': L[k][1]})
+        return out
+    m = re.fullmatch(r't(\d+)', spec.strip())
+    if m:
+        n = int(m.group(1)); s = S.get(f't{n}')
+        if not s: raise ValueError(f'no Tehillim {n}')
+        return {'label': f'Tehillim {n}, the whole perek', 'words': ' '.join(s['l']), 'nikud': ' '.join(s.get('ln') or []), 'ref': None, 't0': None, 't1': None, 'lines': s['l'], 'nlines': s.get('ln')}
+    m = re.fullmatch(r'(\d+):(\d+)', spec.strip())
+    if m:
+        pid, k = m.group(1), int(m.group(2)) - 1; s = S.get(pid)
+        if not s or k >= len(s['l']): raise ValueError(f'no pizmon {pid} line {k + 1}')
+        out = {'label': f'pizmon {pid} line {k + 1}', 'words': s['l'][k], 'nikud': None, 'ref': None, 't0': None, 't1': None}
+        recs = list((s.get('t') or {}).keys()); b = s.get('b') if s.get('b') in recs else (recs[0] if recs else None)
+        if b:
+            L = sync_lines(s, b)
+            if k in L: out.update({'ref': b, 't0': L[k][0], 't1': L[k][1]})
+        return out
+    return {'label': 'words', 'words': spec, 'nikud': None, 'ref': None, 't0': None, 't1': None}
+
+@app.get('/record', response_class=HTMLResponse)
+def record_page():
+    """the booth"""
+    body = static_text('record.html')
+    return ('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
+            '<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>'
+            '</head><body>' + body + '</body></html>')
+
+@app.get('/scripts')
+def scripts():
+    """the recording lists (sets), each task with its text resolved"""
+    try:
+        J = json.loads(static_text('scripts.json'))
+    except Exception as e:
+        return JSONResponse({'err': 'scripts: ' + str(e)[:200]}, status_code=500)
+    for name, st in J.items():
+        for t in st.get('tasks', []):
+            try:
+                R = resolve_text(t['text']); t['label'] = R['label']; t['words'] = R['words']; t['nikud'] = R['nikud']; t['ref'] = R['ref']; t['t0'] = R['t0']; t['t1'] = R['t1']
+                if R.get('lines'): t['lines'] = R['lines']; t['nlines'] = R.get('nlines')
+            except Exception as e:
+                t['error'] = str(e)[:120]
+    return J
+
+def safe_name(x, n=40):
+    return re.sub(r'[^\w֐-׿-]+', '_', str(x or ''))[:n].strip('_') or 'anon'
+
+def gh_put(path, data: bytes, message: str):
+    """one file into the mirror repo (GitHub contents API; the path is new, so no sha is needed)"""
+    r = requests.put(f'https://api.github.com/repos/{GH_REPO}/contents/{requests.utils.quote(path)}',
+                     headers={'Authorization': 'Bearer ' + GH_TOKEN, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'},
+                     json={'message': message, 'content': base64.b64encode(data).decode(), 'branch': 'main'}, timeout=60)
+    if r.status_code == 422 and 'sha' in r.text:   # it is already there (a retry): fetch the sha and overwrite
+        g = requests.get(f'https://api.github.com/repos/{GH_REPO}/contents/{requests.utils.quote(path)}', headers={'Authorization': 'Bearer ' + GH_TOKEN}, timeout=60)
+        if g.ok:
+            r = requests.put(f'https://api.github.com/repos/{GH_REPO}/contents/{requests.utils.quote(path)}', headers={'Authorization': 'Bearer ' + GH_TOKEN, 'Accept': 'application/vnd.github+json'},
+                             json={'message': message, 'content': base64.b64encode(data).decode(), 'branch': 'main', 'sha': g.json().get('sha')}, timeout=60)
+    r.raise_for_status()
+
+def mirror_pending():
+    """push every take file that has no .pushed marker yet"""
+    if not GH_TOKEN: return 0
+    n = 0
+    for root, _, files in os.walk(TAKES_DIR):
+        for fn in sorted(files):
+            if fn.endswith('.pushed') or fn.endswith('.tmp'): continue
+            full = os.path.join(root, fn)
+            if os.path.exists(full + '.pushed'): continue
+            if fn.endswith('.json'):
+                try:
+                    if not json.load(open(full, encoding='utf-8')).get('graded', True): continue   # wait for the verdicts
+                except Exception: continue
+            rel = os.path.relpath(full, TAKES_DIR).replace(os.sep, '/')
+            try:
+                gh_put('takes/' + rel, open(full, 'rb').read(), 'take ' + rel); open(full + '.pushed', 'w').write(str(int(time.time()))); n += 1
+            except Exception as e:
+                print('mirror failed:', rel, str(e)[:120], flush=True); return n
+    return n
+
+def mirror_ok():
+    """is the mirror repo reachable with this token? (checked once at start; a wrong token or a missing repo turns the mirror off, loudly)"""
+    global GH_TOKEN
+    if not GH_TOKEN: return False
+    try:
+        r = requests.get(f'https://api.github.com/repos/{GH_REPO}', headers={'Authorization': 'Bearer ' + GH_TOKEN, 'Accept': 'application/vnd.github+json'}, timeout=20)
+        if r.ok and r.json().get('permissions', {}).get('push'): print('mirror: recordings go to github.com/' + GH_REPO, flush=True); return True
+        print('mirror OFF: github answered', r.status_code, flush=True)
+    except Exception as e:
+        print('mirror OFF:', e, flush=True)
+    GH_TOKEN = ''
+    return False
+
+def mirror_loop():
+    if not mirror_ok(): return
+    while True:
+        try: mirror_pending()
+        except Exception as e: print('mirror loop:', e, flush=True)
+        time.sleep(60)
+if GH_TOKEN: threading.Thread(target=mirror_loop, daemon=True).start()
+
+def take_paths(tid):
+    """id -> (json path, audio path); the id is the json's path relative to TAKES_DIR without .json"""
+    tid = tid.replace('..', '').strip('/'); jp = os.path.join(TAKES_DIR, tid + '.json')
+    if not os.path.isfile(jp): return None, None
+    base = jp[:-5]; aud = [p for p in (base + e for e in ('.m4a', '.mp4', '.webm', '.wav', '.mp3', '.ogg', '.bin')) if os.path.isfile(p)]
+    return jp, (aud[0] if aud else None)
+
+@app.post('/submit')
+async def submit(request: Request, meta: str = Query(...)):
+    """one recording from the booth: body = audio; meta = JSON {set, task, name, text, do, labels, note, mime, device}.
+       Saved at once, checked in the background (the verdicts land in the take's JSON), mirrored to GitHub if set up."""
+    try:
+        M = json.loads(meta)
+    except Exception:
+        return JSONResponse({'err': 'bad meta'}, status_code=400)
+    data = await request.body()
+    if len(data) < 1000:
+        return JSONResponse({'err': 'no audio'}, status_code=400)
+    try:
+        R = resolve_text(M.get('text', ''))
+    except Exception as e:
+        return JSONResponse({'err': str(e)[:200]}, status_code=400)
+    mime = str(M.get('mime') or ''); ext = '.m4a' if 'mp4' in mime or 'm4a' in mime else '.webm' if 'webm' in mime else '.wav' if 'wav' in mime else '.ogg' if 'ogg' in mime else '.bin'
+    ts = time.strftime('%Y%m%d-%H%M%S'); tid = f"{safe_name(M.get('set'))}/{safe_name(M.get('name'))}/{ts}-{safe_name(M.get('task'), 24)}-{_uuid.uuid4().hex[:6]}"
+    full = os.path.join(TAKES_DIR, tid); os.makedirs(os.path.dirname(full), exist_ok=True)
+    open(full + ext, 'wb').write(data)
+    rec = {'id': tid, 't': int(time.time()), 'set': M.get('set'), 'task': M.get('task'), 'name': M.get('name'), 'who': str(M.get('who') or '')[:40], 'text': M.get('text'), 'label': R['label'], 'words': R['words'],
+           'do': M.get('do'), 'labels': M.get('labels'), 'note': M.get('note'), 'mime': mime, 'bytes': len(data), 'device': str(M.get('device') or '')[:200], 'check': bool(M.get('check', True)),
+           'graded': False, 'result': None}
+    json.dump(rec, open(full + '.json', 'w', encoding='utf-8'), ensure_ascii=False)
+    if rec['check']:
+        def grade(progress):
+            try:
+                x = decode_audio(data)
+                if x.shape[0] > SR * 40: x = x[:SR * 40]
+                if x.shape[0] < SR * 0.5: raise ValueError('too short')
+                out = run_check(x, he_words(R['words']), R['ref'], R['t0'] or 0, R['t1'] or 0, 0, None, R['nikud'], progress)
+                out.pop('ref', None)   # the hazzan's analysis is big and lives in the reference cache anyway
+                rec['result'] = out; rec['summary'] = summarize(out)
+            except Exception as e:
+                rec['error'] = str(e)[:200]
+            rec['graded'] = True; json.dump(rec, open(full + '.json', 'w', encoding='utf-8'), ensure_ascii=False)
+            return {'ok': True}
+        new_job(grade)
+    else:
+        rec['graded'] = True; json.dump(rec, open(full + '.json', 'w', encoding='utf-8'), ensure_ascii=False)
+    return JSONResponse({'id': tid, 'saved': True, 'durable': bool(GH_TOKEN) or TAKES_DIR.startswith('/data')}, status_code=202)
+
+def mark_of(y, f, clean):
+    """the page's rule for one word (kept in step with static/index.html markOf)"""
+    n = y.get('n') or 0; sk = y.get('skel'); ft = f.get('fit') if f else None
+    if not n or sk is None: return ''
+    kp = y.get('kept'); pw = y.get('pw')
+    if n >= 2:
+        if sk < .2 and (ft is None or ft < .15): return 'off'
+        if clean and pw is not None and pw >= .95: return 'off'
+        if sk < .4 or (ft is not None and ft < .2) or (kp is not None and kp < .5) or (pw is not None and pw >= .8): return 'unsure'
+        return 'ok'
+    return 'unsure' if sk < .2 else 'ok'
+
+def summarize(out):
+    """the machine's claims about one take, in the page's words: marks per word, throat verdicts, vowel differences"""
+    W, TW, F = out['words'], out['take']['words'], out.get('fit')
+    hs = sorted(t['hskel'] for t in TW if (t.get('n') or 0) >= 2 and t.get('hskel') is not None); clean = bool(hs) and hs[len(hs) // 2] >= .7
+    marks = [mark_of(TW[i], F[i] if F else None, clean) for i in range(len(W))]
+    throat = [{'c': th['c'], 'w': W[i], 'k': th['k'], 'v': th.get('v')} for i, t in enumerate(TW) for th in (t.get('throat') or [])]
+    VN = out.get('vowel_names') or {}; nm = lambda k: (VN.get(k) or k).split(' ')[0]
+    vow = []
+    for src, against in ((out.get('vowels'), 'hazzan'), (out.get('vowels_nikud'), 'nikud')):
+        for i, ds in (src or {}).items():
+            for d in ds: vow.append({'w': W[int(i)], 'k': d['k'], 'you': nm(d['you']), 'ref': nm(d['ref']), 'against': against})
+    miss = {W[i]: t['miss'] for i, t in enumerate(TW) if t.get('miss')}
+    return {'marks': marks, 'throat': throat, 'vowels': vow, 'miss': miss, 'clean': clean, 'hazzan': bool(F), 'dur': out['take'].get('dur')}
+
+def list_takes(set_=None, name=None, who=None):
+    items = []
+    for root, _, files in os.walk(TAKES_DIR):
+        for fn in files:
+            if not fn.endswith('.json'): continue
+            try: J = json.load(open(os.path.join(root, fn), encoding='utf-8'))
+            except Exception: continue
+            if set_ and J.get('set') != set_: continue
+            if name and J.get('name') != name: continue
+            if who and J.get('who') != who: continue
+            J.pop('result', None); items.append(J)
+    items.sort(key=lambda j: j.get('t', 0))
+    return items
+
+@app.get('/takes')
+def takes(set_: str = Query(None, alias='set'), name: str = None, key: str = None):
+    """every recording's label and verdicts (no audio) — with the key"""
+    d = need_key(key)
+    if d: return d
+    items = list_takes(set_, name)
+    return {'n': len(items), 'dir': 'persistent' if TAKES_DIR.startswith('/data') else 'temporary', 'mirror': bool(GH_TOKEN), 'items': items}
+
+@app.get('/takes/full/{tid:path}')
+def take_full(tid: str, key: str = None):
+    d = need_key(key)
+    if d: return d
+    jp, _ = take_paths(tid)
+    if not jp: return JSONResponse({'err': 'no such take'}, status_code=404)
+    return json.load(open(jp, encoding='utf-8'))
+
+@app.get('/takes/audio/{tid:path}')
+def take_audio(tid: str, key: str = None):
+    d = need_key(key)
+    if d: return d
+    jp, ap = take_paths(tid)
+    if not ap: return JSONResponse({'err': 'no such take'}, status_code=404)
+    return FileResponse(ap, media_type={'m4a': 'audio/mp4', 'mp4': 'audio/mp4', 'webm': 'audio/webm', 'wav': 'audio/wav', 'mp3': 'audio/mpeg', 'ogg': 'audio/ogg'}.get(ap.rsplit('.', 1)[-1], 'application/octet-stream'), filename=os.path.basename(ap))
+
+def score_take(J):
+    """one take: what the person did (its labels) against what the machine claimed -> verdict lines and tallies"""
+    S = J.get('summary'); do = J.get('do') or 'right'; L = J.get('labels') or {}; W = he_words(J.get('words') or '')
+    if not J.get('graded'): return {'state': 'waiting'}
+    if not S: return {'state': 'error', 'why': J.get('error') or 'no result'}
+    marks = dict(zip(W, S['marks'])); claims = []; tally = {'false_alarm': 0, 'caught': 0, 'missed': 0, 'unsure': 0, 'claims': 0}
+    changed = set(L.get('words') or [])
+    if do in ('skip', 'wrong', 'swap', 'free', 'vowel') and L.get('word'): changed.add(L['word'])
+    if do == 'swap': changed |= set(L.get('pair') or [])
+    # words
+    for w in W:
+        m = marks.get(w, '')
+        if w in changed and do in ('skip', 'wrong', 'swap', 'free'):
+            if m == 'off': tally['caught'] += 1; claims.append(f'{w}: you changed it, machine said not heard ✓')
+            elif m == 'unsure': tally['unsure'] += 1; claims.append(f'{w}: you changed it, machine said not sure ~')
+            else: tally['missed'] += 1; claims.append(f'{w}: you changed it, machine passed it ✕')
+        else:
+            if m == 'off': tally['false_alarm'] += 1; claims.append(f'{w}: you sang it, machine said not heard ✕ (false alarm)')
+            elif m == 'unsure': tally['unsure'] += 1; claims.append(f'{w}: you sang it, machine said not sure ~')
+    # throat letters
+    for th in S['throat']:
+        planted = (do == 'ayin' and th['c'] == 'ע' or do == 'het' and th['c'] == 'ח') and (not L.get('word') or L.get('word') == th['w']) and L.get('done', True)
+        if planted:
+            if th['v'] == 'plain': tally['caught'] += 1; claims.append(f"{th['c']} in {th['w']}: you said it plain, machine heard plain ✓")
+            elif th['v'] == 'unsure': tally['unsure'] += 1; claims.append(f"{th['c']} in {th['w']}: you said it plain, machine not sure ~")
+            else: tally['missed'] += 1; claims.append(f"{th['c']} in {th['w']}: you said it plain, machine heard the throat ✕")
+        else:
+            if th['v'] == 'plain': tally['false_alarm'] += 1; claims.append(f"{th['c']} in {th['w']}: machine said plain ✕ (false alarm, unless you did say it plain)")
+            elif th['v'] == 'unsure': tally['unsure'] += 1; claims.append(f"{th['c']} in {th['w']}: machine not sure ~")
+    # vowels
+    vw = [v for v in S['vowels']]
+    if do == 'vowel' and L.get('word'):
+        hit = [v for v in vw if v['w'] == L['word']]
+        if hit: tally['caught'] += 1; claims.append(f"{L['word']}: you changed a vowel, machine heard {hit[0]['you']} for {hit[0]['ref']} ✓")
+        else: tally['missed'] += 1; claims.append(f"{L['word']}: you changed a vowel, machine heard nothing ✕")
+        vw = [v for v in vw if v['w'] != L['word']]
+    for v in vw:
+        tally['claims'] += 1; claims.append(f"{v['w']}: machine says you sang {v['you']} where the {v['against']} has {v['ref']} — right or wrong?")
+    return {'state': 'scored', 'claims': claims, 'tally': tally, 'clean': S['clean'], 'hazzan': S['hazzan']}
+
+@app.get('/score')
+def score(set_: str = Query(None, alias='set'), name: str = None, who: str = None, key: str = None):
+    """the scoreboard: every take scored against its own label, and the totals. A person's own takes with the
+       token their phone sent (who); everyone's with the key."""
+    if not who:
+        d = need_key(key)
+        if d: return d
+    items = list_takes(set_, name, who); rows = []; tot = {'false_alarm': 0, 'caught': 0, 'missed': 0, 'unsure': 0, 'claims': 0, 'waiting': 0, 'error': 0}
+    for J in items:
+        sc = score_take(J); rows.append({'id': J['id'], 'task': J.get('task'), 'label': J.get('label'), 'words': J.get('words'), 'do': J.get('do'), 'labels': J.get('labels'), 'note': J.get('note'), 'name': J.get('name'), 't': J.get('t'), **sc})
+        if sc['state'] == 'scored':
+            for k, v in sc['tally'].items(): tot[k] += v
+        else: tot[sc['state']] += 1
+    return {'n': len(rows), 'totals': tot, 'rows': rows}

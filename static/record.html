@@ -1,0 +1,214 @@
+<title>Dikduk recordings</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;500;700&family=Heebo:wght@400;500;700&display=swap">
+<style>
+/* The recording booth: one task at a time — the instruction in plain words, the text large, one red button.
+   Nothing is judged here; the recording and its label go to the server, which checks it in the background. */
+:root{--bg:#2A1317;--panel:#3A1C22;--line:#5A3038;--fg:#F3E6CF;--mute:#C9AE96;--gold:#D8B060;--good:#9BD3A0;--warn:#F2C230;--bad:#EF7B6E;--ink:#2A1317;
+ --he:"Frank Ruhl Libre",Georgia,serif;--ui:"Heebo",system-ui,-apple-system,sans-serif;color-scheme:dark}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#FBF6EC;--panel:#FFFFFF;--line:#E6D7C0;--fg:#2A1317;--mute:#6E5A4C;--gold:#A8782A;--good:#2E8B4A;--warn:#B8860B;--bad:#C0392B;--ink:#FFFFFF;color-scheme:light}}
+:root[data-theme="light"]{--bg:#FBF6EC;--panel:#FFFFFF;--line:#E6D7C0;--fg:#2A1317;--mute:#6E5A4C;--gold:#A8782A;--good:#2E8B4A;--warn:#B8860B;--bad:#C0392B;--ink:#FFFFFF;color-scheme:light}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--ui);font-size:16px;line-height:1.45;margin:0;-webkit-text-size-adjust:100%}
+.wrap{max-width:560px;margin:0 auto;padding:16px 16px 72px;display:flex;flex-direction:column;gap:12px}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+h1{font:700 24px/1.15 var(--ui);margin:0}
+h2{font:600 20px/1.25 var(--ui);margin:0 0 10px}
+.pill{flex:none;font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--mute);white-space:nowrap;margin-top:4px}
+.pill.ok{border-color:var(--good);color:var(--good)}.pill.bad{border-color:var(--bad);color:var(--bad)}.pill.wait{border-color:var(--warn);color:var(--warn)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.intro{margin:0 0 14px;color:var(--mute)}
+label.f{display:block;font-size:14px;color:var(--mute);margin-bottom:10px}
+input[type=text]{display:block;width:100%;font:inherit;font-size:17px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 12px;min-height:46px;margin-top:4px}
+.btn{font:500 15px var(--ui);color:var(--fg);background:transparent;border:1px solid var(--line);border-radius:999px;padding:10px 16px;min-height:44px;cursor:pointer}
+.btn:hover{border-color:var(--gold)}.btn:focus-visible,.chip:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.btn.gold{background:var(--gold);color:var(--ink);border-color:var(--gold);font-weight:700}
+.btn.rec{background:var(--bad);color:#fff;border-color:var(--bad);font-weight:700;font-size:18px;min-height:56px}
+.btn.wide{width:100%;display:block;margin-top:10px}
+.btn:disabled{opacity:.45;cursor:default}
+.link{font:500 14px var(--ui);color:var(--gold);background:none;border:0;padding:4px 2px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.prog{display:flex;justify-content:space-between;align-items:center;margin:0 0 8px;font-size:14px;color:var(--mute)}
+.ask{font-size:19px;line-height:1.35;margin:0 0 6px;font-weight:600}
+.ask .he{font-family:var(--he);font-size:24px;color:var(--gold)}
+.where{margin:0 0 8px;font-size:14px;color:var(--mute)}
+.hero{font-family:var(--he);font-size:30px;line-height:1.5;direction:rtl;text-align:right;font-weight:500;margin:0 0 12px;padding:10px 12px;border-radius:10px;background:var(--bg)}
+.hero.perek{font-size:24px;max-height:46vh;overflow:auto}
+.hero .ps{display:block;margin:0 0 8px}.hero .ps small{font-family:var(--ui);font-size:12px;color:var(--mute);margin-inline-start:6px}
+.hero .hl{color:var(--gold);text-decoration:underline;text-decoration-color:var(--gold);text-underline-offset:4px}
+.hint{font-size:13px;color:var(--mute);margin:8px 0 0}
+.took{font-size:14px;color:var(--mute);margin:12px 0 8px}
+.q{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.q:empty{display:none}
+.q p{margin:0 0 8px;font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;direction:rtl;justify-content:flex-start}
+.chip{font-family:var(--he);font-size:22px;line-height:1.1;padding:8px 12px;border-radius:10px;border:2px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}
+.chip.on{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold)}
+.chips.ltr{direction:ltr}.chips.ltr .chip{font-family:var(--ui);font-size:15px}
+.busy{margin:10px 0 0;font-size:14px;color:var(--mute);display:flex;align-items:center;gap:8px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--gold);border-radius:50%;animation:sp .8s linear infinite;flex:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.spin{animation:none}}
+.err{color:var(--bad);font-size:14px;margin:10px 0 0}.err:empty{display:none}
+.sc{font-size:14px}.sc .r{border-top:1px solid var(--line);padding:10px 0}.sc .r b{font-family:var(--he);font-size:18px;font-weight:500}
+.sc .good{color:var(--good)}.sc .bad{color:var(--bad)}.sc .warn{color:var(--warn)}
+.tot{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 10px;font-size:15px}
+</style>
+<div class="wrap">
+ <header class="top"><h1 id="title">Recordings</h1><span class="pill wait" id="srv">Waking the server…</span></header>
+
+ <section class="card" id="start">
+  <p class="intro" id="intro"></p>
+  <label class="f">Your name<input type="text" id="name" placeholder="so the recordings are filed under you" autocomplete="name"></label>
+  <button class="btn wide gold" id="begin" type="button">Start</button>
+  <p class="hint" id="resume"></p>
+  <p class="err" id="err0"></p>
+ </section>
+
+ <section class="card" id="task" hidden>
+  <p class="prog"><span id="prog"></span><button class="link" id="skipBtn" type="button">Skip this one</button></p>
+  <p class="ask" id="ask"></p>
+  <p class="where" id="where"></p>
+  <div class="hero" id="text"></div>
+  <button class="btn wide" id="hear" type="button">▶ Hear the hazzan</button>
+  <button class="btn wide rec" id="rec" type="button">● Record</button>
+  <p class="hint" id="note"></p>
+  <div id="after" hidden>
+   <p class="took" id="took"></p>
+   <div class="row"><button class="btn" id="play" type="button">▶ Play it back</button><button class="btn" id="redo" type="button">Record again</button></div>
+   <div class="q" id="q"></div>
+   <button class="btn wide gold" id="save" type="button">Save and next</button>
+   <p class="busy" id="busy" hidden></p>
+  </div>
+  <p class="err" id="err"></p>
+ </section>
+
+ <section class="card" id="end" hidden>
+  <h2>All done — thank you</h2>
+  <p id="endTxt"></p>
+  <div class="row"><button class="btn" id="again" type="button">Start over</button><button class="btn" id="showScore" type="button" hidden>See how the machine did</button></div>
+ </section>
+
+ <section class="card" id="scoreP" hidden>
+  <h2>How the machine did</h2>
+  <p class="hint" style="margin:0 0 10px">Each recording: what you did, then every claim the machine made about it. ✓ caught · ✕ missed or false alarm · ~ it said "not sure".</p>
+  <div class="tot" id="tot"></div>
+  <div class="sc" id="sc"></div>
+ </section>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+const Q=new URLSearchParams(location.search);const SET=Q.get('set')||'quick';const API=location.origin;
+const url=p=>API+p;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const he=w=>`<span class="he" lang="he">${esc(w)}</span>`;
+const ls=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v);}catch(e){return null;}};
+const NIK=/[֑-ׇ]/g,FIN={'ך':'כ','ם':'מ','ן':'נ','ף':'פ','ץ':'צ'};
+const heL=w=>String(w||'').replace(NIK,'').replace(/[ךםןףץ]/g,c=>FIN[c]).replace(/[^א-ת]/g,'');
+const heWords=t=>String(t||'').replace(/[־\-]/g,' ').split(/[\s,.;:!?"'״׳()\[\]{}|/\\]+/).filter(w=>heL(w));
+let S=null,T=null,I=-1,TAKE=null,TAKE_URL=null,SECS=0,DONE=[];
+let NAME=ls('dk.rec.name')||'';$('#name').value=NAME;
+let WHO=ls('dk.rec.who');if(!WHO){WHO=Array.from(crypto.getRandomValues(new Uint8Array(8))).map(b=>b.toString(16).padStart(2,'0')).join('');ls('dk.rec.who',WHO);}
+async function health(){const el=$('#srv');try{const r=await fetch(url('/health'),{cache:'no-store'});await r.json();el.className='pill ok';el.textContent='Ready';}
+ catch(e){el.className='pill bad';el.textContent='Server not reachable';$('#err0').textContent='The server did not answer. It may be waking up — try again in a minute.';}}
+async function loadSet(){try{const J=await (await fetch(url('/scripts'),{cache:'no-store'})).json();S=J[SET];}catch(e){}
+ if(!S){$('#intro').textContent='There is no recording list called "'+SET+'".';$('#begin').disabled=true;return;}
+ $('#title').textContent=S.title;$('#intro').textContent=S.intro;
+ try{DONE=JSON.parse(ls('dk.rec.done.'+SET)||'[]');}catch(e){DONE=[];}
+ const left=S.tasks.filter(t=>!DONE.includes(t.id)).length;
+ $('#resume').textContent=DONE.length?`${DONE.length} of ${S.tasks.length} already saved from this phone; ${left?left+' to go.':'all done.'}`:`${S.tasks.length} recordings.`;
+ if(DONE.length&&left)$('#begin').textContent='Continue';if(!left&&DONE.length)$('#begin').textContent='Start over';}
+$('#begin').onclick=()=>{NAME=$('#name').value.trim();if(!NAME){$('#err0').textContent='Your name first, so the recordings are filed under you.';$('#name').focus();return;}ls('dk.rec.name',NAME);
+ if(!S.tasks.some(t=>!DONE.includes(t.id))){DONE=[];ls('dk.rec.done.'+SET,'[]');}
+ $('#start').hidden=true;next();};
+function next(){const i=S.tasks.findIndex((t,k)=>k>I&&!DONE.includes(t.id));if(i<0){finish();return;}show(i);}
+/* ---------- one task ---------- */
+const ASK={right:'Read it the way you normally would.',
+ ayin:w=>`Read it, but say the ע in ${he(w)} like an alef — no throat. Everything else right.`,
+ het:w=>`Read it, but say the ח in ${he(w)} like a כ — from the back of the mouth, not the throat. Everything else right.`,
+ skip:'Read it, but leave out one word of your choice. After you stop, you will tap the word you left out.',
+ swap:'Read it with two neighbouring words swapped. After you stop, you will tap the two words.',
+ wrong:'Read it, but replace one word with some other word. After you stop, you will tap the word you replaced.',
+ vowel:'Read it, but change one vowel in one word on purpose — say “a” where it says “o”, that kind of thing. After you stop, you will tap the word.',
+ free:'Read it with one mistake of your choice: a wrong word, a missing word, an ע like alef, a changed vowel. After you stop, tap the word and say what you did.',
+ perek:'Read the whole perek at your natural pace, the way a student should hear it. Take your time — a few minutes is fine.'};
+function show(i){I=i;T=S.tasks[i];TAKE=null;$('#after').hidden=true;$('#err').textContent='';$('#q').innerHTML='';$('#note').textContent='';
+ $('#task').hidden=false;$('#prog').textContent=`${DONE.length+1} of ${S.tasks.length}`;
+ const a=ASK[T.do]||ASK.right;$('#ask').innerHTML=typeof a==='function'?a(T.word):a;$('#where').textContent=T.label||T.text;
+ if(T.lines){$('#text').className='hero perek';$('#text').innerHTML=T.lines.map((l,k)=>`<span class="ps">${esc((T.nlines||[])[k]||l)}<small>${k+1}</small></span>`).join('');}
+ else{$('#text').className='hero';const shown=T.nikud||T.words;$('#text').innerHTML=T.word?hiWord(shown,T.word):esc(shown);}
+ $('#hear').hidden=!T.ref;$('#rec').hidden=!canRec;if(!canRec)$('#note').textContent='Recording inside this page is not allowed in this browser. Open the link in Safari on an iPhone, or Chrome.';
+ window.scrollTo({top:0,behavior:'smooth'});}
+/* the word the instruction talks about, underlined in the (pointed) text */
+function hiWord(text,word){const W=text.split(' ');const k=W.findIndex(w=>heL(w)===heL(word));return W.map((w,i)=>i===k?`<span class="hl">${esc(w)}</span>`:esc(w)).join(' ');}
+/* ---------- hearing the hazzan (Rabbi Alouf for Tehillim, the archive for a pizmon) ---------- */
+let HIM=null;
+$('#hear').onclick=()=>{if(!T||!T.ref)return;const src=/^(tehillim-|extra-)/.test(T.ref)?url('/tehillim/audio/'+encodeURIComponent(T.ref)):'https://www.pizmonim.org/MP3/'+encodeURIComponent(T.ref);
+ if(!HIM||HIM.dataset.src!==src){HIM=new Audio(src);HIM.dataset.src=src;HIM.preload='auto';}
+ HIM.pause();const t1=T.t1;const stop=()=>{if(HIM.currentTime>=t1-.02){HIM.pause();HIM.removeEventListener('timeupdate',stop);}};
+ HIM.currentTime=Math.max(0,T.t0||0);HIM.addEventListener('timeupdate',stop);HIM.play().catch(()=>{});};
+/* ---------- recording ---------- */
+let MR=null,CH=[],T0=0,TK=null;
+const canRec=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.MediaRecorder);
+$('#rec').onclick=async()=>{if(MR&&MR.state==='recording'){MR.stop();return;}
+ try{const st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+  const mt=['audio/mp4','audio/webm;codecs=opus','audio/webm',''].find(t=>!t||MediaRecorder.isTypeSupported(t));
+  MR=new MediaRecorder(st,mt?{mimeType:mt}:undefined);CH=[];MR.ondataavailable=e=>{if(e.data.size)CH.push(e.data);};
+  MR.onstop=()=>{st.getTracks().forEach(t=>t.stop());clearInterval(TK);$('#rec').textContent='● Record';SECS=(Date.now()-T0)/1000;setTake(new Blob(CH,{type:MR.mimeType||'audio/mp4'}));};
+  const max=T.do==='perek'?8*60*1000:45000;
+  MR.start(250);T0=Date.now();$('#after').hidden=true;$('#rec').textContent='■ Stop · 0.0 s';$('#note').textContent='Recording… tap Stop when you are done.';
+  TK=setInterval(()=>{$('#rec').textContent='■ Stop · '+((Date.now()-T0)/1000).toFixed(1)+' s';if(Date.now()-T0>max)MR.stop();},200);}
+ catch(e){$('#err').textContent='The microphone could not be used: '+e.message;}};
+function setTake(blob){TAKE=blob;if(TAKE_URL)URL.revokeObjectURL(TAKE_URL);TAKE_URL=URL.createObjectURL(blob);$('#note').textContent='';
+ $('#took').textContent='Recorded · '+SECS.toFixed(1)+' s';$('#after').hidden=false;$('#rec').hidden=true;question();$('#after').scrollIntoView({behavior:'smooth',block:'start'});}
+let YOU=null;
+$('#play').onclick=()=>{if(!TAKE_URL)return;if(!YOU||YOU.dataset.src!==TAKE_URL){YOU=new Audio(TAKE_URL);YOU.dataset.src=TAKE_URL;}YOU.currentTime=0;YOU.play().catch(()=>{});};
+$('#redo').onclick=()=>{TAKE=null;$('#after').hidden=true;$('#rec').hidden=false;$('#rec').click();};
+/* ---------- the label question after recording: exact, by tapping ---------- */
+let LAB={};
+function chips(words,multi,cls){return `<div class="chips ${cls||''}">${words.map(w=>`<button class="chip" type="button" data-w="${esc(w)}">${esc(w)}</button>`).join('')}</div>`;}
+function question(){const q=$('#q');LAB={};const W=heWords(T.words);let html='';
+ if(T.do==='skip')html=`<p>Which word did you leave out?</p>${chips(W)}`;
+ else if(T.do==='swap')html=`<p>Which two words did you swap?</p>${chips(W)}`;
+ else if(T.do==='wrong')html=`<p>Which word did you replace?</p>${chips(W)}<p style="margin-top:10px">What did you say instead? (optional)</p><input type="text" id="said" lang="he" dir="rtl" style="font-family:var(--he);font-size:20px">`;
+ else if(T.do==='vowel')html=`<p>Which word did you change a vowel in?</p>${chips(W)}<p style="margin-top:10px">What did you sing there?</p>${chips(['a','e','i','o','u'],false,'ltr')}`;
+ else if(T.do==='free')html=`<p>Tap the word (or words) you changed.</p>${chips(W,true)}<p style="margin-top:10px">What did you do?</p><input type="text" id="note2" placeholder="e.g. said the ayin like alef, skipped it, wrong vowel">`;
+ else if(T.do==='ayin'||T.do==='het')html=`<p>Did it come out ${T.do==='ayin'?'like an alef':'like a כ'}?</p>${chips(['Yes','Not really'],false,'ltr')}`;
+ q.innerHTML=html;
+ q.querySelectorAll('.chips').forEach(box=>{const multi=T.do==='free'&&!box.classList.contains('ltr'),two=T.do==='swap';
+  box.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{if(multi)b.classList.toggle('on');else if(two){const on=[...box.querySelectorAll('.chip.on')];if(b.classList.contains('on'))b.classList.remove('on');else{if(on.length>=2)on[0].classList.remove('on');b.classList.add('on');}}
+   else box.querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===b));});});
+ }
+function labels(){const W=heWords(T.words);const L={};const boxes=[...$('#q').querySelectorAll('.chips')];const on=b=>[...b.querySelectorAll('.chip.on')].map(x=>x.dataset.w);
+ if(T.do==='skip'||T.do==='wrong'||T.do==='vowel'){L.word=on(boxes[0])[0]||null;}
+ if(T.do==='swap')L.pair=on(boxes[0]);
+ if(T.do==='wrong')L.said=($('#said')&&$('#said').value.trim())||'';
+ if(T.do==='vowel')L.vowel=boxes[1]?on(boxes[1])[0]||null:null;
+ if(T.do==='free'){L.words=on(boxes[0]);L.note=($('#note2')&&$('#note2').value.trim())||'';}
+ if(T.do==='ayin'||T.do==='het'){L.word=T.word;const a=on(boxes[0])[0];L.done=a==null?true:a==='Yes';}
+ return L;}
+function missing(L){if(T.do==='skip'||T.do==='wrong'||T.do==='vowel')return L.word?null:'Tap the word first.';
+ if(T.do==='swap')return (L.pair||[]).length===2?null:'Tap the two words you swapped.';
+ if(T.do==='free')return (L.words||[]).length||L.note?null:'Tap the word you changed, or write what you did.';return null;}
+/* ---------- save ---------- */
+$('#save').onclick=async()=>{if(!TAKE)return;const L=labels();const m=missing(L);if(m){$('#err').textContent=m;return;}$('#err').textContent='';
+ $('#save').disabled=true;$('#busy').hidden=false;$('#busy').innerHTML='<span class="spin"></span><span>Saving…</span>';
+ const meta={set:SET,task:T.id,name:NAME,who:WHO,text:T.text,do:T.do,word:T.word||null,labels:L,note:L.note||null,mime:TAKE.type||'',secs:SECS,check:T.check!==false,device:navigator.userAgent.slice(0,120)};
+ try{const r=await fetch(url('/submit?meta='+encodeURIComponent(JSON.stringify(meta))),{method:'POST',body:TAKE,headers:{'content-type':TAKE.type||'application/octet-stream'}});
+  const j=await r.json();if(!r.ok||j.err)throw new Error(j.err||('server said '+r.status));
+  DONE.push(T.id);ls('dk.rec.done.'+SET,JSON.stringify(DONE));$('#busy').innerHTML='<span>Saved ✓</span>';
+  setTimeout(()=>{$('#busy').hidden=true;$('#save').disabled=false;$('#rec').hidden=!canRec;next();},500);}
+ catch(e){$('#err').textContent='Could not save: '+e.message+' — tap Save again.';$('#busy').hidden=true;$('#save').disabled=false;}};
+$('#skipBtn').onclick=()=>{if(MR&&MR.state==='recording')MR.stop();DONE.push(T.id);ls('dk.rec.done.'+SET,JSON.stringify(DONE));$('#rec').hidden=!canRec;next();};
+function finish(){$('#task').hidden=true;$('#end').hidden=false;$('#endTxt').textContent=`${S.tasks.length} recordings in this list; filed under ${NAME}.`;
+ const hasChecks=S.tasks.some(t=>t.check!==false);$('#showScore').hidden=!(hasChecks&&(SET==='david'||Q.get('score')));}
+$('#again').onclick=()=>{DONE=[];ls('dk.rec.done.'+SET,'[]');I=-1;$('#end').hidden=true;$('#scoreP').hidden=true;$('#start').hidden=false;loadSet();};
+/* ---------- the scoreboard (David's own sets, or ?score=1): the server scores each take against its label ---------- */
+let SCT=null;
+$('#showScore').onclick=()=>{$('#scoreP').hidden=false;drawScore();};
+async function drawScore(){let J;try{J=await (await fetch(url('/score?'+new URLSearchParams({set:SET,who:WHO})),{cache:'no-store'})).json();}catch(e){$('#sc').textContent='Could not load the scoreboard.';return;}
+ const t=J.totals;$('#tot').innerHTML=`<span class="good">caught ${t.caught}</span><span class="bad">missed ${t.missed}</span><span class="bad">false alarms ${t.false_alarm}</span><span class="warn">not sure ${t.unsure}</span>`+(t.claims?`<span>vowel claims to judge ${t.claims}</span>`:'')+(t.waiting?`<span>still checking ${t.waiting}…</span>`:'');
+ $('#sc').innerHTML=J.rows.slice().reverse().map(r=>{const did=r.do==='right'?'read right':r.do==='skip'?'left out '+(r.labels&&r.labels.word||'?'):r.do==='swap'?'swapped '+((r.labels&&r.labels.pair||[]).join(' ↔ ')):r.do==='wrong'?'replaced '+(r.labels&&r.labels.word||'?')+(r.labels&&r.labels.said?' with '+r.labels.said:''):r.do==='vowel'?'changed a vowel in '+(r.labels&&r.labels.word||'?')+(r.labels&&r.labels.vowel?' to '+r.labels.vowel:''):r.do==='ayin'?'ע in '+(r.labels&&r.labels.word||'')+' like alef'+(r.labels&&r.labels.done===false?' (not really)':''):r.do==='het'?'ח in '+(r.labels&&r.labels.word||'')+' like כ'+(r.labels&&r.labels.done===false?' (not really)':''):r.do==='free'?'changed '+((r.labels&&r.labels.words||[]).join(', ')||'?')+(r.note?' — '+r.note:''):r.do;
+  const body=r.state==='waiting'?'<span class="warn">still checking…</span>':r.state==='error'?'<span class="bad">could not check: '+esc(r.why||'')+'</span>':(r.claims.length?r.claims.map(c=>`<div class="${/✓/.test(c)?'good':/✕/.test(c)?'bad':'warn'}">${esc(c)}</div>`).join(''):'<div class="good">nothing flagged — all words and letters passed</div>');
+  return `<div class="r"><div><b lang="he">${esc(r.words||'')}</b></div><div class="hint" style="margin:2px 0 6px">${esc(r.label||'')} · you: ${esc(did)}</div>${body}</div>`;}).join('');
+ if(t.waiting){clearTimeout(SCT);SCT=setTimeout(drawScore,5000);}}
+health();loadSet();
+</script>

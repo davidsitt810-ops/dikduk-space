@@ -1,0 +1,72 @@
+{
+ "quick": {
+  "title": "Two recordings",
+  "intro": "Read one pasuk twice: once right, once with a mistake on purpose. Two minutes.",
+  "tasks": [
+   {"id": "q1", "text": "t23:1", "do": "right"},
+   {"id": "q2", "text": "t23:1", "do": "free"}
+  ]
+ },
+ "david": {
+  "title": "David's test — 20 recordings",
+  "intro": "Short recordings of Tehillim, some read right and some with one mistake on purpose. Each one is a few seconds; the whole list is about ten minutes. Stop whenever you like — it remembers where you were.",
+  "tasks": [
+   {"id": "d01", "text": "t23:1", "do": "right"},
+   {"id": "d02", "text": "t23:1", "do": "right"},
+   {"id": "d03", "text": "t23:1", "do": "ayin", "word": "רעי"},
+   {"id": "d04", "text": "t23:1", "do": "het", "word": "אחסר"},
+   {"id": "d05", "text": "t23:1", "do": "skip"},
+   {"id": "d06", "text": "t23:2", "do": "right"},
+   {"id": "d07", "text": "t23:2", "do": "het", "word": "מנחות"},
+   {"id": "d08", "text": "t23:2", "do": "swap"},
+   {"id": "d09", "text": "t23:2", "do": "vowel"},
+   {"id": "d10", "text": "t23:3", "do": "right"},
+   {"id": "d11", "text": "t23:3", "do": "wrong"},
+   {"id": "d12", "text": "t23:4", "do": "right"},
+   {"id": "d13", "text": "t23:4", "do": "ayin", "word": "עמדי"},
+   {"id": "d14", "text": "t23:5", "do": "right"},
+   {"id": "d15", "text": "t23:5", "do": "skip"},
+   {"id": "d16", "text": "t23:6", "do": "het", "word": "וחסד"},
+   {"id": "d17", "text": "t121:1", "do": "right"},
+   {"id": "d18", "text": "t121:1", "do": "ayin", "word": "עיני"},
+   {"id": "d19", "text": "t150:1", "do": "right"},
+   {"id": "d20", "text": "t150:1", "do": "free"}
+  ]
+ },
+ "friend": {
+  "title": "Ten short recordings",
+  "intro": "You are helping test a tool that listens to Tehillim and tells a student which words and letters came out right. Read each pasuk as asked — some right, some with one mistake on purpose. About five minutes.",
+  "tasks": [
+   {"id": "f01", "text": "t23:1", "do": "right"},
+   {"id": "f02", "text": "t23:1", "do": "ayin", "word": "רעי"},
+   {"id": "f03", "text": "t23:1", "do": "skip"},
+   {"id": "f04", "text": "t23:2", "do": "right"},
+   {"id": "f05", "text": "t23:2", "do": "het", "word": "מנחות"},
+   {"id": "f06", "text": "t23:2", "do": "swap"},
+   {"id": "f07", "text": "t23:3", "do": "right"},
+   {"id": "f08", "text": "t23:3", "do": "wrong"},
+   {"id": "f09", "text": "t121:1", "do": "right"},
+   {"id": "f10", "text": "t121:1", "do": "ayin", "word": "עיני"}
+  ]
+ },
+ "pro": {
+  "title": "Tehillim, whole perakim",
+  "intro": "Read each perek at your natural pace, the way you would read for a student to learn from. One recording per perek; a few minutes each. Stop whenever you like and come back — it remembers where you were.",
+  "tasks": [
+   {"id": "p120", "text": "t120", "do": "perek", "check": false},
+   {"id": "p087", "text": "t87", "do": "perek", "check": false},
+   {"id": "p100", "text": "t100", "do": "perek", "check": false},
+   {"id": "p020", "text": "t20", "do": "perek", "check": false},
+   {"id": "p030", "text": "t30", "do": "perek", "check": false},
+   {"id": "p027", "text": "t27", "do": "perek", "check": false},
+   {"id": "p091", "text": "t91", "do": "perek", "check": false},
+   {"id": "p146", "text": "t146", "do": "perek", "check": false},
+   {"id": "p148", "text": "t148", "do": "perek", "check": false},
+   {"id": "p145", "text": "t145", "do": "perek", "check": false},
+   {"id": "p139", "text": "t139", "do": "perek", "check": false},
+   {"id": "p069", "text": "t69", "do": "perek", "check": false},
+   {"id": "p104", "text": "t104", "do": "perek", "check": false},
+   {"id": "p089", "text": "t89", "do": "perek", "check": false}
+  ]
+ }
+}
