@@ -197,8 +197,15 @@ const err=t=>{$('#err').textContent=t||'';if(t)$('#err').scrollIntoView({behavio
 let SRV=null;
 async function health(){const el=$('#srv');if(!API){el.className='pill bad';el.textContent='No server address';return;}
  el.className='pill wait';el.textContent='Waking the server…';
- try{const r=await fetch(url('/health'),{cache:'no-store'});const j=await r.json();SRV=j;el.className='pill ok';el.textContent='Ready';loadLyrics();kindHint();}
+ try{const r=await fetch(url('/health'),{cache:'no-store'});const j=await r.json();SRV=j;el.className='pill ok';el.textContent='Ready';await loadLyrics();kindHint();fromUrl();}
  catch(e){el.className='pill bad';el.textContent='Server not reachable';err('The server did not answer. It may be waking up — try again in a minute.');}}
+/* a link can open the page on a text, and on a line: /try?pz=200&line=3 (pizmon 200, line 3), /try?th=23&line=1
+   (Tehillim 23:1), &rec=<file> picks the hazzan recording — this is how the site sends a visitor to one line */
+function fromUrl(){const q=new URLSearchParams(location.search);const pz=q.get('pz'),th=q.get('th');if(!pz&&!th)return;
+ if(th){KIND='th';$('#kindTh').classList.add('on');$('#kindPz').classList.remove('on');}
+ const id=th?'t'+String(th).replace(/\D/g,''):String(pz).replace(/[^\dA-Za-z]/g,'');$('#pid').value=th?String(th).replace(/\D/g,''):id;
+ if(q.get('rec'))REC=q.get('rec');openP(id);
+ const k=parseInt(q.get('line')||'',10);if(k>=1){const b=$('#lines').querySelector(`.ln[data-k="${k-1}"]`);if(b)b.click();}}
 /* ---------- steps: the one being worked on is open, finished ones fold to a line ---------- */
 const STEPS=['s1','s2','s3','s4'];
 function foldStep(id,html){const s=$('#'+id);s.querySelector('.body').hidden=true;const sum=s.querySelector('.sum');if(sum){sum.hidden=false;if(html!=null)sum.querySelector('.txt').innerHTML=html;}}
