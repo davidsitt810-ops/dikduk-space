@@ -1146,9 +1146,10 @@ def marks_of(TW, F, gap, clean):
     if clean and TW:
         ds = [t['drop'] if t.get('drop') is not None else -1e9 for t in TW]; top = int(np.argmax(ds)); second = max([d for i, d in enumerate(ds) if i != top], default=-1e9)
         if (TW[top].get('n') or 0) >= 2 and ds[top] >= RULE['drop'] and ds[top] - second >= RULE['margin']: marks[top] = 'off'; why[top] = 'dropped'
-        for j in range(len(TW) - 1):
-            g = TW[j].get('swap')
-            if g is not None and g >= RULE['swap'] and (TW[j].get('n') or 0) >= 2 and (TW[j + 1].get('n') or 0) >= 2: marks[j] = marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'
+        sw = [t['swap'] if t.get('swap') is not None else -1e9 for t in TW[:-1]]
+        if sw:
+            j = int(np.argmax(sw)); na, nb = TW[j].get('n') or 0, TW[j + 1].get('n') or 0
+            if sw[j] >= RULE['swap'] and max(na, nb) >= 2 and min(na, nb) >= 1: marks[j] = marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'
         if gap is not None and gap >= RULE['gap']:
             line_wrong = True; marks = ['unsure' if m == 'ok' else m for m in marks]
     return marks, why, line_wrong
@@ -1162,11 +1163,12 @@ def summarize(out):
     def hv(i, k):
         if not RW or i >= len(RW): return None
         r = next((x for x in (RW[i].get('throat') or []) if x.get('k') == k), None); return r.get('v') if r else None
-    throat = [{'c': th['c'], 'w': W[i], 'k': th['k'], 'v': th.get('v'), 'hazzan': hv(i, th['k'])} for i, t in enumerate(TW) for th in (t.get('throat') or [])]
+    throat = [{'c': th['c'], 'w': W[i], 'k': th['k'], 'v': th.get('v'), 'hazzan': hv(i, th['k']), 'mark': marks[i]} for i, t in enumerate(TW) for th in (t.get('throat') or [])]
     VN = out.get('vowel_names') or {}; nm = lambda k: (VN.get(k) or k).split(' ')[0]
     vow = []
     for src, against in ((out.get('vowels'), 'hazzan'), (out.get('vowels_nikud'), 'nikud')):
         for i, ds in (src or {}).items():
+            if marks[int(i)] == 'off': continue   # a word that was not there has no vowels to speak of
             for d in ds: vow.append({'w': W[int(i)], 'k': d['k'], 'you': nm(d['you']), 'ref': nm(d['ref']), 'against': against})
     miss = {W[i]: t['miss'] for i, t in enumerate(TW) if t.get('miss')}
     return {'marks': marks, 'why': why, 'line_wrong': line_wrong, 'gap': out['take'].get('gap'), 'throat': throat, 'vowels': vow, 'miss': miss, 'clean': clean, 'hazzan': bool(F), 'dur': out['take'].get('dur')}
@@ -1216,13 +1218,13 @@ def score_take(J):
     if not J.get('graded'): return {'state': 'waiting'}
     if not S: return {'state': 'error', 'why': J.get('error') or 'no result'}
     marks = dict(zip(W, S['marks'])); claims = []; tally = {'false_alarm': 0, 'caught': 0, 'missed': 0, 'unsure': 0, 'claims': 0}
-    changed = set(L.get('words') or [])
-    if do in ('skip', 'wrong', 'swap', 'free', 'vowel') and L.get('word'): changed.add(L['word'])
-    if do == 'swap': changed |= set(L.get('pair') or [])
+    changed = set(he_letters(w) for w in (L.get('words') or []))
+    if do in ('skip', 'wrong', 'swap', 'free', 'vowel') and L.get('word'): changed.add(he_letters(L['word']))
+    if do == 'swap': changed |= set(he_letters(w) for w in (L.get('pair') or []))
     # words
     for w in W:
         m = marks.get(w, '')
-        if w in changed and do in ('skip', 'wrong', 'swap', 'free'):
+        if he_letters(w) in changed and do in ('skip', 'wrong', 'swap', 'free'):
             if m == 'off': tally['caught'] += 1; claims.append(f'{w}: you changed it, machine said not heard ✓')
             elif m == 'unsure': tally['unsure'] += 1; claims.append(f'{w}: you changed it, machine said not sure ~')
             else: tally['missed'] += 1; claims.append(f'{w}: you changed it, machine passed it ✕')
@@ -1231,7 +1233,8 @@ def score_take(J):
             elif m == 'unsure': tally['unsure'] += 1; claims.append(f'{w}: you sang it, machine said not sure ~')
     # throat letters
     for th in S['throat']:
-        planted = (do == 'ayin' and th['c'] == 'ע' or do == 'het' and th['c'] == 'ח') and (not L.get('word') or L.get('word') == th['w']) and L.get('done', True)
+        if th.get('mark') == 'off' or (he_letters(th['w']) in changed and do in ('skip', 'wrong', 'swap', 'free')): continue   # the word was not there, or was changed: its letters are not judged
+        planted = (do == 'ayin' and th['c'] == 'ע' or do == 'het' and th['c'] == 'ח') and (not L.get('word') or he_letters(L.get('word')) == he_letters(th['w'])) and L.get('done', True)
         if planted:
             if th['v'] == 'plain': tally['caught'] += 1; claims.append(f"{th['c']} in {th['w']}: you said it plain, machine heard plain ✓")
             elif th['v'] == 'unsure': tally['unsure'] += 1; claims.append(f"{th['c']} in {th['w']}: you said it plain, machine not sure ~")
@@ -1243,10 +1246,10 @@ def score_take(J):
     # vowels
     vw = [v for v in S['vowels']]
     if do == 'vowel' and L.get('word'):
-        hit = [v for v in vw if v['w'] == L['word']]
+        hit = [v for v in vw if he_letters(v['w']) == he_letters(L['word'])]
         if hit: tally['caught'] += 1; claims.append(f"{L['word']}: you changed a vowel, machine heard {hit[0]['you']} for {hit[0]['ref']} ✓")
         else: tally['missed'] += 1; claims.append(f"{L['word']}: you changed a vowel, machine heard nothing ✕")
-        vw = [v for v in vw if v['w'] != L['word']]
+        vw = [v for v in vw if he_letters(v['w']) != he_letters(L['word'])]
     for v in vw:
         tally['claims'] += 1; claims.append(f"{v['w']}: machine says you sang {v['you']} where the {v['against']} has {v['ref']} — right or wrong?")
     return {'state': 'scored', 'claims': claims, 'tally': tally, 'clean': S['clean'], 'hazzan': S['hazzan']}

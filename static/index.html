@@ -340,7 +340,7 @@ const RULE={drop:10,margin:4,swap:8,gap:0.6};
 function marksOf(TW,F,gap){const marks=TW.map((t,i)=>markOf(t,F&&F[i]));const why=TW.map(()=>null);let lineWrong=false;
  if(CLEAN){const ds=TW.map(t=>t.drop==null?-1e9:t.drop);const top=ds.indexOf(Math.max(...ds));const second=Math.max(...ds.filter((d,i)=>i!==top),-1e9);
   if(top>=0&&(TW[top].n||0)>=2&&ds[top]>=RULE.drop&&ds[top]-second>=RULE.margin){marks[top]='off';why[top]='dropped';}
-  for(let j=0;j+1<TW.length;j++){const g=TW[j].swap;if(g!=null&&g>=RULE.swap&&(TW[j].n||0)>=2&&(TW[j+1].n||0)>=2){marks[j]='off';marks[j+1]='off';why[j]=why[j+1]='swapped';}}
+  const sw=TW.slice(0,-1).map(t=>t.swap==null?-1e9:t.swap);if(sw.length){const j=sw.indexOf(Math.max(...sw)),na=TW[j].n||0,nb=TW[j+1].n||0;if(sw[j]>=RULE.swap&&Math.max(na,nb)>=2&&Math.min(na,nb)>=1){marks[j]='off';marks[j+1]='off';why[j]=why[j+1]='swapped';}}
   if(gap!=null&&gap>=RULE.gap){lineWrong=true;for(let i=0;i<marks.length;i++)if(marks[i]==='ok')marks[i]='unsure';}}
  return {marks,why,lineWrong};}
 /* a throat letter's verdict in words: v = throat / plain / unsure; the ears (classifier, Arabic-letter ear, trained
@@ -359,7 +359,7 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=j
  const LABEL={ok:'✓',unsure:'not sure',off:'not heard','':''};
  /* the words: colour = was the word there; the ע/ח inside each word coloured by its own verdict */
  $('#res').innerHTML=W.map((w,i)=>{const t=TW[i];let n=0;const ths=(t.throat||[]);
-  const cls=c=>{const th=ths[n++];if(!th)return '';if(th.v==='plain'){const r=RW&&RW[i]&&(RW[i].throat||[]).find(x=>x.k===th.k);if(r&&r.v==='plain')return '';}return VCLS[th.v]||'';};
+  const cls=c=>{const th=ths[n++];if(!th||marks[i]==='off')return '';if(th.v==='plain'){const r=RW&&RW[i]&&(RW[i].throat||[]).find(x=>x.k===th.k);if(r&&r.v==='plain')return '';}return VCLS[th.v]||'';};
   return `<button class="w ${marks[i]}" data-i="${i}" type="button" lang="he"><b>${hiTh(w,cls)}</b><small>${LABEL[marks[i]]}</small></button>`;}).join('');
  $('#res').querySelectorAll('.w').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;$('#res').querySelectorAll('.w').forEach(x=>x.classList.toggle('sel',x===b));const r=RW&&RW[i],f=F&&F[i],t=TW[i];
   const mine=f&&f.t0!=null?[f.t0,f.t1]:t&&t.t0!=null?[t.t0,t.t1]:null;
@@ -372,10 +372,10 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=j
   if(why[i]==='swapped'){if(i+1<W.length&&why[i+1]==='swapped'&&TW[i].swap!=null&&TW[i].swap>=RULE.swap)parts.push(`${he(w)} and ${he(W[i+1])} seem swapped`);}
   else if(marks[i]==='off')parts.push('not heard where it belongs');else if(marks[i]==='unsure')parts.push('not sure it was there');
   if(marks[i]!=='ok'&&t.miss&&t.miss.length&&t.miss.length<(t.n||9))parts.push(`${he(t.miss.join(' '))} not heard`);
-  (t.throat||[]).forEach(th=>{if(th.v!=='plain')return;const r=RW&&RW[i]&&(RW[i].throat||[]).find(x=>x.k===th.k);if(r&&r.v==='plain')return;   /* the hazzan says it plain there too: not a fault */
+  if(marks[i]!=='off')(t.throat||[]).forEach(th=>{if(th.v!=='plain')return;const r=RW&&RW[i]&&(RW[i].throat||[]).find(x=>x.k===th.k);if(r&&r.v==='plain')return;   /* the hazzan says it plain there too: not a fault */
    parts.push(th.c==='ע'?'the ע was said like alef':'the ח was not from the throat');});
   (t.notes||[]).forEach(n=>{if(n.say==='sav')parts.push('the ת sounded like a samekh');});
-  const vd=(j.vowels&&j.vowels[i])||[],vn=(j.vowels_nikud&&j.vowels_nikud[i])||[];
+  const vd=marks[i]==='off'?[]:((j.vowels&&j.vowels[i])||[]),vn=marks[i]==='off'?[]:((j.vowels_nikud&&j.vowels_nikud[i])||[]);
   vd.forEach(d=>parts.push(`you sang ${vname(d.you)} where the hazzan sings ${vname(d.ref)}`));
   vn.forEach(d=>{if(!vd.some(x=>x.k===d.k))parts.push(`you sang ${vname(d.you)} where the nikud says ${vname(d.ref)}`);});
   if(parts.length)lines.push(`<li>${he(w)}: ${parts.join('; ')}.</li>`);});
@@ -388,7 +388,7 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=j
  else{say.className='say warn';say.textContent='The words are there, with a few things to hear.';}
  $('#notes').innerHTML=lines.join('');
  /* throat letters: the verdict per ע / ח, you and the hazzan */
- const rows=[];TW.forEach((t,i)=>(t.throat||[]).forEach(th=>{const r=RW&&RW[i]&&(RW[i].throat||[]).find(x=>x.k===th.k);rows.push({w:W[i],c:th.c,you:th,him:r});}));
+ const rows=[];TW.forEach((t,i)=>{if(marks[i]==='off')return;(t.throat||[]).forEach(th=>{const r=RW&&RW[i]&&(RW[i].throat||[]).find(x=>x.k===th.k);rows.push({w:W[i],c:th.c,you:th,him:r});});});
  if(rows.length){$('#th').innerHTML=rows.map(x=>{const a=thSay(x.you),b=thSay(x.him);
    return `<div class="tr"><div class="hd"><span class="lt">${esc(x.c)}</span><span>in ${he(x.w)}</span></div><div><span class="k">you</span><span class="v ${VCLS[a.v]||''}">${esc(a.lead)}</span><span class="ears hint" style="margin:0"> · ${esc(a.ears)}</span></div><div><span class="k">the hazzan</span><span class="v">${x.him?esc(b.lead):'–'}</span>${x.him?`<span class="ears hint" style="margin:0"> · ${esc(b.ears)}</span>`:''}</div></div>`;}).join('');
   $('#thP').hidden=false;}else $('#thP').hidden=true;

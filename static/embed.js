@@ -272,7 +272,7 @@ function mount(root, opts) {
  function marksOf(TW, F, gap) { const marks = TW.map((t, i) => markOf(t, F && F[i])); const why = TW.map(() => null); let lineWrong = false;
   if (CLEAN) { const ds = TW.map(t => t.drop == null ? -1e9 : t.drop); const top = ds.indexOf(Math.max(...ds)); const second = Math.max(...ds.filter((d, i) => i !== top), -1e9);
    if (top >= 0 && (TW[top].n || 0) >= 2 && ds[top] >= RULE.drop && ds[top] - second >= RULE.margin) { marks[top] = 'off'; why[top] = 'dropped'; }
-   for (let j = 0; j + 1 < TW.length; j++) { const g = TW[j].swap; if (g != null && g >= RULE.swap && (TW[j].n || 0) >= 2 && (TW[j + 1].n || 0) >= 2) { marks[j] = 'off'; marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'; } }
+   const sw = TW.slice(0, -1).map(t => t.swap == null ? -1e9 : t.swap); if (sw.length) { const j = sw.indexOf(Math.max(...sw)), na = TW[j].n || 0, nb = TW[j + 1].n || 0; if (sw[j] >= RULE.swap && Math.max(na, nb) >= 2 && Math.min(na, nb) >= 1) { marks[j] = 'off'; marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'; } }
    if (gap != null && gap >= RULE.gap) { lineWrong = true; for (let i = 0; i < marks.length; i++) if (marks[i] === 'ok') marks[i] = 'unsure'; } }
   return {marks, why, lineWrong}; }
  const VCLS = {throat: 'good', plain: 'bad', unsure: 'warn'};
@@ -280,7 +280,7 @@ function mount(root, opts) {
  function render(j) { const W = j.words, TW = j.take.words, RW = j.ref ? j.ref.words : null, F = j.fit || null;
   const hs = TW.filter(t => (t.n || 0) >= 2 && t.hskel != null).map(t => t.hskel).sort((a, b) => a - b); CLEAN = hs.length > 0 && hs[Math.floor(hs.length / 2)] >= .7;
   const {marks, why, lineWrong} = marksOf(TW, F, j.take.gap); const LABEL = {ok: S.labelOk, unsure: S.labelUnsure, off: S.labelOff, '': ''};
-  $('res').innerHTML = W.map((w, i) => { const t = TW[i]; let n = 0; const ths = (t.throat || []); const cls = () => { const th = ths[n++]; if (!th) return ''; if (th.v === 'plain') { const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return ''; } return VCLS[th.v] || ''; };
+  $('res').innerHTML = W.map((w, i) => { const t = TW[i]; let n = 0; const ths = (t.throat || []); const cls = () => { const th = ths[n++]; if (!th || marks[i] === 'off') return ''; if (th.v === 'plain') { const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return ''; } return VCLS[th.v] || ''; };
    return `<button class="dk-w ${marks[i]}" type="button" data-i="${i}" lang="he"><b>${hiTh(w, cls)}</b><small>${LABEL[marks[i]]}</small></button>`; }).join('');
   $('res').querySelectorAll('.dk-w').forEach(b => b.onclick = () => { const i = +b.dataset.i; $('res').querySelectorAll('.dk-w').forEach(x => x.classList.toggle('sel', x === b)); const r = RW && RW[i], f = F && F[i], t = TW[i];
    const mine = f && f.t0 != null ? [f.t0, f.t1] : t && t.t0 != null ? [t.t0, t.t1] : null;
@@ -291,9 +291,9 @@ function mount(root, opts) {
    if (why[i] === 'swapped') { if (i + 1 < W.length && why[i + 1] === 'swapped' && TW[i].swap != null && TW[i].swap >= RULE.swap) parts.push(fmt(S.swapped, {a: he(w), b: he(W[i + 1])})); }
    else if (marks[i] === 'off') parts.push(S.wOff); else if (marks[i] === 'unsure') parts.push(S.wUnsure);
    if (marks[i] !== 'ok' && t.miss && t.miss.length && t.miss.length < (t.n || 9)) parts.push(he(t.miss.join(' ')) + S.notHeard);
-   (t.throat || []).forEach(th => { if (th.v !== 'plain') return; const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return; parts.push(th.c === 'ע' ? S.ayinAlef : S.hetPlain); });
+   if (marks[i] !== 'off') (t.throat || []).forEach(th => { if (th.v !== 'plain') return; const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return; parts.push(th.c === 'ע' ? S.ayinAlef : S.hetPlain); });
    (t.notes || []).forEach(nn => { if (nn.say === 'sav') parts.push(S.tavSamekh); });
-   const vd = (j.vowels && j.vowels[i]) || [], vn = (j.vowels_nikud && j.vowels_nikud[i]) || [];
+   const vd = marks[i] === 'off' ? [] : ((j.vowels && j.vowels[i]) || []), vn = marks[i] === 'off' ? [] : ((j.vowels_nikud && j.vowels_nikud[i]) || []);
    vd.forEach(d => parts.push(fmt(S.vowHaz, {you: vname(d.you), ref: vname(d.ref)}))); vn.forEach(d => { if (!vd.some(x => x.k === d.k)) parts.push(fmt(S.vowNik, {you: vname(d.you), ref: vname(d.ref)})); });
    if (parts.length) lines.push(`<li>${he(w)}: ${parts.join('; ')}.</li>`); });
   const offW = W.filter((w, i) => marks[i] === 'off'), unsW = W.filter((w, i) => marks[i] === 'unsure'), say = $('say');
@@ -304,7 +304,7 @@ function mount(root, opts) {
   else if (unsW.length) { say.className = 'dk-say warn'; say.innerHTML = fmt(S.unsureOnly, {uns: unsW.map(he).join(', ')}); }
   else { say.className = 'dk-say warn'; say.textContent = S.few; }
   $('notes').innerHTML = lines.join('');
-  const rows = []; TW.forEach((t, i) => (t.throat || []).forEach(th => { const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); rows.push({w: W[i], c: th.c, you: th, him: r}); }));
+  const rows = []; TW.forEach((t, i) => { if (marks[i] === 'off') return; (t.throat || []).forEach(th => { const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); rows.push({w: W[i], c: th.c, you: th, him: r}); }); });
   if (rows.length) { $('th').innerHTML = rows.map(x => `<div class="dk-tr"><div><span class="dk-lt">${esc(x.c)}</span><span>${he(x.w)}</span></div><div><span class="dk-k">${esc(S.you)}</span><span class="${VCLS[x.you.v] || ''}">${esc(thLead(x.you))}</span></div><div><span class="dk-k">${esc(S.hazzan)}</span><span>${esc(thLead(x.him))}</span></div></div>`).join(''); $('thP').hidden = false; } else $('thP').hidden = true;
   fold('s3'); $('s4').hidden = false; $('s4').querySelector('.dk-body').hidden = false; scrollTo('s4'); }
  $('againLine').onclick = () => { resetTake(); openStep('s3'); scrollTo('s3'); };
