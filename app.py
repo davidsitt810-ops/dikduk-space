@@ -648,7 +648,7 @@ STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'ind
 # URL (empty = always the local files; locally the default).
 PAGE_BASE = os.environ.get('DK_PAGE_BASE', 'https://raw.githubusercontent.com/davidsitt810-ops/dikduk-space/main/static/' if os.environ.get('SPACE_ID') else '')
 _PAGES = {}
-STATIC_OK = {'index.html': '<script>', 'record.html': '<script>', 'scripts.json': '{'}
+STATIC_OK = {'index.html': '<script>', 'record.html': '<script>', 'scripts.json': '{', 'embed.js': 'Dikduk'}
 
 def static_text(name):
     """a static file by name: GitHub's copy when it answers and looks whole, else the local file"""
@@ -963,6 +963,12 @@ def record_page():
     return ('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
             '<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>'
             '</head><body>' + body + '</body></html>')
+
+@app.get('/embed.js')
+def embed_js():
+    """the drop-in checker for a site page (see the top of static/embed.js)"""
+    from fastapi.responses import Response
+    return Response(static_text('embed.js'), media_type='application/javascript; charset=utf-8', headers={'Cache-Control': 'public, max-age=300'})
 
 @app.get('/scripts')
 def scripts():
