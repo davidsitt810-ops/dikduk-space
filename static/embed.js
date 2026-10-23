@@ -194,7 +194,8 @@ function mount(root, opts) {
  const nice = f => String(f).replace(/\.mp3$/i, '').replace(/^tehillim-0*/, 'Rabbi Alouf, perek ').replace(/^extra-/, '');
  function openP(pid) { P = null; const s = LY && LY.s[String(pid)]; if (!s) { err(isTh(pid) ? fmt(S.noPerek, {n: String(pid).slice(1)}) : fmt(S.noPz, {id: pid})); return; } P = {id: String(pid), s};
   const recs = Object.keys(s.t || {}); if (!REC || !recs.includes(REC)) REC = recs.includes(s.b) ? s.b : recs[0] || null;
-  const noAudio = isTh(P.id) && SRV && SRV.ears && !SRV.ears.tehillim_audio; if (noAudio) REC = null;
+  const haveTh = SRV && SRV.ears && SRV.ears.tehillim_perakim;   // the server's own list of perakim whose audio it has
+  const noAudio = isTh(P.id) && SRV && SRV.ears && (haveTh ? !haveTh.includes(+P.id.slice(1)) : !SRV.ears.tehillim_audio); if (noAudio) REC = null;
   const label = isTh(P.id) ? fmt(S.tehillimN, {n: P.id.slice(1)}) : fmt(S.pizmonN, {id: P.id});
   fold('s1', esc(label)); $('ptitle').innerHTML = esc(label) + ' · ' + he(s.l[0]);
   if (!REC) $('recs').innerHTML = '<span class="dk-hint" style="margin:0">' + esc(isTh(P.id) ? S.noTh : S.noRec) + '</span>';
