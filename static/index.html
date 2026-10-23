@@ -326,9 +326,11 @@ $('#check').onclick=async()=>{if(!TAKE||!LINE)return;busyText('sending your reco
 let CLEAN=false;
 function markOf(y,f){const n=y&&y.n||0,sk=y&&y.skel!=null?y.skel:null,ft=f&&f.fit!=null?f.fit:null;
  if(!n||sk==null)return '';
- const kp=y&&y.kept!=null?y.kept:null,pw=y&&y.pw!=null?y.pw:null;
- if(n>=2){if(sk<.2&&(ft==null||ft<.15))return 'off';if(CLEAN&&pw!=null&&pw>=.95)return 'off';if(sk<.4||(ft!=null&&ft<.2)||(kp!=null&&kp<.5)||(pw!=null&&pw>=.8))return 'unsure';return 'ok';}
- return sk<.2?'unsure':'ok';}
+ const kp=y&&y.kept!=null?y.kept:null,pw=y&&y.pw!=null?y.pw:null,hs=y&&y.hskel!=null?y.hskel:null;
+ /* on a clean take, a word whose letters the head all heard and whose hazzan sounds fit is there, whatever its consonant score (measured: 0 wrong words rescued, half the needless "not sure"s gone) */
+ const sure=CLEAN&&kp!=null&&kp>=.75&&hs!=null&&hs>=.6&&ft!=null&&ft>=.5&&(pw==null||pw<.8);
+ if(n>=2){if(sk<.2&&(ft==null||ft<.15))return 'off';if(CLEAN&&pw!=null&&pw>=.95)return 'off';if(sure)return 'ok';if(sk<.4||(ft!=null&&ft<.2)||(kp!=null&&kp<.5)||(pw!=null&&pw>=.8))return 'unsure';return 'ok';}
+ return sk<.2&&!sure?'unsure':'ok';}
 /* v4.3: whole-line evidence on a clean take (server: order.py). drop = how much the audio prefers the line WITHOUT
    this word (nats; only the line's largest drop may flag, and only when it stands clear of the second); swap = how
    much it prefers the two neighbours the other way round; gap = what the written line costs per frame against the

@@ -264,8 +264,9 @@ function mount(root, opts) {
   $('busy').hidden = true; $('check').disabled = false; };
  /* ----- the verdicts (the same rule as the Space's page) ----- */
  let CLEAN = false;
- function markOf(y, f) { const n = y && y.n || 0, sk = y && y.skel != null ? y.skel : null, ft = f && f.fit != null ? f.fit : null; if (!n || sk == null) return ''; const kp = y && y.kept != null ? y.kept : null, pw = y && y.pw != null ? y.pw : null;
-  if (n >= 2) { if (sk < .2 && (ft == null || ft < .15)) return 'off'; if (CLEAN && pw != null && pw >= .95) return 'off'; if (sk < .4 || (ft != null && ft < .2) || (kp != null && kp < .5) || (pw != null && pw >= .8)) return 'unsure'; return 'ok'; } return sk < .2 ? 'unsure' : 'ok'; }
+ function markOf(y, f) { const n = y && y.n || 0, sk = y && y.skel != null ? y.skel : null, ft = f && f.fit != null ? f.fit : null; if (!n || sk == null) return ''; const kp = y && y.kept != null ? y.kept : null, pw = y && y.pw != null ? y.pw : null, hs = y && y.hskel != null ? y.hskel : null;
+  const sure = CLEAN && kp != null && kp >= .75 && hs != null && hs >= .6 && ft != null && ft >= .5 && (pw == null || pw < .8);
+  if (n >= 2) { if (sk < .2 && (ft == null || ft < .15)) return 'off'; if (CLEAN && pw != null && pw >= .95) return 'off'; if (sure) return 'ok'; if (sk < .4 || (ft != null && ft < .2) || (kp != null && kp < .5) || (pw != null && pw >= .8)) return 'unsure'; return 'ok'; } return sk < .2 && !sure ? 'unsure' : 'ok'; }
  /* whole-line evidence on a clean take (server: order.py); thresholds from exam_alouf.py — kept in step with index.html */
  const RULE = {drop: 10, margin: 4, swap: 8, gap: 0.6};
  function marksOf(TW, F, gap) { const marks = TW.map((t, i) => markOf(t, F && F[i])); const why = TW.map(() => null); let lineWrong = false;

@@ -1120,13 +1120,15 @@ def mark_of(y, f, clean):
     """the page's rule for one word (kept in step with static/index.html markOf)"""
     n = y.get('n') or 0; sk = y.get('skel'); ft = f.get('fit') if f else None
     if not n or sk is None: return ''
-    kp = y.get('kept'); pw = y.get('pw')
+    kp = y.get('kept'); pw = y.get('pw'); hs = y.get('hskel')
+    sure = clean and kp is not None and kp >= .75 and hs is not None and hs >= .6 and ft is not None and ft >= .5 and (pw is None or pw < .8)
     if n >= 2:
         if sk < .2 and (ft is None or ft < .15): return 'off'
         if clean and pw is not None and pw >= .95: return 'off'
+        if sure: return 'ok'
         if sk < .4 or (ft is not None and ft < .2) or (kp is not None and kp < .5) or (pw is not None and pw >= .8): return 'unsure'
         return 'ok'
-    return 'unsure' if sk < .2 else 'ok'
+    return 'unsure' if sk < .2 and not sure else 'ok'
 
 RULE = {'drop': 10, 'margin': 4, 'swap': 8, 'gap': 0.6}   # kept in step with static/index.html and embed.js
 
