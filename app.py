@@ -564,8 +564,11 @@ def throat_probe(lp, spf, H, win, ar_lp, ar_spf, ar_hit, want_emb=False, AH=None
         # v4: the ع PEAK in the window is the vote (measured on ±4-frame windows: Rabbi Alouf's ע 82% >= .5, his א 4%,
         # Israeli ע 12%, Israeli א 6%, archive hazzanim ע 53% / א 12%); "heard" over the aligned frames was too strict
         pk = ar.get('ع', 0); al = ar.get('alef', 0)
+        # v4.3: an ע where neither the Arabic ear nor the head heard any throat sound at all (an Israeli ע is often
+        # nothing — a glottal catch or silence) counts as plain too, not only one where an alef was heard
+        nothing = pk < .1 and (hd is None or (hd.get('mass') or {}).get('ע', 0) < .05)
         if pk >= .5: votes['throat'].append('arabic')
-        elif heard != 'ع' and pk < .15 and al >= .4: votes['plain'].append('arabic')
+        elif heard != 'ع' and pk < .15 and (al >= .4 or nothing): votes['plain'].append('arabic')
     else:
         if hd and sum(hd['mass'].values()) >= .2:
             r = hd['mass'].get('ח', 0) / sum(hd['mass'].values())
@@ -1209,6 +1212,7 @@ def take_audio(tid: str, key: str = None):
 def score_take(J):
     """one take: what the person did (its labels) against what the machine claimed -> verdict lines and tallies"""
     S = J.get('summary'); do = J.get('do') or 'right'; L = J.get('labels') or {}; W = he_words(J.get('words') or '')
+    if not J.get('check', True): return {'state': 'stored'}
     if not J.get('graded'): return {'state': 'waiting'}
     if not S: return {'state': 'error', 'why': J.get('error') or 'no result'}
     marks = dict(zip(W, S['marks'])); claims = []; tally = {'false_alarm': 0, 'caught': 0, 'missed': 0, 'unsure': 0, 'claims': 0}
@@ -1254,7 +1258,7 @@ def score(set_: str = Query(None, alias='set'), name: str = None, who: str = Non
     if not who:
         d = need_key(key)
         if d: return d
-    items = list_takes(set_, name, who); rows = []; tot = {'false_alarm': 0, 'caught': 0, 'missed': 0, 'unsure': 0, 'claims': 0, 'waiting': 0, 'error': 0}
+    items = list_takes(set_, name, who); rows = []; tot = {'false_alarm': 0, 'caught': 0, 'missed': 0, 'unsure': 0, 'claims': 0, 'waiting': 0, 'error': 0, 'stored': 0}
     for J in items:
         sc = score_take(J); rows.append({'id': J['id'], 'task': J.get('task'), 'label': J.get('label'), 'words': J.get('words'), 'do': J.get('do'), 'labels': J.get('labels'), 'note': J.get('note'), 'name': J.get('name'), 't': J.get('t'), **sc})
         if sc['state'] == 'scored':
