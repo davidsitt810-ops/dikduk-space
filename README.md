@@ -33,6 +33,14 @@ GitHub repo `davidsitt810-ops/dikduk-space` while building (push there, then reb
 (`/check?…&job=1`, polled at `/job/<id>`) so the proxy's request limit cannot cut a long first check; the page asks
 for the hazzan's line as soon as a line is picked; torch uses the container's real CPU quota.
 
+v4.3 adds whole-line evidence from the letter head (`order.py`): how much the audio prefers the line without each
+word (a skipped word), with two neighbours the other way round (a swap), and what the written line costs against the
+free path (another text). Measured on 70 of Rabbi Alouf's held-out pesukim, each intact and tampered four ways: a
+skipped word caught 97%, swapped words 92% (was 45%), a replaced word 79%, a wrong line 100% at line level, and 0
+false alarms on 1,850 right words. The ח vote uses the v2 classifier (all 79 of his ח from the throat; Israeli ח
+said like כ: 92% plain, 0% throat); a plain ע/ח is a fault only where the hazzan says it from the throat; /record
+is the recording booth and /embed.js the drop-in for a site page.
+
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
 - `GET /health`, `GET /info`, `GET /lyrics` (the site's lyrics.json + the Tehillim perakim, with CORS).
 - `GET /ref?f=<archive mp3 | tehillim-NNN.mp3>&t0=&t1=&words=<line>` — the hazzan's line, analysed and cached.

@@ -571,9 +571,12 @@ def throat_probe(lp, spf, H, win, ar_lp, ar_spf, ar_hit, want_emb=False, AH=None
             r = hd['mass'].get('ח', 0) / sum(hd['mass'].values())
             if r >= .7: votes['throat'].append('head')
             elif r <= .3: votes['plain'].append('head')
-        if p is not None:
-            if p >= .7: votes['throat'].append('classifier')
-            elif p <= .3: votes['plain'].append('classifier')
+        # v4.3: the v2 classifier (trained with Alouf and Israeli negatives, AUC .98) votes for ח as it does for ע; v1 only
+        # where v2 is missing. v1 alone left 8 of 79 of Rabbi Alouf's ח "unsure" while the other two ears heard the throat.
+        pc = p2 if p2 is not None else p
+        if pc is not None:
+            if pc >= .6: votes['throat'].append('classifier')
+            elif pc <= .3: votes['plain'].append('classifier')
         if ar.get('ح', 0) >= .5: votes['throat'].append('arabic')   # v4: the ح peak (Alouf ח 98%, כ 0%, ה 1%; Israeli ח 0%)
         elif heard in ('خ', 'ه') and ar.get('ح', 0) < .15 and max(ar.get('خ', 0), ar.get('ه', 0)) >= .4: votes['plain'].append('arabic')
     if len(votes['throat']) >= 2 and not votes['plain']: v = 'throat'
@@ -1121,9 +1124,11 @@ def mark_of(y, f, clean):
     n = y.get('n') or 0; sk = y.get('skel'); ft = f.get('fit') if f else None
     if not n or sk is None: return ''
     kp = y.get('kept'); pw = y.get('pw'); hs = y.get('hskel')
-    sure = clean and kp is not None and kp >= .75 and hs is not None and hs >= .6 and ft is not None and ft >= .5 and (pw is None or pw < .8)
+    sure = clean and kp is not None and kp >= .75 and hs is not None and hs >= .6 and (pw is None or pw < .8)
     if n >= 2:
-        if sk < .2 and (ft is None or ft < .15): return 'off'
+        if sk < .2 and (ft is None or ft < .15):
+            if ft is None and clean and not (kp is not None and kp < .75): return 'unsure'   # no hazzan to confirm: red needs the head's agreement
+            return 'off'
         if clean and pw is not None and pw >= .95: return 'off'
         if sure: return 'ok'
         if sk < .4 or (ft is not None and ft < .2) or (kp is not None and kp < .5) or (pw is not None and pw >= .8): return 'unsure'
