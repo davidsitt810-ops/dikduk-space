@@ -21,7 +21,7 @@ ADD https://github.com/davidsitt810-ops/dikduk-space/commits/main.atom /tmp/gith
 RUN python -c "import urllib.request, tarfile, io, os, shutil; \
 u = 'https://github.com/davidsitt810-ops/dikduk-space/archive/refs/heads/main.tar.gz'; \
 t = tarfile.open(fileobj=io.BytesIO(urllib.request.urlopen(u, timeout=120).read())); t.extractall('/tmp/src'); \
-r = os.path.join('/tmp/src', os.listdir('/tmp/src')[0]); skip = {'.git', '.github', 'Dockerfile', 'README.md', 'README_REPO.md', 'Dikduk.ipynb'}; \
+r = os.path.join('/tmp/src', os.listdir('/tmp/src')[0]); skip = {'.git', '.github', 'Dockerfile', 'README.md', 'README_REPO.md', 'Dikduk.ipynb', 'tools'}; \
 [shutil.copytree(os.path.join(r, n), os.path.join('/app', n), dirs_exist_ok=True) if os.path.isdir(os.path.join(r, n)) else shutil.copy2(os.path.join(r, n), '/app') for n in os.listdir(r) if n not in skip]; \
 shutil.rmtree('/tmp/src'); print('from github:', sorted(n for n in os.listdir('/app') if n != 'hf'), 'tehillim mp3s:', len(os.listdir('/app/static/tehillim')))"
 RUN mkdir -p /tmp/dkcache && chown -R user /app /tmp/dkcache
