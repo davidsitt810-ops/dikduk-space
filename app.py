@@ -182,6 +182,7 @@ except Exception as e:
 # nikud when the line has it). Loaded when the file is there.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from vowels import vowel_place, compare_vowels, letters_kept, VOWEL_NAME, VOWELS
+from order import order_evidence, order_from_tokens
 FULL = None; FULL_SYM = []; FULL_LAYER = 12
 try:
     ck = torch.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'full_head.pt'), map_location='cpu')
@@ -497,6 +498,19 @@ def place_words(lp, spf, words):
             w['throat'].append({'k': k, 'c': ch, 't0': round(max(0.0, left - 0.04), 3), 't1': round(right + 0.04, 3)})
     return W
 
+def phone_line_tokens(lp, words):
+    """each word's consonant skeleton as virtual 'either of these sounds' columns (as place_words builds them)"""
+    sets, key, per_word = [], {}, []
+    for w in words:
+        toks = []
+        for k, c, alts in skeleton(w):
+            kk = ','.join(alts)
+            if kk not in key: key[kk] = len(sets); sets.append(alts)
+            toks.append(lp.shape[1] + key[kk])
+        per_word.append(toks)
+    lp_ext = np.concatenate([lp, np.stack([np.logaddexp.reduce(lp[:, [VOCAB[p] for p in alts]], axis=1) for alts in sets], 1)], 1) if sets else lp
+    return lp_ext, per_word
+
 def heard_in(seq, t0, t1):
     return [s['p'] for s in seq if t0 <= s['t'] < t1]
 
@@ -597,7 +611,18 @@ def analyse(x: np.ndarray, words, want_emb=False):
     # Rabbi Alouf: right words keep 98% of their letters, the words of another pasuk 33%, a skipped word 20-50%)
     kp = letters_kept(hlp, words, HEAD_S2I, he_read, 3.0) if hlp is not None else {}
     vs, vl = vowel_place(flp, words, FULL_S2I, he_read) if flp is not None else ({}, {})
+    # whole-line evidence: does the audio prefer the line with a word left out, or two neighbours swapped? (order.py)
+    try:
+        ev_h = order_evidence(hlp, words, HEAD_S2I, he_read, 0) if hlp is not None else None
+    except Exception as e:
+        print('order (head):', e, flush=True); ev_h = None
+    try:
+        lp_ext, pw_ph = phone_line_tokens(lp, words); ev_p = order_from_tokens(lp_ext, pw_ph, None, PAD)
+    except Exception as e:
+        print('order (phones):', e, flush=True); ev_p = None
     for i, w in enumerate(W):
+        w['drop'] = ev_h['drop'][i] if ev_h else None; w['swap'] = (ev_h['swap'][i] if i < len(words) - 1 else None) if ev_h else None
+        w['drop_ph'] = ev_p['drop'][i] if ev_p else None; w['swap_ph'] = (ev_p['swap'][i] if i < len(words) - 1 else None) if ev_p else None
         w['phones'] = heard_in(seq, w['t0'], w['t1'])
         w['ids'] = [VOCAB[p] for p in w['phones'] if p in VOCAB]
         w['hskel'] = hw.get(i)
@@ -607,7 +632,7 @@ def analyse(x: np.ndarray, words, want_emb=False):
             w['vskel'] = vl.get(i)
         for th in w['throat']:
             th.update(throat_probe(lp, spf, H, th, ar_lp, ar_spf, ar_hits.get((i, th['k'])), want_emb, AH, hl.get((i, th['k'])))); th['heard'] = heard_in(seq, th['t0'], th['t1'])
-    return {'dur': round(x.shape[0] / SR, 3), 'spf': round(spf, 5), 'words': W, 'phones': seq, 'ms': int((time.time() - t) * 1000)}, lp, spf
+    return {'dur': round(x.shape[0] / SR, 3), 'spf': round(spf, 5), 'words': W, 'phones': seq, 'gap': ev_h['gap'] if ev_h else None, 'gap_ph': ev_p['gap'] if ev_p else None, 'ms': int((time.time() - t) * 1000)}, lp, spf
 
 # A combined "this word was not sung" score: logistic on the word's reference-free signals (skel, letter head, vowel
 # head, consonant count, letters kept), fitted on Rabbi Alouf's held-out pesukim tampered the way a student errs
@@ -684,7 +709,7 @@ def try_page():
 
 @app.get('/health')
 def health():
-    return {'ok': True, 'version': 4.2, 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
+    return {'ok': True, 'version': 4.3, 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
             'page_from': 'github' if (_PAGES.get('index.html') or {}).get('body') else 'local', 'jobs': {'queued': sum(1 for v in JOBS.values() if v['state'] == 'queued'), 'running': sum(1 for v in JOBS.values() if v['state'] == 'running')},
             'ears': {'letter_head': HEAD is not None, 'vowel_head': FULL is not None, 'fine_tuned': FT is not None, 'classifier_v2': bool(CLF2), 'tehillim_lyrics': len(TEHILLIM_LYR), 'tehillim_audio': os.path.isdir(TEHILLIM_DIR) and len(os.listdir(TEHILLIM_DIR)) or (TEHILLIM_BASE or 0),
                      'tehillim_perakim': sorted(int(m.group(1)) for m in (re.match(r'tehillim-(\d{3})\.mp3$', f) for f in (os.listdir(TEHILLIM_DIR) if os.path.isdir(TEHILLIM_DIR) else [])) if m)}}
@@ -712,7 +737,7 @@ def warm_up():
             print('warm-up done: perek', n, flush=True)
     except Exception as e:
         print('warm-up stopped:', e, flush=True)
-threading.Thread(target=warm_up, daemon=True).start()
+if not os.environ.get('DK_NO_WARM'): threading.Thread(target=warm_up, daemon=True).start()
 
 TEHILLIM_LYR = {}
 try:
@@ -1079,8 +1104,9 @@ async def submit(request: Request, meta: str = Query(...)):
                 if x.shape[0] > SR * 40: x = x[:SR * 40]
                 if x.shape[0] < SR * 0.5: raise ValueError('too short')
                 out = run_check(x, he_words(R['words']), R['ref'], R['t0'] or 0, R['t1'] or 0, 0, None, R['nikud'], progress)
+                rec['summary'] = summarize(out)
                 out.pop('ref', None)   # the hazzan's analysis is big and lives in the reference cache anyway
-                rec['result'] = out; rec['summary'] = summarize(out)
+                rec['result'] = out
             except Exception as e:
                 rec['error'] = str(e)[:200]
             rec['graded'] = True; json.dump(rec, open(full + '.json', 'w', encoding='utf-8'), ensure_ascii=False)
@@ -1102,19 +1128,38 @@ def mark_of(y, f, clean):
         return 'ok'
     return 'unsure' if sk < .2 else 'ok'
 
+RULE = {'drop': 10, 'margin': 4, 'swap': 8, 'gap': 0.6}   # kept in step with static/index.html and embed.js
+
+def marks_of(TW, F, gap, clean):
+    """the page's verdict per word (markOf + the whole-line evidence on a clean take) -> (marks, why, line_wrong)"""
+    marks = [mark_of(TW[i], F[i] if F else None, clean) for i in range(len(TW))]; why = [None] * len(TW); line_wrong = False
+    if clean and TW:
+        ds = [t['drop'] if t.get('drop') is not None else -1e9 for t in TW]; top = int(np.argmax(ds)); second = max([d for i, d in enumerate(ds) if i != top], default=-1e9)
+        if (TW[top].get('n') or 0) >= 2 and ds[top] >= RULE['drop'] and ds[top] - second >= RULE['margin']: marks[top] = 'off'; why[top] = 'dropped'
+        for j in range(len(TW) - 1):
+            g = TW[j].get('swap')
+            if g is not None and g >= RULE['swap'] and (TW[j].get('n') or 0) >= 2 and (TW[j + 1].get('n') or 0) >= 2: marks[j] = marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'
+        if gap is not None and gap >= RULE['gap']:
+            line_wrong = True; marks = ['unsure' if m == 'ok' else m for m in marks]
+    return marks, why, line_wrong
+
 def summarize(out):
     """the machine's claims about one take, in the page's words: marks per word, throat verdicts, vowel differences"""
     W, TW, F = out['words'], out['take']['words'], out.get('fit')
     hs = sorted(t['hskel'] for t in TW if (t.get('n') or 0) >= 2 and t.get('hskel') is not None); clean = bool(hs) and hs[len(hs) // 2] >= .7
-    marks = [mark_of(TW[i], F[i] if F else None, clean) for i in range(len(W))]
-    throat = [{'c': th['c'], 'w': W[i], 'k': th['k'], 'v': th.get('v')} for i, t in enumerate(TW) for th in (t.get('throat') or [])]
+    marks, why, line_wrong = marks_of(TW, F, out['take'].get('gap'), clean)
+    RW = (out.get('ref') or {}).get('words')
+    def hv(i, k):
+        if not RW or i >= len(RW): return None
+        r = next((x for x in (RW[i].get('throat') or []) if x.get('k') == k), None); return r.get('v') if r else None
+    throat = [{'c': th['c'], 'w': W[i], 'k': th['k'], 'v': th.get('v'), 'hazzan': hv(i, th['k'])} for i, t in enumerate(TW) for th in (t.get('throat') or [])]
     VN = out.get('vowel_names') or {}; nm = lambda k: (VN.get(k) or k).split(' ')[0]
     vow = []
     for src, against in ((out.get('vowels'), 'hazzan'), (out.get('vowels_nikud'), 'nikud')):
         for i, ds in (src or {}).items():
             for d in ds: vow.append({'w': W[int(i)], 'k': d['k'], 'you': nm(d['you']), 'ref': nm(d['ref']), 'against': against})
     miss = {W[i]: t['miss'] for i, t in enumerate(TW) if t.get('miss')}
-    return {'marks': marks, 'throat': throat, 'vowels': vow, 'miss': miss, 'clean': clean, 'hazzan': bool(F), 'dur': out['take'].get('dur')}
+    return {'marks': marks, 'why': why, 'line_wrong': line_wrong, 'gap': out['take'].get('gap'), 'throat': throat, 'vowels': vow, 'miss': miss, 'clean': clean, 'hazzan': bool(F), 'dur': out['take'].get('dur')}
 
 def list_takes(set_=None, name=None, who=None):
     items = []
@@ -1181,7 +1226,8 @@ def score_take(J):
             elif th['v'] == 'unsure': tally['unsure'] += 1; claims.append(f"{th['c']} in {th['w']}: you said it plain, machine not sure ~")
             else: tally['missed'] += 1; claims.append(f"{th['c']} in {th['w']}: you said it plain, machine heard the throat ✕")
         else:
-            if th['v'] == 'plain': tally['false_alarm'] += 1; claims.append(f"{th['c']} in {th['w']}: machine said plain ✕ (false alarm, unless you did say it plain)")
+            if th['v'] == 'plain' and th.get('hazzan') == 'plain': claims.append(f"{th['c']} in {th['w']}: plain, as the hazzan says it there (not counted)")
+            elif th['v'] == 'plain': tally['false_alarm'] += 1; claims.append(f"{th['c']} in {th['w']}: machine said plain ✕ (false alarm, unless you did say it plain)")
             elif th['v'] == 'unsure': tally['unsure'] += 1; claims.append(f"{th['c']} in {th['w']}: machine not sure ~")
     # vowels
     vw = [v for v in S['vowels']]

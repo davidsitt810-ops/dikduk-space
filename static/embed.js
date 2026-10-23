@@ -93,7 +93,8 @@ const T = {   /* every piece of text, so a site can translate or reword (Dikduk.
  wOff: 'not heard where it belongs', wUnsure: 'not sure it was there', notHeard: ' not heard', ayinAlef: 'the ע was said like alef', hetPlain: 'the ח was not from the throat',
  tavSamekh: 'the ת sounded like a samekh', vowHaz: 'you sang {you} where the hazzan sings {ref}', vowNik: 'you sang {you} where the nikud says {ref}',
  thThroat: 'from the throat ✓', thAlef: 'said like alef ✕', thPlain: 'not from the throat ✕', thUnsure: 'not sure', labelOk: '✓', labelUnsure: 'not sure', labelOff: 'not heard',
- lineN: 'Line {k}', pizmonN: 'Pizmon {id}', tehillimN: 'Tehillim {n}'};
+ lineN: 'Line {k}', pizmonN: 'Pizmon {id}', tehillimN: 'Tehillim {n}', swapped: '{a} and {b} seem swapped',
+ wrongLine: 'This does not sound like this line. Check that you picked the right line, then try again.'};
 const fmt = (s, o) => s.replace(/\{(\w+)\}/g, (m, k) => o[k] != null ? o[k] : m);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
 const he = w => `<span class="dk-he" lang="he">${esc(w)}</span>`;
@@ -265,12 +266,20 @@ function mount(root, opts) {
  let CLEAN = false;
  function markOf(y, f) { const n = y && y.n || 0, sk = y && y.skel != null ? y.skel : null, ft = f && f.fit != null ? f.fit : null; if (!n || sk == null) return ''; const kp = y && y.kept != null ? y.kept : null, pw = y && y.pw != null ? y.pw : null;
   if (n >= 2) { if (sk < .2 && (ft == null || ft < .15)) return 'off'; if (CLEAN && pw != null && pw >= .95) return 'off'; if (sk < .4 || (ft != null && ft < .2) || (kp != null && kp < .5) || (pw != null && pw >= .8)) return 'unsure'; return 'ok'; } return sk < .2 ? 'unsure' : 'ok'; }
+ /* whole-line evidence on a clean take (server: order.py); thresholds from exam_alouf.py — kept in step with index.html */
+ const RULE = {drop: 10, margin: 4, swap: 8, gap: 0.6};
+ function marksOf(TW, F, gap) { const marks = TW.map((t, i) => markOf(t, F && F[i])); const why = TW.map(() => null); let lineWrong = false;
+  if (CLEAN) { const ds = TW.map(t => t.drop == null ? -1e9 : t.drop); const top = ds.indexOf(Math.max(...ds)); const second = Math.max(...ds.filter((d, i) => i !== top), -1e9);
+   if (top >= 0 && (TW[top].n || 0) >= 2 && ds[top] >= RULE.drop && ds[top] - second >= RULE.margin) { marks[top] = 'off'; why[top] = 'dropped'; }
+   for (let j = 0; j + 1 < TW.length; j++) { const g = TW[j].swap; if (g != null && g >= RULE.swap && (TW[j].n || 0) >= 2 && (TW[j + 1].n || 0) >= 2) { marks[j] = 'off'; marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'; } }
+   if (gap != null && gap >= RULE.gap) { lineWrong = true; for (let i = 0; i < marks.length; i++) if (marks[i] === 'ok') marks[i] = 'unsure'; } }
+  return {marks, why, lineWrong}; }
  const VCLS = {throat: 'good', plain: 'bad', unsure: 'warn'};
  const thLead = t => !t || !t.v ? '–' : t.v === 'throat' ? S.thThroat : t.v === 'plain' ? (t.c === 'ע' ? S.thAlef : S.thPlain) : S.thUnsure;
  function render(j) { const W = j.words, TW = j.take.words, RW = j.ref ? j.ref.words : null, F = j.fit || null;
   const hs = TW.filter(t => (t.n || 0) >= 2 && t.hskel != null).map(t => t.hskel).sort((a, b) => a - b); CLEAN = hs.length > 0 && hs[Math.floor(hs.length / 2)] >= .7;
-  const marks = W.map((w, i) => markOf(TW[i], F && F[i])); const LABEL = {ok: S.labelOk, unsure: S.labelUnsure, off: S.labelOff, '': ''};
-  $('res').innerHTML = W.map((w, i) => { const t = TW[i]; let n = 0; const ths = (t.throat || []); const cls = () => { const th = ths[n++]; return th ? VCLS[th.v] || '' : ''; };
+  const {marks, why, lineWrong} = marksOf(TW, F, j.take.gap); const LABEL = {ok: S.labelOk, unsure: S.labelUnsure, off: S.labelOff, '': ''};
+  $('res').innerHTML = W.map((w, i) => { const t = TW[i]; let n = 0; const ths = (t.throat || []); const cls = () => { const th = ths[n++]; if (!th) return ''; if (th.v === 'plain') { const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return ''; } return VCLS[th.v] || ''; };
    return `<button class="dk-w ${marks[i]}" type="button" data-i="${i}" lang="he"><b>${hiTh(w, cls)}</b><small>${LABEL[marks[i]]}</small></button>`; }).join('');
   $('res').querySelectorAll('.dk-w').forEach(b => b.onclick = () => { const i = +b.dataset.i; $('res').querySelectorAll('.dk-w').forEach(x => x.classList.toggle('sel', x === b)); const r = RW && RW[i], f = F && F[i], t = TW[i];
    const mine = f && f.t0 != null ? [f.t0, f.t1] : t && t.t0 != null ? [t.t0, t.t1] : null;
@@ -278,15 +287,17 @@ function mount(root, opts) {
    else if (mine) playYou(Math.max(0, mine[0] - .15), mine[1] + .15); });
   const VN = j.vowel_names || {}; const vname = k => esc((VN[k] || k).split(' ')[0]); const lines = [];
   W.forEach((w, i) => { const t = TW[i]; const parts = [];
-   if (marks[i] === 'off') parts.push(S.wOff); else if (marks[i] === 'unsure') parts.push(S.wUnsure);
+   if (why[i] === 'swapped') { if (i + 1 < W.length && why[i + 1] === 'swapped' && TW[i].swap != null && TW[i].swap >= RULE.swap) parts.push(fmt(S.swapped, {a: he(w), b: he(W[i + 1])})); }
+   else if (marks[i] === 'off') parts.push(S.wOff); else if (marks[i] === 'unsure') parts.push(S.wUnsure);
    if (marks[i] !== 'ok' && t.miss && t.miss.length && t.miss.length < (t.n || 9)) parts.push(he(t.miss.join(' ')) + S.notHeard);
-   (t.throat || []).forEach(th => { if (th.v === 'plain') parts.push(th.c === 'ע' ? S.ayinAlef : S.hetPlain); });
+   (t.throat || []).forEach(th => { if (th.v !== 'plain') return; const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return; parts.push(th.c === 'ע' ? S.ayinAlef : S.hetPlain); });
    (t.notes || []).forEach(nn => { if (nn.say === 'sav') parts.push(S.tavSamekh); });
    const vd = (j.vowels && j.vowels[i]) || [], vn = (j.vowels_nikud && j.vowels_nikud[i]) || [];
    vd.forEach(d => parts.push(fmt(S.vowHaz, {you: vname(d.you), ref: vname(d.ref)}))); vn.forEach(d => { if (!vd.some(x => x.k === d.k)) parts.push(fmt(S.vowNik, {you: vname(d.you), ref: vname(d.ref)})); });
    if (parts.length) lines.push(`<li>${he(w)}: ${parts.join('; ')}.</li>`); });
   const offW = W.filter((w, i) => marks[i] === 'off'), unsW = W.filter((w, i) => marks[i] === 'unsure'), say = $('say');
-  if (!F && j.ref_err && !/Tehillim/.test(j.ref_err)) { say.className = 'dk-say warn'; say.textContent = S.noRef; }
+  if (lineWrong) { say.className = 'dk-say bad'; say.textContent = S.wrongLine; }
+  else if (!F && j.ref_err && !/Tehillim/.test(j.ref_err)) { say.className = 'dk-say warn'; say.textContent = S.noRef; }
   else if (!lines.length) { say.className = 'dk-say ok'; say.textContent = F ? S.allOkRef : S.allOk; }
   else if (offW.length) { say.className = 'dk-say bad'; say.innerHTML = fmt(S.someOff, {n: W.length - offW.length, N: W.length, off: offW.map(he).join(', ')}) + (unsW.length ? fmt(S.notSure, {uns: unsW.map(he).join(', ')}) : '') + '.'; }
   else if (unsW.length) { say.className = 'dk-say warn'; say.innerHTML = fmt(S.unsureOnly, {uns: unsW.map(he).join(', ')}); }
@@ -300,7 +311,7 @@ function mount(root, opts) {
  health();
  return {open: id => { LY ? openP(id) : null; }, get result() { return RESULT; }};
 }
-window.Dikduk = Object.assign(window.Dikduk || {}, {mount, strings: (window.Dikduk && window.Dikduk.strings) || {}, version: '4.2'});
+window.Dikduk = Object.assign(window.Dikduk || {}, {mount, strings: (window.Dikduk && window.Dikduk.strings) || {}, version: '4.3'});
 function auto() { document.querySelectorAll('[data-dikduk]').forEach(el => { if (el.dataset.dkMounted) return; el.dataset.dkMounted = '1'; mount(el, {api: el.dataset.api, pz: el.dataset.pz, th: el.dataset.th, line: el.dataset.line, rec: el.dataset.rec, archive: el.dataset.archive}); }); }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', auto); else auto();
 })();
