@@ -41,6 +41,20 @@ false alarms on 1,850 right words. The ח vote uses the v2 classifier (all 79 of
 said like כ: 92% plain, 0% throat); a plain ע/ח is a fault only where the hazzan says it from the throat; /record
 is the recording booth and /embed.js the drop-in for a site page.
 
+v4.4 (the Shabbat round, Oct 23–24) measures the pizmonim case too — the archive's own second recordings, another
+hazzan with instruments, checked against the site's reference (`tools/exam_archive.py`, 87 right takes, 98 wrong
+lines) — and fixes what it showed: a right word went red on 8.6% of those takes, because the per-word rule on a
+poorly heard take trusted the phone recognizer twice (`skel`, `fit`) and never asked the letter head. Now (1) on a
+take the heads hear poorly, red needs the head to agree (under half the letters heard); (2) the pw-red does not fire
+when the hazzan's own sounds for the word were found (fit ≥ .5); (3) CLEAN leaves the lowest word out of the median
+(one wrong word must not make a good recording look poor: swaps caught 92 → 99%, skipped 97 → 99% on Rabbi Alouf);
+(4) the line gap speaks on every take, clean or not (0 false "wrong line" on 157 right takes); (5) a take whose head
+median is under .3 is "I could not make out the words": nothing red, the doubtful words "not sure". Right words red
+on the archive: 8.6% → 3.5% (what is left is mostly words the singers do not sing as written — the same words in
+two recordings); Rabbi Alouf: still 0 of 1,850. The three copies of the rule (server, page, embed) are checked
+word for word on every exam row by `tools/t_parity.py`. All 144 perakim of Rabbi Alouf's Tehillim are in
+`static/tehillim/` (102 MB at 16 kHz / 48 kbps).
+
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
 - `GET /health`, `GET /info`, `GET /lyrics` (the site's lyrics.json + the Tehillim perakim, with CORS).
 - `GET /ref?f=<archive mp3 | tehillim-NNN.mp3>&t0=&t1=&words=<line>` — the hazzan's line, analysed and cached.

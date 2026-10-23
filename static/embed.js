@@ -94,7 +94,8 @@ const T = {   /* every piece of text, so a site can translate or reword (Dikduk.
  tavSamekh: 'the ת sounded like a samekh', vowHaz: 'you sang {you} where the hazzan sings {ref}', vowNik: 'you sang {you} where the nikud says {ref}',
  thThroat: 'from the throat ✓', thAlef: 'said like alef ✕', thPlain: 'not from the throat ✕', thUnsure: 'not sure', labelOk: '✓', labelUnsure: 'not sure', labelOff: 'not heard',
  lineN: 'Line {k}', pizmonN: 'Pizmon {id}', tehillimN: 'Tehillim {n}', swapped: '{a} and {b} seem swapped',
- wrongLine: 'This does not sound like this line. Check that you picked the right line, then try again.'};
+ wrongLine: 'This does not sound like this line. Check that you picked the right line, then try again.',
+ cantHear: 'I could not make out the words well enough to judge this one. Try again a little closer to the phone, without music in the background.'};
 const fmt = (s, o) => s.replace(/\{(\w+)\}/g, (m, k) => o[k] != null ? o[k] : m);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
 const he = w => `<span class="dk-he" lang="he">${esc(w)}</span>`;
@@ -267,20 +268,23 @@ function mount(root, opts) {
  let CLEAN = false;
  function markOf(y, f) { const n = y && y.n || 0, sk = y && y.skel != null ? y.skel : null, ft = f && f.fit != null ? f.fit : null; if (!n || sk == null) return ''; const kp = y && y.kept != null ? y.kept : null, pw = y && y.pw != null ? y.pw : null, hs = y && y.hskel != null ? y.hskel : null;
   const sure = CLEAN && kp != null && kp >= .75 && hs != null && hs >= .6 && (pw == null || pw < .8);
-  if (n >= 2) { if (sk < .2 && (ft == null || ft < .15)) { if (ft == null && CLEAN && !(kp != null && kp < .75)) return 'unsure'; return 'off'; } if (CLEAN && pw != null && pw >= .95) return 'off'; if (sure) return 'ok'; if (sk < .4 || (ft != null && ft < .2) || (kp != null && kp < .5) || (pw != null && pw >= .8)) return 'unsure'; return 'ok'; } return sk < .2 && !sure ? 'unsure' : 'ok'; }
+  if (n >= 2) { if (sk < .2 && (ft == null || ft < .15)) { if (ft == null && CLEAN && !(kp != null && kp < .75)) return 'unsure'; if (!CLEAN && kp != null && kp >= .5) return 'unsure'; return 'off'; } if (CLEAN && pw != null && pw >= .95 && (ft == null || ft < .5)) return 'off'; if (sure) return 'ok'; if (sk < .4 || (ft != null && ft < .2) || (kp != null && kp < .5) || (pw != null && pw >= .8)) return 'unsure'; return 'ok'; } return sk < .2 && !sure ? 'unsure' : 'ok'; }
  /* whole-line evidence on a clean take (server: order.py); thresholds from exam_alouf.py — kept in step with index.html */
- const RULE = {drop: 10, margin: 4, swap: 8, gap: 0.6};
- function marksOf(TW, F, gap) { const marks = TW.map((t, i) => markOf(t, F && F[i])); const why = TW.map(() => null); let lineWrong = false;
+ const RULE = {drop: 10, margin: 4, swap: 8, gap: 0.6, hear: 0.3};
+ function headMedian(TW) { let hs = TW.filter(t => (t.n || 0) >= 2 && t.hskel != null).map(t => t.hskel).sort((a, b) => a - b); if (!hs.length) return null; if (hs.length >= 3) hs = hs.slice(1); return hs[Math.floor(hs.length / 2)]; }
+ function marksOf(TW, F, gap) { const marks = TW.map((t, i) => markOf(t, F && F[i])); const why = TW.map(() => null); let lineWrong = false, cantHear = false;
   if (CLEAN) { const ds = TW.map(t => t.drop == null ? -1e9 : t.drop); const top = ds.indexOf(Math.max(...ds)); const second = Math.max(...ds.filter((d, i) => i !== top), -1e9);
    if (top >= 0 && (TW[top].n || 0) >= 2 && ds[top] >= RULE.drop && ds[top] - second >= RULE.margin) { marks[top] = 'off'; why[top] = 'dropped'; }
    const sw = TW.slice(0, -1).map(t => t.swap == null ? -1e9 : t.swap); if (sw.length) { const j = sw.indexOf(Math.max(...sw)), na = TW[j].n || 0, nb = TW[j + 1].n || 0; if (sw[j] >= RULE.swap && Math.max(na, nb) >= 2 && Math.min(na, nb) >= 1) { marks[j] = 'off'; marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'; } }
-   if (gap != null && gap >= RULE.gap) { lineWrong = true; for (let i = 0; i < marks.length; i++) if (marks[i] === 'ok') marks[i] = 'unsure'; } }
-  return {marks, why, lineWrong}; }
+  }
+  if (TW.length && gap != null && gap >= RULE.gap) { lineWrong = true; for (let i = 0; i < marks.length; i++) if (marks[i] === 'ok') marks[i] = 'unsure'; }
+  if (TW.length && !CLEAN && !lineWrong) { const m = headMedian(TW); if (m != null && m < RULE.hear) { cantHear = true; for (let i = 0; i < marks.length; i++) if (marks[i] === 'off') marks[i] = 'unsure'; } }
+  return {marks, why, lineWrong, cantHear}; }
  const VCLS = {throat: 'good', plain: 'bad', unsure: 'warn'};
  const thLead = t => !t || !t.v ? '–' : t.v === 'throat' ? S.thThroat : t.v === 'plain' ? (t.c === 'ע' ? S.thAlef : S.thPlain) : S.thUnsure;
  function render(j) { const W = j.words, TW = j.take.words, RW = j.ref ? j.ref.words : null, F = j.fit || null;
-  const hs = TW.filter(t => (t.n || 0) >= 2 && t.hskel != null).map(t => t.hskel).sort((a, b) => a - b); CLEAN = hs.length > 0 && hs[Math.floor(hs.length / 2)] >= .7;
-  const {marks, why, lineWrong} = marksOf(TW, F, j.take.gap); const LABEL = {ok: S.labelOk, unsure: S.labelUnsure, off: S.labelOff, '': ''};
+  const HM = headMedian(TW); CLEAN = HM != null && HM >= .7;
+  const {marks, why, lineWrong, cantHear} = marksOf(TW, F, j.take.gap); const LABEL = {ok: S.labelOk, unsure: S.labelUnsure, off: S.labelOff, '': ''};
   $('res').innerHTML = W.map((w, i) => { const t = TW[i]; let n = 0; const ths = (t.throat || []); const cls = () => { const th = ths[n++]; if (!th || marks[i] === 'off') return ''; if (th.v === 'plain') { const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return ''; } return VCLS[th.v] || ''; };
    return `<button class="dk-w ${marks[i]}" type="button" data-i="${i}" lang="he"><b>${hiTh(w, cls)}</b><small>${LABEL[marks[i]]}</small></button>`; }).join('');
   $('res').querySelectorAll('.dk-w').forEach(b => b.onclick = () => { const i = +b.dataset.i; $('res').querySelectorAll('.dk-w').forEach(x => x.classList.toggle('sel', x === b)); const r = RW && RW[i], f = F && F[i], t = TW[i];
@@ -299,6 +303,7 @@ function mount(root, opts) {
    if (parts.length) lines.push(`<li>${he(w)}: ${parts.join('; ')}.</li>`); });
   const offW = W.filter((w, i) => marks[i] === 'off'), unsW = W.filter((w, i) => marks[i] === 'unsure'), say = $('say');
   if (lineWrong) { say.className = 'dk-say bad'; say.textContent = S.wrongLine; }
+  else if (cantHear) { say.className = 'dk-say warn'; say.textContent = S.cantHear; }
   else if (!F && j.ref_err && !/Tehillim/.test(j.ref_err)) { say.className = 'dk-say warn'; say.textContent = S.noRef; }
   else if (!lines.length) { say.className = 'dk-say ok'; say.textContent = F ? S.allOkRef : S.allOk; }
   else if (offW.length) { say.className = 'dk-say bad'; say.innerHTML = fmt(S.someOff, {n: W.length - offW.length, N: W.length, off: offW.map(he).join(', ')}) + (unsW.length ? fmt(S.notSure, {uns: unsW.map(he).join(', ')}) : '') + '.'; }
@@ -313,7 +318,7 @@ function mount(root, opts) {
  health();
  return {open: id => { LY ? openP(id) : null; }, get result() { return RESULT; }};
 }
-window.Dikduk = Object.assign(window.Dikduk || {}, {mount, strings: (window.Dikduk && window.Dikduk.strings) || {}, version: '4.3'});
+window.Dikduk = Object.assign(window.Dikduk || {}, {mount, strings: (window.Dikduk && window.Dikduk.strings) || {}, version: '4.4'});
 function auto() { document.querySelectorAll('[data-dikduk]').forEach(el => { if (el.dataset.dkMounted) return; el.dataset.dkMounted = '1'; mount(el, {api: el.dataset.api, pz: el.dataset.pz, th: el.dataset.th, line: el.dataset.line, rec: el.dataset.rec, archive: el.dataset.archive}); }); }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', auto); else auto();
 })();

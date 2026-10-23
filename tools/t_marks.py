@@ -19,36 +19,14 @@ for n in PER:
         if p['t0'] is None or p['t1'] - p['t0'] > 12 or len(p['words']) < 5 or any(w['t0'] is None for w in p['words']): continue
         jobs.append((n, rec, i))
 random.shuffle(jobs); jobs = jobs[:6]
-# the offline rule, as exam_rules.py has it
-exec(open(os.path.join(HERE, 'exam_rules.py')).read().split('# group rows by line')[0].split("print(f'{len(R)} word rows")[0].replace("R = json.load", "R = []; _ = json.load") if False else '', {})
-def mark_old(r, clean):
-    n = r.get('n') or 0; sk = r.get('skel'); ft = r.get('_fit'); kp = r.get('kept'); pw = r.get('pw'); hs = r.get('hskel')
-    if not n or sk is None: return ''
-    sure = clean and kp is not None and kp >= .75 and hs is not None and hs >= .6 and (pw is None or pw < .8)
-    if n >= 2:
-        if sk < .2 and (ft is None or ft < .15):
-            if ft is None and clean and not (kp is not None and kp < .75): return 'unsure'
-            return 'off'
-        if clean and pw is not None and pw >= .95: return 'off'
-        if sure: return 'ok'
-        if sk < .4 or (ft is not None and ft < .2) or (kp is not None and kp < .5) or (pw is not None and pw >= .8): return 'unsure'
-        return 'ok'
-    return 'unsure' if sk < .2 and not sure else 'ok'
+# the offline rule: app.py's own functions, as exam_report.py extracts them (so this checks the server's wiring —
+# analyse -> summarize -> stored summary — not a second copy of the rule)
+import importlib.util
+_spec = importlib.util.spec_from_file_location('exam_report', os.path.join(HERE, 'exam_report.py')); _er = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(_er)
 def offline(res):
     TW = res['take']['words']; F = res.get('fit')
-    for i, t in enumerate(TW): t['_fit'] = F[i].get('fit') if F else None
-    hs = sorted(t['hskel'] for t in TW if (t.get('n') or 0) >= 2 and t.get('hskel') is not None); clean = bool(hs) and hs[len(hs) // 2] >= .7
-    marks = [mark_old(t, clean) for t in TW]
-    if clean:
-        ds = [t['drop'] if t.get('drop') is not None else -1e9 for t in TW]; top = int(np.argmax(ds)); second = max([d for i, d in enumerate(ds) if i != top], default=-1e9)
-        if (TW[top]['n'] or 0) >= 2 and ds[top] >= 10 and ds[top] - second >= 4: marks[top] = 'off'
-        sw = [t['swap'] if t.get('swap') is not None else -1e9 for t in TW[:-1]]
-        if sw:
-            j = int(np.argmax(sw))
-            na, nb = (TW[j]['n'] or 0), (TW[j + 1]['n'] or 0)
-            if sw[j] >= 8 and max(na, nb) >= 2 and min(na, nb) >= 1: marks[j] = marks[j + 1] = 'off'
-        if res['take'].get('gap') is not None and res['take']['gap'] >= 0.6: marks = ['unsure' if m == 'ok' else m for m in marks]
-    return marks
+    for i, t in enumerate(TW): t['fit'] = F[i].get('fit') if F else None
+    marks, why, lw, cant, clean = _er.live_marks(TW); return marks
 agree = 0; total = 0; heads = collections.Counter(); ids = []
 for n, rec, i in jobs:
     p = rec['pesukim'][i]; off = p['t0'] - .2; x = cut(rec['original'], off, p['t1'] + .2); W = [w.get('said', w['w']) for w in p['words']]; wt = [(w['t0'], w['t1']) for w in p['words']]

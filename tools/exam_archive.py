@@ -40,6 +40,11 @@ for pid, s in LY.items():
 pairs = pairs[:NP]
 print(f'{len(pairs)} pizmonim with 2+ synced recordings in the cache; trained-on: {sorted(p for p in pairs if p in seen)}', flush=True)
 rows = []; takes = []; t_start = time.time(); n_takes = 0
+# resume: pizmonim already in the files from an earlier run are kept and skipped
+if os.environ.get('RESUME') and os.path.exists(os.path.join(HERE, 'exam_archive_takes.json')):
+    rows = json.load(open(os.path.join(HERE, 'exam_archive_rows.json'), encoding='utf-8')); takes = json.load(open(os.path.join(HERE, 'exam_archive_takes.json'), encoding='utf-8'))
+    done_pids = set(t['pid'] for t in takes); n_takes = len(takes); pairs = [p for p in pairs if p not in done_pids]
+    print(f'resuming: {len(done_pids)} pizmonim done, {len(pairs)} to go', flush=True)
 def check(x, W, R):
     take, lp, spf = app.analyse(x, W)
     for w in take['words']: w['pw'] = app.word_pw(w, None)
@@ -51,7 +56,7 @@ def check(x, W, R):
 def add(case, pid, B, k, out, S, tampered, extra=None):
     global n_takes
     n_takes += 1; TW = out['take']['words']; F = out.get('fit') or []
-    takes.append({'case': case, 'pid': pid, 'rec': B, 'line': k, 'seen': pid in seen, 'clean': S['clean'], 'gap': S['gap'], 'line_wrong': S['line_wrong'], 'marks': S['marks'], 'why': S['why'], 'words': out['words'], 'tampered': sorted(tampered), 'dur': S['dur'], 'nvow': len(S['vowels']), 'throat': S['throat'], **(extra or {})})
+    takes.append({'case': case, 'pid': pid, 'rec': B, 'line': k, 'seen': pid in seen, 'clean': S['clean'], 'gap': S['gap'], 'line_wrong': S['line_wrong'], 'marks': S['marks'], 'why': S['why'], 'words': out['words'], 'tampered': sorted(tampered), 'dur': S['dur'], 'ref_dur': out['ref'].get('dur'), 'nvow': len(S['vowels']), 'throat': S['throat'], **(extra or {})})
     for i, w in enumerate(TW):
         f = F[i] if i < len(F) else {}
         rows.append({'case': case, 'pid': pid, 'rec': B, 'line': k, 'k': i, 'seen': pid in seen, 'bad': 1 if i in tampered else 0, 'w': w['w'], 'n': w['n'], 'skel': w['skel'], 'fit': f.get('fit'), 'hskel': w.get('hskel'), 'vskel': w.get('vskel'), 'kept': w.get('kept'), 'pw': w.get('pw'),

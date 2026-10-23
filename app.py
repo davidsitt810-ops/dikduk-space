@@ -715,7 +715,7 @@ def try_page():
 
 @app.get('/health')
 def health():
-    return {'ok': True, 'version': 4.3, 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
+    return {'ok': True, 'version': 4.4, 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
             'page_from': 'github' if (_PAGES.get('index.html') or {}).get('body') else 'local', 'jobs': {'queued': sum(1 for v in JOBS.values() if v['state'] == 'queued'), 'running': sum(1 for v in JOBS.values() if v['state'] == 'running')},
             'ears': {'letter_head': HEAD is not None, 'vowel_head': FULL is not None, 'fine_tuned': FT is not None, 'classifier_v2': bool(CLF2), 'tehillim_lyrics': len(TEHILLIM_LYR), 'tehillim_audio': os.path.isdir(TEHILLIM_DIR) and len(os.listdir(TEHILLIM_DIR)) or (TEHILLIM_BASE or 0),
                      'tehillim_perakim': sorted(int(m.group(1)) for m in (re.match(r'tehillim-(\d{3})\.mp3$', f) for f in (os.listdir(TEHILLIM_DIR) if os.path.isdir(TEHILLIM_DIR) else [])) if m)}}
@@ -1123,7 +1123,7 @@ async def submit(request: Request, meta: str = Query(...)):
     return JSONResponse({'id': tid, 'saved': True, 'durable': bool(GH_TOKEN) or TAKES_DIR.startswith('/data')}, status_code=202)
 
 def mark_of(y, f, clean):
-    """the page's rule for one word (kept in step with static/index.html markOf)"""
+    """the page's rule for one word (kept in step with static/index.html markOf and embed.js)"""
     n = y.get('n') or 0; sk = y.get('skel'); ft = f.get('fit') if f else None
     if not n or sk is None: return ''
     kp = y.get('kept'); pw = y.get('pw'); hs = y.get('hskel')
@@ -1131,18 +1131,32 @@ def mark_of(y, f, clean):
     if n >= 2:
         if sk < .2 and (ft is None or ft < .15):
             if ft is None and clean and not (kp is not None and kp < .75): return 'unsure'   # no hazzan to confirm: red needs the head's agreement
+            if not clean and kp is not None and kp >= .5: return 'unsure'   # v4.4: a take the heads hear poorly: red needs the head to agree (under half the letters heard)
             return 'off'
-        if clean and pw is not None and pw >= .95: return 'off'
+        if clean and pw is not None and pw >= .95 and (ft is None or ft < .5): return 'off'   # v4.4: not when the hazzan's own sounds for the word were found
         if sure: return 'ok'
         if sk < .4 or (ft is not None and ft < .2) or (kp is not None and kp < .5) or (pw is not None and pw >= .8): return 'unsure'
         return 'ok'
     return 'unsure' if sk < .2 and not sure else 'ok'
 
-RULE = {'drop': 10, 'margin': 4, 'swap': 8, 'gap': 0.6}   # kept in step with static/index.html and embed.js
+RULE = {'drop': 10, 'margin': 4, 'swap': 8, 'gap': 0.6, 'hear': 0.3}   # kept in step with static/index.html and embed.js
+
+def head_median(TW):
+    """the letter head's score on the line's words (2+ consonants), the median — with the lowest word left out when
+       there are three or more, so that one wrong word does not make a good recording look poor (v4.4)"""
+    hs = sorted(t['hskel'] for t in TW if (t.get('n') or 0) >= 2 and t.get('hskel') is not None)
+    if not hs: return None
+    if len(hs) >= 3: hs = hs[1:]
+    return hs[len(hs) // 2]
+
+def clean_of(TW):
+    """a clean take: the heads hear the line well enough for the finer signals (pw, the whole-line evidence)"""
+    m = head_median(TW); return m is not None and m >= .7
 
 def marks_of(TW, F, gap, clean):
-    """the page's verdict per word (markOf + the whole-line evidence on a clean take) -> (marks, why, line_wrong)"""
-    marks = [mark_of(TW[i], F[i] if F else None, clean) for i in range(len(TW))]; why = [None] * len(TW); line_wrong = False
+    """the page's verdict per word (markOf + the whole-line evidence on a clean take; the line gap on every take;
+       a take the head barely hears gets no red) -> (marks, why, line_wrong, cant_hear)"""
+    marks = [mark_of(TW[i], F[i] if F else None, clean) for i in range(len(TW))]; why = [None] * len(TW); line_wrong = False; cant_hear = False
     if clean and TW:
         ds = [t['drop'] if t.get('drop') is not None else -1e9 for t in TW]; top = int(np.argmax(ds)); second = max([d for i, d in enumerate(ds) if i != top], default=-1e9)
         if (TW[top].get('n') or 0) >= 2 and ds[top] >= RULE['drop'] and ds[top] - second >= RULE['margin']: marks[top] = 'off'; why[top] = 'dropped'
@@ -1150,15 +1164,20 @@ def marks_of(TW, F, gap, clean):
         if sw:
             j = int(np.argmax(sw)); na, nb = TW[j].get('n') or 0, TW[j + 1].get('n') or 0
             if sw[j] >= RULE['swap'] and max(na, nb) >= 2 and min(na, nb) >= 1: marks[j] = marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'
-        if gap is not None and gap >= RULE['gap']:
-            line_wrong = True; marks = ['unsure' if m == 'ok' else m for m in marks]
-    return marks, why, line_wrong
+    # the written line costs far more than the free path: not this line (measured safe on every take, clean or not)
+    if TW and gap is not None and gap >= RULE['gap']:
+        line_wrong = True; marks = ['unsure' if m == 'ok' else m for m in marks]
+    # the head barely hears the words (instruments, a far microphone): nothing is red, the doubtful words are 'unsure'
+    if TW and not clean and not line_wrong:
+        m = head_median(TW)
+        if m is not None and m < RULE['hear']: cant_hear = True; marks = ['unsure' if x == 'off' else x for x in marks]; why = [None if w in ('dropped', 'swapped') else w for w in why]
+    return marks, why, line_wrong, cant_hear
 
 def summarize(out):
     """the machine's claims about one take, in the page's words: marks per word, throat verdicts, vowel differences"""
     W, TW, F = out['words'], out['take']['words'], out.get('fit')
-    hs = sorted(t['hskel'] for t in TW if (t.get('n') or 0) >= 2 and t.get('hskel') is not None); clean = bool(hs) and hs[len(hs) // 2] >= .7
-    marks, why, line_wrong = marks_of(TW, F, out['take'].get('gap'), clean)
+    clean = clean_of(TW)
+    marks, why, line_wrong, cant_hear = marks_of(TW, F, out['take'].get('gap'), clean)
     RW = (out.get('ref') or {}).get('words')
     def hv(i, k):
         if not RW or i >= len(RW): return None
@@ -1171,7 +1190,7 @@ def summarize(out):
             if marks[int(i)] == 'off': continue   # a word that was not there has no vowels to speak of
             for d in ds: vow.append({'w': W[int(i)], 'k': d['k'], 'you': nm(d['you']), 'ref': nm(d['ref']), 'against': against})
     miss = {W[i]: t['miss'] for i, t in enumerate(TW) if t.get('miss')}
-    return {'marks': marks, 'why': why, 'line_wrong': line_wrong, 'gap': out['take'].get('gap'), 'throat': throat, 'vowels': vow, 'miss': miss, 'clean': clean, 'hazzan': bool(F), 'dur': out['take'].get('dur')}
+    return {'marks': marks, 'why': why, 'line_wrong': line_wrong, 'cant_hear': cant_hear, 'gap': out['take'].get('gap'), 'throat': throat, 'vowels': vow, 'miss': miss, 'clean': clean, 'head': head_median(TW), 'hazzan': bool(F), 'dur': out['take'].get('dur')}
 
 def list_takes(set_=None, name=None, who=None):
     items = []
@@ -1252,7 +1271,7 @@ def score_take(J):
         vw = [v for v in vw if he_letters(v['w']) != he_letters(L['word'])]
     for v in vw:
         tally['claims'] += 1; claims.append(f"{v['w']}: machine says you sang {v['you']} where the {v['against']} has {v['ref']} — right or wrong?")
-    return {'state': 'scored', 'claims': claims, 'tally': tally, 'clean': S['clean'], 'hazzan': S['hazzan']}
+    return {'state': 'scored', 'claims': claims, 'tally': tally, 'clean': S['clean'], 'hazzan': S['hazzan'], 'cant_hear': bool(S.get('cant_hear')), 'line_wrong': bool(S.get('line_wrong'))}
 
 @app.get('/score')
 def score(set_: str = Query(None, alias='set'), name: str = None, who: str = None, key: str = None):
