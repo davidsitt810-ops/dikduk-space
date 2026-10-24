@@ -25,7 +25,12 @@ for n in PER:
     for i, p in enumerate(rec['pesukim']):
         if p['t0'] is None or p['t1'] - p['t0'] > 14 or len(p['words']) < 4 or any(w['t0'] is None for w in p['words']): continue
         jobs.append((n, rec, i))
-random.shuffle(jobs); jobs = jobs[:N]
+random.shuffle(jobs)
+if os.environ.get('EXCLUDE'):   # a validation batch: leave out the pesukim of an earlier exam
+    done = set((r['per'], r['ps']) for r in json.load(open(os.environ['EXCLUDE'], encoding='utf-8')))
+    jobs = [j for j in jobs if (j[0], j[2]) not in done]
+jobs = jobs[:N]
+OUT = os.environ.get('EXAM_OUT', 'exam')
 print(f'{len(jobs)} pesukim from {len(PER)} held-out perakim', flush=True)
 rows, lines = [], []; t_start = time.time()
 def seg(x, off, a, b): return x[int(max(0, (a - off)) * SR):int((b - off) * SR)]
@@ -87,6 +92,6 @@ for done, (n, rec, i) in enumerate(jobs, 1):
         tk, ft = check(x, Wq, rq); add_rows('wrongline', n, i, tk, ft, set(range(len(Wq))), rq)
     if done % 5 == 0:
         print(f'{done}/{len(jobs)} pesukim · {int(time.time() - t_start)} s · rows {len(rows)}', flush=True)
-        json.dump(rows, open(os.path.join(HERE, 'exam_rows.json'), 'w'), ensure_ascii=False); json.dump(lines, open(os.path.join(HERE, 'exam_lines.json'), 'w'), ensure_ascii=False)
-json.dump(rows, open(os.path.join(HERE, 'exam_rows.json'), 'w'), ensure_ascii=False); json.dump(lines, open(os.path.join(HERE, 'exam_lines.json'), 'w'), ensure_ascii=False)
+        json.dump(rows, open(os.path.join(HERE, OUT + '_rows.json'), 'w'), ensure_ascii=False); json.dump(lines, open(os.path.join(HERE, OUT + '_lines.json'), 'w'), ensure_ascii=False)
+json.dump(rows, open(os.path.join(HERE, OUT + '_rows.json'), 'w'), ensure_ascii=False); json.dump(lines, open(os.path.join(HERE, OUT + '_lines.json'), 'w'), ensure_ascii=False)
 print('done', len(rows), 'word rows,', len(lines), 'intact pesukim,', int(time.time() - t_start), 's')

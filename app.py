@@ -1149,6 +1149,11 @@ def head_median(TW):
     if len(hs) >= 3: hs = hs[1:]
     return hs[len(hs) // 2]
 
+def no_speech_in(take):
+    """fewer phones heard than any singing would give: under 3, or under one every two seconds (kept in step with the page)"""
+    n = len(take.get('phones') or []); dur = take.get('dur') or 0
+    return n < max(3, 0.5 * dur)
+
 def clean_of(TW):
     """a clean take: the heads hear the line well enough for the finer signals (pw, the whole-line evidence)"""
     m = head_median(TW); return m is not None and m >= .7
@@ -1178,6 +1183,10 @@ def summarize(out):
     W, TW, F = out['words'], out['take']['words'], out.get('fit')
     clean = clean_of(TW)
     marks, why, line_wrong, cant_hear = marks_of(TW, F, out['take'].get('gap'), clean)
+    # no singing in the recording at all (silence, noise, a microphone that did not pick the person up): the phone
+    # recognizer hears nothing — reading gives ~4 phones a second, slow singing 1.5, noise and silence 0
+    no_speech = no_speech_in(out['take'])
+    if no_speech: marks = ['unsure' if m else m for m in marks]; why = [None] * len(why); line_wrong = False; cant_hear = False
     RW = (out.get('ref') or {}).get('words')
     def hv(i, k):
         if not RW or i >= len(RW): return None
@@ -1190,7 +1199,8 @@ def summarize(out):
             if marks[int(i)] == 'off': continue   # a word that was not there has no vowels to speak of
             for d in ds: vow.append({'w': W[int(i)], 'k': d['k'], 'you': nm(d['you']), 'ref': nm(d['ref']), 'against': against})
     miss = {W[i]: t['miss'] for i, t in enumerate(TW) if t.get('miss')}
-    return {'marks': marks, 'why': why, 'line_wrong': line_wrong, 'cant_hear': cant_hear, 'gap': out['take'].get('gap'), 'throat': throat, 'vowels': vow, 'miss': miss, 'clean': clean, 'head': head_median(TW), 'hazzan': bool(F), 'dur': out['take'].get('dur')}
+    if cant_hear or no_speech: throat, vow, miss = [], [], {}   # the words were not made out: no claims about the letters inside them
+    return {'marks': marks, 'why': why, 'line_wrong': line_wrong, 'cant_hear': cant_hear, 'no_speech': no_speech, 'gap': out['take'].get('gap'), 'throat': throat, 'vowels': vow, 'miss': miss, 'clean': clean, 'head': head_median(TW), 'hazzan': bool(F), 'dur': out['take'].get('dur')}
 
 def list_takes(set_=None, name=None, who=None):
     items = []
@@ -1271,7 +1281,7 @@ def score_take(J):
         vw = [v for v in vw if he_letters(v['w']) != he_letters(L['word'])]
     for v in vw:
         tally['claims'] += 1; claims.append(f"{v['w']}: machine says you sang {v['you']} where the {v['against']} has {v['ref']} — right or wrong?")
-    return {'state': 'scored', 'claims': claims, 'tally': tally, 'clean': S['clean'], 'hazzan': S['hazzan'], 'cant_hear': bool(S.get('cant_hear')), 'line_wrong': bool(S.get('line_wrong'))}
+    return {'state': 'scored', 'claims': claims, 'tally': tally, 'clean': S['clean'], 'hazzan': S['hazzan'], 'cant_hear': bool(S.get('cant_hear')), 'no_speech': bool(S.get('no_speech')), 'line_wrong': bool(S.get('line_wrong'))}
 
 @app.get('/score')
 def score(set_: str = Query(None, alias='set'), name: str = None, who: str = None, key: str = None):
