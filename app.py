@@ -874,7 +874,7 @@ def job_status(jid: str):
 @app.post('/check')
 async def check(request: Request, words: str = Query(...), ref: str = None, t0: float = 0, t1: float = 0, emb: int = 0, drill: str = None, nikud: str = None, job: int = 0, pid: str = None, alts: str = None):
     W = he_words(words)
-    ALT = [he_words(a) for a in alts.split('|') if he_words(a) and he_words(a) != W] if alts else other_lines(pid, W)
+    ALT = [he_words(a) for a in alts.split('|') if he_words(a) and he_words(a) != W] if alts else pid   # a list of lines, or the text's id (its lines are looked up in the worker, off the event loop)
     if not W:
         return JSONResponse({'err': 'no words'}, status_code=400)
     data = await request.body()
@@ -894,6 +894,7 @@ async def check(request: Request, words: str = Query(...), ref: str = None, t0: 
     return await run_in_threadpool(run_check, x, W, ref, t0, t1, emb, drill, nikud, lambda s: None, ALT)
 
 def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None, alts=None):
+    if isinstance(alts, str): alts = other_lines(alts, W)   # the text's id -> its other lines (may fetch the site's lyrics: not on the event loop)
     progress('listening to your take')
     take, lp, spf = analyse(x, W, bool(emb) or bool(drill), alts)
     out = {'words': W, 'take': take}

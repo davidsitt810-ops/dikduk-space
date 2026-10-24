@@ -594,3 +594,16 @@ wrong-line verdict at all.
 hazzanim: 9 plain verdicts, all on such takes; Israelis: ח 156 plain of 174 — real, they say כ — and ע 87 plain / 39
 unsure / 4 throat of 130), and the vowel ear is consulted only on a clean take (117 notes on 528 right archive words
 otherwise, 0.5–0.8% on Alouf). The booth's scoreboard says per take whether it was clean.
+
+**Re-measured end to end with the text's other lines passed to every check** (`exam_r1.log`, `exam_israeli2.log`,
+`exam_archive3.log`; rows in the repo's `tools/`):
+
+| v4.5 | right words red | "not sure" | skipped caught | swapped caught | replaced | wrong line called | right take called wrong | "cannot hear" |
+|---|---|---|---|---|---|---|---|---|
+| Rabbi Alouf, 70 pesukim | 0 / 1,850 | 0–2% | 67/69 | 130/136 | 54/70 | **70/70** | 0/70 | 0 |
+| Rabbi Alouf, 80 fresh pesukim | 0 / 2,290 | 0–1% | 78/80 | 155/156 | 56/80 | 78/79 | 0/80 | 0 |
+| archive, another hazzan + instruments, 87 takes | 4 / 456 (0.9%) | 53% | 7/10 | 14/20 | – | 12/72 (+48 "cannot hear") | 0/87 | 29/87 |
+| 80 Israelis reading, no hazzan | 8 / 1,271 (0.6%) | 32% | 27/80 | 59/158 | – | 23/78 (+48 "cannot hear") | **0/80** (was 33) | 10/80 |
+
+The server/page/embed parity holds on all of it (`t_parity.py`: 938 recorded lines + synthetic rivals). Also: the
+text's other lines are looked up in the worker, not on the event loop (the site's lyrics may be fetched there).
