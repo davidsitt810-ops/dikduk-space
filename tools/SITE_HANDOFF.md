@@ -66,15 +66,17 @@ implementation of exactly that, and the word-verdict rule (`markOf`) is in it.
 
 ## Things to know before it faces people
 
-- **Beta accuracy** (v4.4, Oct 24; measured on hazzanim recordings, not yet on students). Clean a-cappella reading
-  (Rabbi Alouf's Tehillim, 1,850 right words): no right word marked "not heard"; a skipped word caught 99%, swapped
-  words 99%, a replaced word 80%, the wrong pasuk 70 of 70 ("This does not sound like this line"). Another hazzan
-  singing a pizmon with instruments, checked against the site's reference (the archive's own second recordings):
-  a right word red 3.5% — and most of those are words the singer does not sing as written — "not sure" about half,
-  and 1 take in 6 gets "I could not make out the words" instead of a verdict. ע said like alef caught ~2/3 (a third
-  "not sure"); ח better; vowels are a hint only. It says "not sure" rather than accuse. Two more headlines it can
-  give: "I did not hear any singing" (silence, noise) and "I could not make out the words" (far from the phone,
-  music) — both flag nothing.
+- **Beta accuracy** (v4.5, Oct 24; measured on hazzanim and on Israelis reading, not yet on students). Clean
+  a-cappella reading (Rabbi Alouf's Tehillim, 150 pesukim, 4,140 right words): no right word marked "not heard"; a
+  skipped word caught 97%, swapped words 96–99%, a replaced word 70–77%, the wrong pasuk 148 of 149 ("This does not
+  sound like this line") and never a right one. Another hazzan singing a pizmon with instruments against the site's
+  reference (the archive's own second recordings, 87 takes): a right word red 0.9% — words the singer does not sing
+  as written — "not sure" about half, a third of the takes "I could not make out the words" instead of a verdict.
+  Eighty Israelis reading (voices the ears never heard, no hazzan): a right word red 0.6%, "not sure" a third, and
+  no right sentence called the wrong line. ע said like alef caught ~2/3 (a third "not sure"); ח better; vowel notes
+  only on a clean take, and a hint only. It says "not sure" rather than accuse. Two more headlines it can give: "I
+  did not hear any singing" (silence, noise) and "I could not make out the words of this line" (far from the phone,
+  music, or the wrong text) — both flag nothing.
 - **Speed**: 15–30 s per check. One check at a time on the small machine: two people at once, the second waits.
   If use grows, David upgrades the Space's hardware in one click (CPU upgrade ≈ $0.03/h; a GPU answers in 2 s).
 - **Sleep**: after 48 idle hours the server sleeps; the first visitor waits about a minute (the page says
