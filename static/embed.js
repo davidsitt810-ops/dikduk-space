@@ -288,7 +288,8 @@ function mount(root, opts) {
  function render(j) { const W = j.words, TW = j.take.words, RW = j.ref ? j.ref.words : null, F = (j.fit && j.fit.length) ? j.fit : null;
   const HM = headMedian(TW); CLEAN = HM != null && HM >= .7;
   let {marks, why, lineWrong, cantHear} = marksOf(TW, F, j.take.gap);
-  const noSpeech = (j.take.phones || []).length < Math.max(3, 0.5 * (j.take.dur || 0)); if (noSpeech) { marks = marks.map(m => m ? 'unsure' : m); why = why.map(() => null); lineWrong = false; cantHear = false; } const LABEL = {ok: S.labelOk, unsure: S.labelUnsure, off: S.labelOff, '': ''};
+  const noSpeech = (j.take.phones || []).length < Math.max(3, 0.5 * (j.take.dur || 0)); if (noSpeech) { marks = marks.map(m => m ? 'unsure' : m); why = why.map(() => null); lineWrong = false; cantHear = false; }
+  if (!CLEAN) TW.forEach(t => (t.throat || []).forEach(th => { if (th.v === 'plain') { th.raw = 'plain'; th.v = 'unsure'; } })); const LABEL = {ok: S.labelOk, unsure: S.labelUnsure, off: S.labelOff, '': ''};
   $('res').innerHTML = W.map((w, i) => { const t = TW[i]; let n = 0; const ths = (t.throat || []); const cls = () => { const th = ths[n++]; if (!th || marks[i] === 'off' || cantHear || noSpeech) return ''; if (th.v === 'plain') { const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return ''; } return VCLS[th.v] || ''; };
    return `<button class="dk-w ${marks[i]}" type="button" data-i="${i}" lang="he"><b>${hiTh(w, cls)}</b><small>${LABEL[marks[i]]}</small></button>`; }).join('');
   $('res').querySelectorAll('.dk-w').forEach(b => b.onclick = () => { const i = +b.dataset.i; $('res').querySelectorAll('.dk-w').forEach(x => x.classList.toggle('sel', x === b)); const r = RW && RW[i], f = F && F[i], t = TW[i];
@@ -302,7 +303,7 @@ function mount(root, opts) {
    if (marks[i] && marks[i] !== 'ok' && t.miss && t.miss.length && t.miss.length < (t.n || 9)) parts.push(he(t.miss.join(' ')) + S.notHeard);
    if (marks[i] !== 'off') (t.throat || []).forEach(th => { if (th.v !== 'plain') return; const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return; parts.push(th.c === 'ע' ? S.ayinAlef : S.hetPlain); });
    (t.notes || []).forEach(nn => { if (nn.say === 'sav') parts.push(S.tavSamekh); });
-   const vd = marks[i] === 'off' ? [] : ((j.vowels && j.vowels[i]) || []), vn = marks[i] === 'off' ? [] : ((j.vowels_nikud && j.vowels_nikud[i]) || []);
+   const vd = (marks[i] === 'off' || !CLEAN) ? [] : ((j.vowels && j.vowels[i]) || []), vn = (marks[i] === 'off' || !CLEAN) ? [] : ((j.vowels_nikud && j.vowels_nikud[i]) || []);
    vd.forEach(d => parts.push(fmt(S.vowHaz, {you: vname(d.you), ref: vname(d.ref)}))); vn.forEach(d => { if (!vd.some(x => x.k === d.k)) parts.push(fmt(S.vowNik, {you: vname(d.you), ref: vname(d.ref)})); });
    if (parts.length) lines.push(`<li>${he(w)}: ${parts.join('; ')}.</li>`); });
   const offW = W.filter((w, i) => marks[i] === 'off'), unsW = W.filter((w, i) => marks[i] === 'unsure'), say = $('say');

@@ -363,7 +363,7 @@ function thSay(t){if(!t||!t.v)return {v:'?',lead:'not found',ears:''};const f=x=
  if(t.c==='ע')ears.push('Arabic ear '+(t.ar_heard||'–')+' (ع '+f(ar['ع'])+', alef '+f(ar['alef'])+')');
  else ears.push('Arabic ear '+(t.ar_heard||'–')+' (ح '+f(ar['ح'])+', خ '+f(ar['خ'])+', ه '+f(ar['ه'])+')');
  if(t.head)ears.push('head heard '+t.head.heard+' ('+Object.entries(t.head.mass||{}).map(([k,v])=>k+' '+f(v)).join(', ')+')');
- const lead=t.v==='throat'?'from the throat ✓':t.v==='plain'?(t.c==='ע'?'said like alef ✕':'not from the throat ✕'):'not sure';
+ const lead=t.v==='throat'?'from the throat ✓':t.v==='plain'?(t.c==='ע'?'said like alef ✕':'not from the throat ✕'):(t.raw==='plain'?'not sure (sounded plain, but the take is not clear enough to say)':'not sure');
  return {v:t.v,lead,ears:ears.join(' · '),s:lead+' · '+ears.join(' · ')};}
 const VCLS={throat:'good',plain:'bad',unsure:'warn'};
 function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(j.fit&&j.fit.length)?j.fit:null;   /* an empty fit list is no fit */
@@ -371,6 +371,8 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
  let {marks,why,lineWrong,cantHear}=marksOf(TW,F,j.take.gap);
  /* no singing in the recording at all: the phone recognizer hears nothing (reading ~4 phones a second, slow singing 1.5, noise and silence 0) */
  const noSpeech=(j.take.phones||[]).length<Math.max(3,0.5*(j.take.dur||0));if(noSpeech){marks=marks.map(m=>m?'unsure':m);why=why.map(()=>null);lineWrong=false;cantHear=false;}
+ /* on a take the heads hear poorly, a "plain" ע/ח is not a fault to show (the raw verdict stays in the lab line), and the vowel ear is not trusted at all */
+ if(!CLEAN)TW.forEach(t=>(t.throat||[]).forEach(th=>{if(th.v==='plain'){th.raw='plain';th.v='unsure';}}));
  const LABEL={ok:'✓',unsure:'not sure',off:'not heard','':''};
  /* the words: colour = was the word there; the ע/ח inside each word coloured by its own verdict */
  $('#res').innerHTML=W.map((w,i)=>{const t=TW[i];let n=0;const ths=(t.throat||[]);
@@ -390,7 +392,7 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
   if(marks[i]!=='off')(t.throat||[]).forEach(th=>{if(th.v!=='plain')return;const r=RW&&RW[i]&&(RW[i].throat||[]).find(x=>x.k===th.k);if(r&&r.v==='plain')return;   /* the hazzan says it plain there too: not a fault */
    parts.push(th.c==='ע'?'the ע was said like alef':'the ח was not from the throat');});
   (t.notes||[]).forEach(n=>{if(n.say==='sav')parts.push('the ת sounded like a samekh');});
-  const vd=marks[i]==='off'?[]:((j.vowels&&j.vowels[i])||[]),vn=marks[i]==='off'?[]:((j.vowels_nikud&&j.vowels_nikud[i])||[]);
+  const vd=(marks[i]==='off'||!CLEAN)?[]:((j.vowels&&j.vowels[i])||[]),vn=(marks[i]==='off'||!CLEAN)?[]:((j.vowels_nikud&&j.vowels_nikud[i])||[]);
   vd.forEach(d=>parts.push(`you sang ${vname(d.you)} where the hazzan sings ${vname(d.ref)}`));
   vn.forEach(d=>{if(!vd.some(x=>x.k===d.k))parts.push(`you sang ${vname(d.you)} where the nikud says ${vname(d.ref)}`);});
   if(parts.length)lines.push(`<li>${he(w)}: ${parts.join('; ')}.</li>`);});
@@ -413,7 +415,7 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
  const f2=x=>x==null?'–':(+x).toFixed(2);
  $('#nums').innerHTML='<tr><th>word</th><th>cons</th><th>fit</th><th>head</th><th>kept</th><th>pw</th><th>drop</th><th>swap→</th><th>not heard</th></tr>'+W.map((w,i)=>{const t=TW[i],f=F&&F[i];return `<tr><td class="he" lang="he">${esc(w)}</td><td>${f2(t.skel)}</td><td>${f2(f&&f.fit)}</td><td>${f2(t.hskel)}</td><td>${f2(t.kept)}</td><td>${f2(t.pw)}</td><td>${t.drop==null?'–':t.drop.toFixed(0)}</td><td>${t.swap==null?'–':t.swap.toFixed(0)}</td><td class="he" lang="he">${esc((t.miss||[]).join(' '))}</td></tr>`;}).join('')+`<tr><td colspan="9">clean take: ${CLEAN?'yes':'no'} (head ${HM==null?'–':HM.toFixed(2)}) · line gap ${j.take.gap==null?'–':j.take.gap.toFixed(2)} · took ${j.take.ms} ms</td></tr>`;
  const vrows=[];const addV=(src,label)=>{for(const i in (src||{}))for(const d of src[i])vrows.push({w:W[i],d,label});};
- if(!cantHear&&!noSpeech){addV(j.vowels,'the hazzan');addV(j.vowels_nikud,'the nikud');}
+ if(CLEAN&&!cantHear&&!noSpeech){addV(j.vowels,'the hazzan');addV(j.vowels_nikud,'the nikud');}
  if(j.vowel_names){$('#vw').innerHTML=vrows.length?vrows.map(x=>`<div class="tr"><div class="hd"><span class="lt">${esc(heL(x.w)[x.d.k]||'')}</span><span>in ${he(x.w)}</span></div><div><span class="k">you</span><span class="v warn">${esc(VN[x.d.you]||x.d.you)}</span></div><div><span class="k">${esc(x.label)}</span><span class="v">${esc(VN[x.d.ref]||x.d.ref)}</span></div></div>`).join('')
    :'<p class="hint" style="margin:0">No clear vowel differences from the hazzan'+(j.vowels_nikud?' or the nikud':'')+'.</p>';$('#vwP').hidden=false;}else $('#vwP').hidden=true;
  $('#ph').innerHTML=`<b>you:</b> ${esc(TW.map(t=>'['+t.phones.join(' ')+']').join(' '))}<br><b>hazzan:</b> ${RW?esc(RW.map(t=>'['+t.phones.join(' ')+']').join(' ')):'–'}`;

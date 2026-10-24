@@ -1205,9 +1205,12 @@ def summarize(out):
         if not RW or i >= len(RW): return None
         r = next((x for x in (RW[i].get('throat') or []) if x.get('k') == k), None); return r.get('v') if r else None
     throat = [{'c': th['c'], 'w': W[i], 'k': th['k'], 'v': th.get('v'), 'hazzan': hv(i, th['k']), 'mark': marks[i]} for i, t in enumerate(TW) for th in (t.get('throat') or [])]
+    if not clean:   # a "plain" verdict on a poorly heard take is not a fault to show (another hazzan with instruments: 9 such of 144, all on non-clean takes); the raw verdict stays for the lab
+        for th in throat:
+            if th['v'] == 'plain': th['raw'] = 'plain'; th['v'] = 'unsure'
     VN = out.get('vowel_names') or {}; nm = lambda k: (VN.get(k) or k).split(' ')[0]
     vow = []
-    for src, against in ((out.get('vowels'), 'hazzan'), (out.get('vowels_nikud'), 'nikud')):
+    for src, against in (((out.get('vowels'), 'hazzan'), (out.get('vowels_nikud'), 'nikud')) if clean else ()):   # vowel notes only on a clean take (another voice with instruments gave one note per 4.5 right words)
         for i, ds in (src or {}).items():
             if marks[int(i)] == 'off': continue   # a word that was not there has no vowels to speak of
             for d in ds: vow.append({'w': W[int(i)], 'k': d['k'], 'you': nm(d['you']), 'ref': nm(d['ref']), 'against': against})
