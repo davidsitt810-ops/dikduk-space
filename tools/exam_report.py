@@ -44,7 +44,7 @@ def v43_marks(TW):
     return marks, why, lw, False, clean
 def lines_of(R):
     L = collections.defaultdict(dict)
-    for r in R: L[(r['case'], r.get('per', r.get('pid')), r.get('ps', r.get('line')), r.get('rec', ''))][r['k']] = r
+    for r in R: L[(r['case'], r.get('per', r.get('pid', r.get('f'))), r.get('ps', r.get('line', 0)), r.get('rec', ''))][r['k']] = r
     return {k: [v[i] for i in sorted(v)] for k, v in L.items()}
 CASES = ('intact', 'right', 'skip', 'swap', 'wrongword', 'wrongline')
 def run(R, fn, label, show_fa=True):

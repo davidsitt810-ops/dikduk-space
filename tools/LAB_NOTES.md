@@ -558,3 +558,39 @@ test needs lines whose second recording is known to carry the same words. (c) Re
 still pass or stay "not sure" (באדני for אדני). (d) ע at word start on Alouf 21% "unsure". (e) One-consonant words
 are never red on their own (רעה, את, עמו skipped → "not sure"): the Alouf rows show the drop evidence cannot
 separate them safely (right one-consonant words reach drop 8.3, a skipped עמו 9.9).
+
+## 25. Other voices (Oct 24, small hours): the wrong-line verdict rebuilt on the text's own lines — v4.5
+
+**The test.** Everything so far was Rabbi Alouf against himself, or the archive's hazzanim. A student is neither.
+`exam_israeli_words.py` runs 80 FLEURS he_il sentences — Israelis reading modern Hebrew, held out of all training,
+clean recordings, no hazzan — against their own transcripts (RIGHT), with a word cut (SKIP), two swapped (SWAP) and
+as another sentence (WRONG LINE). It is a stress test, not the student case (fast modern speech, 16-word sentences,
+foreign names and numbers the transcripts write in Latin letters), but it is the only "other voices" data at hand.
+
+**What it showed.** The letter head reads these voices poorly: head median p50 0.53 (Alouf ≥ 0.80), 2 of 80 takes
+"clean", right words "not sure" 53%. The honest failure mode — but one verdict was not honest: **the free-path gap
+called 33 of the 80 right sentences "This does not sound like this line"** (gap ≥ 0.6; Israeli right takes have gap
+p50 0.50, p95 1.63, against Alouf's max 0.11). A voice the head reads poorly raises the gap exactly like a wrong
+text. Right words red 2.4% — of which about four fifths are FLEURS's own faults (two clips whose audio stops before
+the transcript ends; English words and numbers in the transcript that `he_words` drops), the rest a handful of
+words at 0 on every ear and one false "swapped" pair (ביתר פירוט, head median .52, swap gain 35.7 — the one
+half-band false alarm in 46 Israeli + 31 archive right takes).
+
+**v4.5 — the rival line.** `order.rival_evidence`: the server scores the text's *other* lines (the perek's other
+pesukim, the pizmon's other lines; `/check?pid=…`, or `alts=a|b|c`) on the same head matrix and reports how much the
+best of them beats the written line, per frame. A wrong pick shows as a large positive gain whoever sings; a poorly
+read voice does not (both lines suffer alike). Rule (server, page, embed; parity 541 + 397 lines): **wrong line =
+another line beats the written one by ≥ 0.3 nats/frame AND that line itself fits the audio (its own gap to the
+free path ≤ 0.4)**. The free-path gap alone no longer decides anything (shown in the lab line only). Calibration
+(`calib_rival.py`, `calib_rival.json`): Alouf right pasuk vs the perek's others: gain max −0.26 (the written pasuk
+always wins); Alouf wrong pasuk: min +0.40, the true pasuk's own gap ≤ 0.09 → **70/70 caught, 0/70 false**. Israeli
+right sentence vs five others: 0/80 called wrong (the six with gain ≥ 0.4 all had the rival fitting badly too, gap −
+gain ≥ 0.49: an unreadable voice, not a wrong text); Israeli wrong sentence: 26/80 caught — the rest are voices the
+head cannot read, and those now get "I could not make out the words of this line — check that it is the right line"
+instead of a confident wrong verdict either way. Without the text's other lines (free typed words) there is no
+wrong-line verdict at all.
+
+**Also this round:** a "plain" ע/ח on a take the heads hear poorly is not shown as a fault (the archive's other
+hazzanim: 9 plain verdicts, all on such takes; Israelis: ח 156 plain of 174 — real, they say כ — and ע 87 plain / 39
+unsure / 4 throat of 130), and the vowel ear is consulted only on a clean take (117 notes on 528 right archive words
+otherwise, 0.5–0.8% on Alouf). The booth's scoreboard says per take whether it was clean.

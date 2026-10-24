@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 os.environ.setdefault('DK_NO_WARM', '1')
 import numpy as np
 import app
-HERE = os.path.dirname(os.path.abspath(__file__)); random.seed(2)
+HERE = os.path.dirname(os.path.abspath(__file__)); random.seed(2); OUT = os.environ.get('EXAM_OUT', 'exam_israeli')
 rows_meta = json.load(open(os.path.join(HERE, '..', 'fleurs', 'dev.json'), encoding='utf-8')); by = {r[1]: r[3] for r in rows_meta}
 wavs = sorted(glob.glob(os.path.join(HERE, '..', 'fleurs_fresh', 'dev', '*.wav')))
 N = int(sys.argv[1]) if len(sys.argv) > 1 else 80
@@ -54,9 +54,9 @@ for w in wavs:
     n += 1
     if n % 10 == 0:
         print(f'{n} sentences · {int(time.time() - t0)} s · takes {len(takes)}', flush=True)
-        json.dump(rows, open(os.path.join(HERE, 'exam_israeli_rows.json'), 'w'), ensure_ascii=False); json.dump(takes, open(os.path.join(HERE, 'exam_israeli_takes.json'), 'w'), ensure_ascii=False)
+        json.dump(rows, open(os.path.join(HERE, OUT + '_rows.json'), 'w'), ensure_ascii=False); json.dump(takes, open(os.path.join(HERE, OUT + '_takes.json'), 'w'), ensure_ascii=False)
     if n >= N: break
-json.dump(rows, open(os.path.join(HERE, 'exam_israeli_rows.json'), 'w'), ensure_ascii=False); json.dump(takes, open(os.path.join(HERE, 'exam_israeli_takes.json'), 'w'), ensure_ascii=False)
+json.dump(rows, open(os.path.join(HERE, OUT + '_rows.json'), 'w'), ensure_ascii=False); json.dump(takes, open(os.path.join(HERE, OUT + '_takes.json'), 'w'), ensure_ascii=False)
 print('done', n, 'sentences', len(rows), 'rows', len(takes), 'takes', int(time.time() - t0), 's')
 for case in ('right', 'skip', 'swap', 'wrongline'):
     T = [t for t in takes if t['case'] == case]; R = [r for r in rows if r['case'] == case and (r['n'] or 0) >= 1]

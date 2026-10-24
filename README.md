@@ -59,6 +59,12 @@ Rabbi Alouf: still 0 of 1,850 (and 0 of 2,290 on a fresh validation batch), skip
 word for word on every exam row by `tools/t_parity.py`. All 144 perakim of Rabbi Alouf's Tehillim are in
 `static/tehillim/` (102 MB at 16 kHz / 48 kbps).
 
+v4.5 (Oct 24) rebuilds the wrong-line verdict on the text's own lines (`order.rival_evidence`, `/check?pid=…`): another
+line of the same perek or pizmon must beat the written one by 0.3 nats a frame and fit the audio itself. The free-path
+gap, measured on 80 Israelis reading other sentences — voices the head reads poorly — called 33 of 80 right sentences
+"not this line"; the rival test calls 0 of 80, and still 70/70 of Rabbi Alouf's wrong pesukim. A "plain" ע/ח and the
+vowel notes are shown on clean takes only.
+
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
 - `GET /health`, `GET /info`, `GET /lyrics` (the site's lyrics.json + the Tehillim perakim, with CORS).
 - `GET /ref?f=<archive mp3 | tehillim-NNN.mp3>&t0=&t1=&words=<line>` — the hazzan's line, analysed and cached.

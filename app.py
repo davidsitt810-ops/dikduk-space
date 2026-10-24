@@ -169,7 +169,7 @@ class LetterHead(nn.Module):
         return self.out(y)
 HEAD = None; HEAD_SYM = []; HEAD_LAYER = 12
 try:
-    ck = torch.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'letter_head.pt'), map_location='cpu')
+    ck = torch.load(os.environ.get('DK_LETTER_HEAD') or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'letter_head.pt'), map_location='cpu')   # DK_LETTER_HEAD: another head file (experiments)
     HEAD_SYM = ck['sym']; HEAD_LAYER = int(str(ck.get('layer', 'h12')).replace('h', ''))
     HEAD = LetterHead(d_in=ck.get('d_in', 1024), n=len(HEAD_SYM)); HEAD.load_state_dict(ck['state']); HEAD.eval()
     HEAD_S2I = {c: i for i, c in enumerate(HEAD_SYM)}
@@ -721,7 +721,7 @@ def try_page():
 
 @app.get('/health')
 def health():
-    return {'ok': True, 'version': 4.4, 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
+    return {'ok': True, 'version': 4.5, 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
             'page_from': 'github' if (_PAGES.get('index.html') or {}).get('body') else 'local', 'jobs': {'queued': sum(1 for v in JOBS.values() if v['state'] == 'queued'), 'running': sum(1 for v in JOBS.values() if v['state'] == 'running')},
             'ears': {'letter_head': HEAD is not None, 'vowel_head': FULL is not None, 'fine_tuned': FT is not None, 'classifier_v2': bool(CLF2), 'tehillim_lyrics': len(TEHILLIM_LYR), 'tehillim_audio': os.path.isdir(TEHILLIM_DIR) and len(os.listdir(TEHILLIM_DIR)) or (TEHILLIM_BASE or 0),
                      'tehillim_perakim': sorted(int(m.group(1)) for m in (re.match(r'tehillim-(\d{3})\.mp3$', f) for f in (os.listdir(TEHILLIM_DIR) if os.path.isdir(TEHILLIM_DIR) else [])) if m)}}
