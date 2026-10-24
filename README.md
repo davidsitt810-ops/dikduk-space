@@ -52,9 +52,10 @@ when the hazzan's own sounds for the word were found (fit ≥ .5); (3) CLEAN lea
 median is under .3 is "I could not make out the words": nothing red, the doubtful words "not sure". Also: silence or noise says "I did not hear any
 singing" (it used to be "not this line" with every word red); a skipped word is no longer called "swapped" with its
 neighbour (the swap must gain ≥ 0.35 of the drop); the swap evidence works on half-heard takes too (head median
-.5–.7, bar 12 nats). Right words red on the archive: 8.6% → 3.5% (what is left is mostly words the singers do not
-sing as written — the same words in two recordings), archive swaps caught 40 → 75%; Rabbi Alouf: still 0 of 1,850,
-skipped 99%, swapped 100%. The three copies of the rule (server, page, embed) are checked
+.5–.7, bar 12 nats). An independent review added: the skip-vs-swap guard uses the pair's own drop, the scoreboard scores by
+position (repeated words), an empty fit is no hazzan, and CLEAN takes the true (lower-middle) median. Right words
+red on the archive: 8.6% → 0.9% (4 of 456, words the singers do not sing as written), archive swaps caught 40 → 65%;
+Rabbi Alouf: still 0 of 1,850 (and 0 of 2,290 on a fresh validation batch), skipped 97%, swapped 96%. The three copies of the rule (server, page, embed) are checked
 word for word on every exam row by `tools/t_parity.py`. All 144 perakim of Rabbi Alouf's Tehillim are in
 `static/tehillim/` (102 MB at 16 kHz / 48 kbps).
 

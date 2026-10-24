@@ -505,7 +505,7 @@ against the server's python: 541/541 lines agree):
 | | right words red, Alouf (1,850) | skipped | swapped | replaced | wrong line (verdict) | right words red, archive (456) | archive takes "cannot hear" |
 |---|---|---|---|---|---|---|---|
 | v4.3 | 0 | 97% | 92% | 79% | 0/70 (!) | **8.6%** | – |
-| v4.4 | **0** | **99%** | **100%** | 80% | **70/70** | **3.5%** | 16 of 87 |
+| v4.4 | **0** | **97%** | **96%** | 77% | **70/70** | **0.9%** | 29 of 87 |
 
 What is left red on the archive's right takes (16 words) is, by every ear at once, not in the clip: words the singer
 does not sing as written, or cut off by the sync. Two borderline ones remain (hskel .3–.5 with kept .5–.67).
@@ -522,9 +522,22 @@ alarms 4 → 0, Alouf swaps still 134/136. (8) **Swaps on a half-heard take** (h
 safe there at a higher bar (right archive takes top out at 5.8 nats, real swaps 12–62): swap ≥ 12 → archive swaps
 caught 40 → 75%, Alouf 136/136; the drop evidence stays clean-only (right words reach 40+ nats on such takes).
 
+**An independent review** (a second agent that had not seen the work, with a 240,000-line synthetic fuzz of the
+three copies) found: the skip-vs-swap guard only worked when a single word had won the drop (two skipped words in
+one line, or a skipped one-consonant word, could still flag a sung neighbour as "swapped") — the guard now uses the
+pair's own largest drop; the scoreboard collapsed repeated words (קדוש קדוש קדוש) into one — it now scores by
+position; an empty fit list counted as a hazzan on the page ("as the hazzan sings it" with nothing compared) — now
+it is "no hazzan" in all three copies; `head_median` took the upper middle, so one well-heard word made a 2- or
+3-word line "clean" — now the lower middle (the true median). The last one costs a little on Rabbi Alouf (swaps
+caught 99 → 96%, skipped 99 → 97%, replaced 80 → 77%: short pesukim whose two swapped words are the two poorly heard
+ones are "not sure" instead of red) and buys a lot on the pizmonim archive: right words red 3.5% → **0.9%** (4 of 456,
+all of them words the singers do not sing as written), with 29 of 87 accompanied takes now "I could not make out the
+words". Also from the review: `/score` survives one broken record, `score_take` tolerates older summaries, a word
+with no verdict gets no "letters not heard" note.
+
 **Validation on pesukim the thresholds never saw** (`exam_alouf.py 80 11` with the first batch's pesukim excluded:
 80 fresh held-out pesukim, 3,255 word rows, `exam2_rows.json`): right words red **0 of 2,290**, intact "not sure"
-0%; skipped word caught **80/80**, swapped **155/156**, replaced 56/80 (70%; the weak case, as known), wrong pasuk
+0%; skipped word caught **78/80**, swapped **155/156**, replaced 56/80 (70%; the weak case, as known), wrong pasuk
 **78/79** as a verdict (the 79th: gap 0.59). Throat on the 80 intact pesukim: ע 90% throat / 10% unsure / 0 plain
 (start 40/4, mid 57/2, end 5/5), ח 70/71 throat; vowel notes against the nikud 12 of 1,426 slots (0.8%).
 

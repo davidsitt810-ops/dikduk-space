@@ -1147,7 +1147,7 @@ def head_median(TW):
     hs = sorted(t['hskel'] for t in TW if (t.get('n') or 0) >= 2 and t.get('hskel') is not None)
     if not hs: return None
     if len(hs) >= 3: hs = hs[1:]
-    return hs[len(hs) // 2]
+    return hs[(len(hs) - 1) // 2]   # the lower middle: one well-heard word does not make a short line clean
 
 def no_speech_in(take):
     """fewer phones heard than any singing would give: under 3, or under one every two seconds (kept in step with the page)"""
@@ -1161,7 +1161,7 @@ def clean_of(TW):
 def marks_of(TW, F, gap, clean):
     """the page's verdict per word (markOf + the whole-line evidence on a clean take; the line gap on every take;
        a take the head barely hears gets no red) -> (marks, why, line_wrong, cant_hear)"""
-    marks = [mark_of(TW[i], F[i] if F else None, clean) for i in range(len(TW))]; why = [None] * len(TW); line_wrong = False; cant_hear = False
+    marks = [mark_of(TW[i], F[i] if F and i < len(F) else None, clean) for i in range(len(TW))]; why = [None] * len(TW); line_wrong = False; cant_hear = False
     if clean and TW:
         ds = [t['drop'] if t.get('drop') is not None else -1e9 for t in TW]; top = int(np.argmax(ds)); second = max([d for i, d in enumerate(ds) if i != top], default=-1e9)
         dropped = (TW[top].get('n') or 0) >= 2 and ds[top] >= RULE['drop'] and ds[top] - second >= RULE['margin']
@@ -1172,7 +1172,7 @@ def marks_of(TW, F, gap, clean):
             # a skipped word also "gains" a little from being swapped with its neighbour (8-14 nats against a drop of
             # 27-72); a real swap gains at least 0.4 of the drop (0.8-3.3 on Rabbi Alouf, 52 of 52). Under that share the
             # pair's dropped word is a skip, and the neighbour is left alone
-            same = dropped and j in (top, top - 1) and sw[j] < RULE['share'] * ds[top]
+            pd = max(ds[j], ds[j + 1]); same = pd >= RULE['drop'] and sw[j] < RULE['share'] * pd   # (the pair's own largest drop: two skipped words in one line have no single winner)
             if sw[j] >= RULE['swap'] and max(na, nb) >= 2 and min(na, nb) >= 1 and not same: marks[j] = marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'
     elif TW:
         # a take heard half-well (head median .5-.7): the drop evidence is not safe there (right words reach 40+ on the
@@ -1180,7 +1180,8 @@ def marks_of(TW, F, gap, clean):
         m = head_median(TW); sw = [t['swap'] if t.get('swap') is not None else -1e9 for t in TW[:-1]]
         if m is not None and m >= RULE['half'] and sw:
             j = int(np.argmax(sw)); na, nb = TW[j].get('n') or 0, TW[j + 1].get('n') or 0
-            if sw[j] >= RULE['swap2'] and max(na, nb) >= 2 and min(na, nb) >= 1: marks[j] = marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'
+            ds = [t['drop'] if t.get('drop') is not None else -1e9 for t in TW]; pd = max(ds[j], ds[j + 1]); same = pd >= RULE['drop'] and sw[j] < RULE['share'] * pd
+            if sw[j] >= RULE['swap2'] and max(na, nb) >= 2 and min(na, nb) >= 1 and not same: marks[j] = marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'
     # the written line costs far more than the free path: not this line (measured safe on every take, clean or not)
     if TW and gap is not None and gap >= RULE['gap']:
         line_wrong = True; marks = ['unsure' if m == 'ok' else m for m in marks]
@@ -1192,7 +1193,7 @@ def marks_of(TW, F, gap, clean):
 
 def summarize(out):
     """the machine's claims about one take, in the page's words: marks per word, throat verdicts, vowel differences"""
-    W, TW, F = out['words'], out['take']['words'], out.get('fit')
+    W, TW, F = out['words'], out['take']['words'], (out.get('fit') or None)   # an empty fit list is no fit
     clean = clean_of(TW)
     marks, why, line_wrong, cant_hear = marks_of(TW, F, out['take'].get('gap'), clean)
     # no singing in the recording at all (silence, noise, a microphone that did not pick the person up): the phone
@@ -1258,22 +1259,25 @@ def score_take(J):
     if not J.get('check', True): return {'state': 'stored'}
     if not J.get('graded'): return {'state': 'waiting'}
     if not S: return {'state': 'error', 'why': J.get('error') or 'no result'}
-    marks = dict(zip(W, S['marks'])); claims = []; tally = {'false_alarm': 0, 'caught': 0, 'missed': 0, 'unsure': 0, 'claims': 0}
+    M = list(S.get('marks') or []); claims = []; tally = {'false_alarm': 0, 'caught': 0, 'missed': 0, 'unsure': 0, 'claims': 0}
     changed = set(he_letters(w) for w in (L.get('words') or []))
     if do in ('skip', 'wrong', 'swap', 'free', 'vowel') and L.get('word'): changed.add(he_letters(L['word']))
     if do == 'swap': changed |= set(he_letters(w) for w in (L.get('pair') or []))
-    # words
-    for w in W:
-        m = marks.get(w, '')
-        if he_letters(w) in changed and do in ('skip', 'wrong', 'swap', 'free'):
-            if m == 'off': tally['caught'] += 1; claims.append(f'{w}: you changed it, machine said not heard ✓')
-            elif m == 'unsure': tally['unsure'] += 1; claims.append(f'{w}: you changed it, machine said not sure ~')
+    # words, by position (a line can repeat a word); a changed word that occurs more than once is judged on its best instance
+    seen = set()
+    for i, w in enumerate(W):
+        m = M[i] if i < len(M) else ''; key = he_letters(w)
+        if key in changed and do in ('skip', 'wrong', 'swap', 'free'):
+            if key in seen: continue
+            seen.add(key); ms = [M[k] if k < len(M) else '' for k, x in enumerate(W) if he_letters(x) == key]
+            if 'off' in ms: tally['caught'] += 1; claims.append(f'{w}: you changed it, machine said not heard ✓')
+            elif 'unsure' in ms: tally['unsure'] += 1; claims.append(f'{w}: you changed it, machine said not sure ~')
             else: tally['missed'] += 1; claims.append(f'{w}: you changed it, machine passed it ✕')
         else:
             if m == 'off': tally['false_alarm'] += 1; claims.append(f'{w}: you sang it, machine said not heard ✕ (false alarm)')
             elif m == 'unsure': tally['unsure'] += 1; claims.append(f'{w}: you sang it, machine said not sure ~')
     # throat letters
-    for th in S['throat']:
+    for th in (S.get('throat') or []):
         if th.get('mark') == 'off' or (he_letters(th['w']) in changed and do in ('skip', 'wrong', 'swap', 'free')): continue   # the word was not there, or was changed: its letters are not judged
         planted = (do == 'ayin' and th['c'] == 'ע' or do == 'het' and th['c'] == 'ח') and (not L.get('word') or he_letters(L.get('word')) == he_letters(th['w'])) and L.get('done', True)
         if planted:
@@ -1285,15 +1289,15 @@ def score_take(J):
             elif th['v'] == 'plain': tally['false_alarm'] += 1; claims.append(f"{th['c']} in {th['w']}: machine said plain ✕ (false alarm, unless you did say it plain)")
             elif th['v'] == 'unsure': tally['unsure'] += 1; claims.append(f"{th['c']} in {th['w']}: machine not sure ~")
     # vowels
-    vw = [v for v in S['vowels']]
+    vw = [v for v in (S.get('vowels') or [])]
     if do == 'vowel' and L.get('word'):
         hit = [v for v in vw if he_letters(v['w']) == he_letters(L['word'])]
         if hit: tally['caught'] += 1; claims.append(f"{L['word']}: you changed a vowel, machine heard {hit[0]['you']} for {hit[0]['ref']} ✓")
         else: tally['missed'] += 1; claims.append(f"{L['word']}: you changed a vowel, machine heard nothing ✕")
         vw = [v for v in vw if he_letters(v['w']) != he_letters(L['word'])]
     for v in vw:
-        tally['claims'] += 1; claims.append(f"{v['w']}: machine says you sang {v['you']} where the {v['against']} has {v['ref']} — right or wrong?")
-    return {'state': 'scored', 'claims': claims, 'tally': tally, 'clean': S['clean'], 'hazzan': S['hazzan'], 'cant_hear': bool(S.get('cant_hear')), 'no_speech': bool(S.get('no_speech')), 'line_wrong': bool(S.get('line_wrong'))}
+        tally['claims'] += 1; claims.append(f"{v['w']}: machine says you sang {v['you']} where the {v.get('against', 'hazzan')} has {v['ref']} — right or wrong?")
+    return {'state': 'scored', 'claims': claims, 'tally': tally, 'clean': S.get('clean'), 'hazzan': S.get('hazzan'), 'cant_hear': bool(S.get('cant_hear')), 'no_speech': bool(S.get('no_speech')), 'line_wrong': bool(S.get('line_wrong'))}
 
 @app.get('/score')
 def score(set_: str = Query(None, alias='set'), name: str = None, who: str = None, key: str = None):
@@ -1304,7 +1308,10 @@ def score(set_: str = Query(None, alias='set'), name: str = None, who: str = Non
         if d: return d
     items = list_takes(set_, name, who); rows = []; tot = {'false_alarm': 0, 'caught': 0, 'missed': 0, 'unsure': 0, 'claims': 0, 'waiting': 0, 'error': 0, 'stored': 0}
     for J in items:
-        sc = score_take(J); rows.append({'id': J['id'], 'task': J.get('task'), 'label': J.get('label'), 'words': J.get('words'), 'do': J.get('do'), 'labels': J.get('labels'), 'note': J.get('note'), 'name': J.get('name'), 't': J.get('t'), **sc})
+        if not isinstance(J, dict) or 'id' not in J: continue
+        try: sc = score_take(J)
+        except Exception as e: sc = {'state': 'error', 'why': 'scoring: ' + str(e)[:120]}
+        rows.append({'id': J['id'], 'task': J.get('task'), 'label': J.get('label'), 'words': J.get('words'), 'do': J.get('do'), 'labels': J.get('labels'), 'note': J.get('note'), 'name': J.get('name'), 't': J.get('t'), **sc})
         if sc['state'] == 'scored':
             for k, v in sc['tally'].items(): tot[k] += v
         else: tot[sc['state']] += 1
