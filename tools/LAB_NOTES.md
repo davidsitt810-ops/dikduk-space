@@ -650,3 +650,15 @@ rival line to be heard itself (its own head median ≥ .3, `rival.head`): no cos
 
 **Shipped as v4.6**: head v7 is `letter_head.pt` (v5 kept as `space_test/letter_head_v5_shipped.pt`); the rule is
 v4.5's plus the drop guard and the rival-head condition; parity 547/547; the regression suite green.
+
+**The shipped v4.6 on all 199 held-out Israeli clips** (the 80 fresh + the 119 that served the head's own exam; none
+trained on; `exam_israeli_all_*.json`): right takes clean 36/199, head median p50 .64, "not sure" 22%, red 1.6% —
+but split by the transcript: on the 123 sentences whose transcript has no digits, Latin letters or quotes (which
+`he_words` drops while the audio says them), **right words red 0.4% (8 of 1,803), "not sure" 16%**; on the other 76,
+red 3.0% (the written words are not what was said). No right sentence called the wrong line (0/199); the wrong
+sentence called 153/199; a cut word caught 46%, swapped words 70%. ע on Israelis: plain 262 / unsure 78 / throat 5 of
+345 (they say it plain: "throat" 1.4% is the false-confirmation rate), ח plain 353 of 374.
+
+**Not done, on purpose:** refitting the word logistic (`WORD_MODEL`, pw) on the v7 head's features. It would cut the
+Israelis' "not sure" from 16% to 6% (archive 53 → 42%) but halves the replaced-word catch on Rabbi Alouf (57 → 33 of
+80): pw ≥ .95 is what catches a replaced word on a clean take. A knob for later, with a learner's voice in hand.

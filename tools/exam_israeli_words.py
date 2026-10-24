@@ -9,7 +9,7 @@ import numpy as np
 import app
 HERE = os.path.dirname(os.path.abspath(__file__)); random.seed(2); OUT = os.environ.get('EXAM_OUT', 'exam_israeli')
 rows_meta = json.load(open(os.path.join(HERE, '..', 'fleurs', 'dev.json'), encoding='utf-8')); by = {r[1]: r[3] for r in rows_meta}
-wavs = sorted(glob.glob(os.path.join(HERE, '..', 'fleurs_fresh', 'dev', '*.wav')))
+wavs = sorted(glob.glob(os.path.join(HERE, '..', 'fleurs_fresh', 'dev', '*.wav'))) + (sorted(glob.glob(os.path.join(HERE, '..', 'fleurs', 'dev', '*.wav'))) if os.environ.get('ALL_DEV') else [])   # ALL_DEV=1: also the 119 dev clips that served the head's own exam (never trained on)
 N = int(sys.argv[1]) if len(sys.argv) > 1 else 80
 rows = []; takes = []; t0 = time.time(); n = 0
 def check(x, W, alts=None):
