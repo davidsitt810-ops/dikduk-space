@@ -1139,7 +1139,7 @@ def mark_of(y, f, clean):
         return 'ok'
     return 'unsure' if sk < .2 and not sure else 'ok'
 
-RULE = {'drop': 10, 'margin': 4, 'swap': 8, 'gap': 0.6, 'hear': 0.3, 'share': 0.35}   # kept in step with static/index.html and embed.js
+RULE = {'drop': 10, 'margin': 4, 'swap': 8, 'gap': 0.6, 'hear': 0.3, 'share': 0.35, 'half': 0.5, 'swap2': 12}   # kept in step with static/index.html and embed.js
 
 def head_median(TW):
     """the letter head's score on the line's words (2+ consonants), the median — with the lowest word left out when
@@ -1174,6 +1174,13 @@ def marks_of(TW, F, gap, clean):
             # pair's dropped word is a skip, and the neighbour is left alone
             same = dropped and j in (top, top - 1) and sw[j] < RULE['share'] * ds[top]
             if sw[j] >= RULE['swap'] and max(na, nb) >= 2 and min(na, nb) >= 1 and not same: marks[j] = marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'
+    elif TW:
+        # a take heard half-well (head median .5-.7): the drop evidence is not safe there (right words reach 40+ on the
+        # archive), the swap evidence is — right takes top out at 5.8, real swaps 12-62 — at a higher bar
+        m = head_median(TW); sw = [t['swap'] if t.get('swap') is not None else -1e9 for t in TW[:-1]]
+        if m is not None and m >= RULE['half'] and sw:
+            j = int(np.argmax(sw)); na, nb = TW[j].get('n') or 0, TW[j + 1].get('n') or 0
+            if sw[j] >= RULE['swap2'] and max(na, nb) >= 2 and min(na, nb) >= 1: marks[j] = marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'
     # the written line costs far more than the free path: not this line (measured safe on every take, clean or not)
     if TW and gap is not None and gap >= RULE['gap']:
         line_wrong = True; marks = ['unsure' if m == 'ok' else m for m in marks]
