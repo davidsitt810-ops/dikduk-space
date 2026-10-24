@@ -18,7 +18,7 @@ lines = []
 for f in files:
     if not os.path.exists(f): continue
     R = json.load(open(f, encoding='utf-8')); L = collections.defaultdict(dict)
-    for r in R: L[(r['case'], r.get('per', r.get('pid')), r.get('ps', r.get('line')), r.get('rec', ''))][r['k']] = r
+    for r in R: L[(r['case'], r.get('per', r.get('pid', r.get('f'))), r.get('ps', r.get('line', 0)), r.get('rec', ''))][r['k']] = r
     for key, d in L.items():
         TW = [d[k] for k in sorted(d)]; F = [{'fit': t.get('fit')} for t in TW] if any(t.get('fit') is not None for t in TW) else None
         # a synthetic rival score on two lines in three (the recorded rows have none): the new branch must agree too

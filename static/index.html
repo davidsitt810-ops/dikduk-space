@@ -347,7 +347,8 @@ const RULE={drop:10,margin:4,swap:8,rival:0.3,altFit:0.4,hear:0.3,share:0.35,hal
 function headMedian(TW){let hs=TW.filter(t=>(t.n||0)>=2&&t.hskel!=null).map(t=>t.hskel).sort((a,b)=>a-b);if(!hs.length)return null;if(hs.length>=3)hs=hs.slice(1);return hs[Math.floor((hs.length-1)/2)];}   /* the lower middle: one well-heard word does not make a short line clean */
 function marksOf(TW,F,gap,rival){const marks=TW.map((t,i)=>markOf(t,F&&F[i]));const why=TW.map(()=>null);let lineWrong=false,cantHear=false;
  if(CLEAN){const ds=TW.map(t=>t.drop==null?-1e9:t.drop);const top=ds.indexOf(Math.max(...ds));const second=Math.max(...ds.filter((d,i)=>i!==top),-1e9);
-  const dropped=top>=0&&(TW[top].n||0)>=2&&ds[top]>=RULE.drop&&ds[top]-second>=RULE.margin;if(dropped){marks[top]='off';why[top]='dropped';}
+  const dropped=top>=0&&(TW[top].n||0)>=2&&ds[top]>=RULE.drop&&ds[top]-second>=RULE.margin;const heard=dropped&&(TW[top].skel||0)>=.8&&(TW[top].kept||0)>=.6;   /* consonants found in place, most letters kept: doubtful at most */
+  if(dropped&&!heard){marks[top]='off';why[top]='dropped';}else if(dropped&&marks[top]==='ok')marks[top]='unsure';
   /* a skipped word also "gains" a little from being swapped with its neighbour (8-14 nats against a drop of 27-72); a real swap gains at least 0.4 of the drop. Under that share the pair's dropped word is a skip, and the neighbour is left alone */
   const sw=TW.slice(0,-1).map(t=>t.swap==null?-1e9:t.swap);if(sw.length){const j=sw.indexOf(Math.max(...sw)),na=TW[j].n||0,nb=TW[j+1].n||0;const pd=Math.max(ds[j],ds[j+1]),same=pd>=RULE.drop&&sw[j]<RULE.share*pd;if(sw[j]>=RULE.swap&&Math.max(na,nb)>=2&&Math.min(na,nb)>=1&&!same){marks[j]='off';marks[j+1]='off';why[j]=why[j+1]='swapped';}}}
  else if(TW.length){/* a take heard half-well (head median .5-.7): the swap evidence at a higher bar (right takes top out at 5.8, real swaps 12-62); the drop evidence is not safe there */

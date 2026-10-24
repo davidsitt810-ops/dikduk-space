@@ -1187,7 +1187,10 @@ def marks_of(TW, F, gap, clean, rival=None):
     if clean and TW:
         ds = [t['drop'] if t.get('drop') is not None else -1e9 for t in TW]; top = int(np.argmax(ds)); second = max([d for i, d in enumerate(ds) if i != top], default=-1e9)
         dropped = (TW[top].get('n') or 0) >= 2 and ds[top] >= RULE['drop'] and ds[top] - second >= RULE['margin']
-        if dropped: marks[top] = 'off'; why[top] = 'dropped'
+        # a word whose consonants the phone recognizer found in place, with most letters kept, is not "not heard": doubtful at most
+        heard = (TW[top].get('skel') or 0) >= .8 and (TW[top].get('kept') or 0) >= .6
+        if dropped and not heard: marks[top] = 'off'; why[top] = 'dropped'
+        elif dropped and marks[top] == 'ok': marks[top] = 'unsure'
         sw = [t['swap'] if t.get('swap') is not None else -1e9 for t in TW[:-1]]
         if sw:
             j = int(np.argmax(sw)); na, nb = TW[j].get('n') or 0, TW[j + 1].get('n') or 0
