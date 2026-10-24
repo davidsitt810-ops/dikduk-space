@@ -271,12 +271,12 @@ function mount(root, opts) {
   const sure = CLEAN && kp != null && kp >= .75 && hs != null && hs >= .6 && (pw == null || pw < .8);
   if (n >= 2) { if (sk < .2 && (ft == null || ft < .15)) { if (ft == null && CLEAN && !(kp != null && kp < .75)) return 'unsure'; if (!CLEAN && kp != null && kp >= .5) return 'unsure'; return 'off'; } if (CLEAN && pw != null && pw >= .95 && (ft == null || ft < .5)) return 'off'; if (sure) return 'ok'; if (sk < .4 || (ft != null && ft < .2) || (kp != null && kp < .5) || (pw != null && pw >= .8)) return 'unsure'; return 'ok'; } return sk < .2 && !sure ? 'unsure' : 'ok'; }
  /* whole-line evidence on a clean take (server: order.py); thresholds from exam_alouf.py — kept in step with index.html */
- const RULE = {drop: 10, margin: 4, swap: 8, gap: 0.6, hear: 0.3};
+ const RULE = {drop: 10, margin: 4, swap: 8, gap: 0.6, hear: 0.3, share: 0.35};
  function headMedian(TW) { let hs = TW.filter(t => (t.n || 0) >= 2 && t.hskel != null).map(t => t.hskel).sort((a, b) => a - b); if (!hs.length) return null; if (hs.length >= 3) hs = hs.slice(1); return hs[Math.floor(hs.length / 2)]; }
  function marksOf(TW, F, gap) { const marks = TW.map((t, i) => markOf(t, F && F[i])); const why = TW.map(() => null); let lineWrong = false, cantHear = false;
   if (CLEAN) { const ds = TW.map(t => t.drop == null ? -1e9 : t.drop); const top = ds.indexOf(Math.max(...ds)); const second = Math.max(...ds.filter((d, i) => i !== top), -1e9);
-   if (top >= 0 && (TW[top].n || 0) >= 2 && ds[top] >= RULE.drop && ds[top] - second >= RULE.margin) { marks[top] = 'off'; why[top] = 'dropped'; }
-   const sw = TW.slice(0, -1).map(t => t.swap == null ? -1e9 : t.swap); if (sw.length) { const j = sw.indexOf(Math.max(...sw)), na = TW[j].n || 0, nb = TW[j + 1].n || 0; if (sw[j] >= RULE.swap && Math.max(na, nb) >= 2 && Math.min(na, nb) >= 1) { marks[j] = 'off'; marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'; } }
+   const dropped = top >= 0 && (TW[top].n || 0) >= 2 && ds[top] >= RULE.drop && ds[top] - second >= RULE.margin; if (dropped) { marks[top] = 'off'; why[top] = 'dropped'; }
+   const sw = TW.slice(0, -1).map(t => t.swap == null ? -1e9 : t.swap); if (sw.length) { const j = sw.indexOf(Math.max(...sw)), na = TW[j].n || 0, nb = TW[j + 1].n || 0; const same = dropped && (j === top || j === top - 1) && sw[j] < RULE.share * ds[top]; if (sw[j] >= RULE.swap && Math.max(na, nb) >= 2 && Math.min(na, nb) >= 1 && !same) { marks[j] = 'off'; marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'; } }
   }
   if (TW.length && gap != null && gap >= RULE.gap) { lineWrong = true; for (let i = 0; i < marks.length; i++) if (marks[i] === 'ok') marks[i] = 'unsure'; }
   if (TW.length && !CLEAN && !lineWrong) { const m = headMedian(TW); if (m != null && m < RULE.hear) { cantHear = true; for (let i = 0; i < marks.length; i++) if (marks[i] === 'off') marks[i] = 'unsure'; } }

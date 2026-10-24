@@ -340,15 +340,16 @@ function markOf(y,f){const n=y&&y.n||0,sk=y&&y.skel!=null?y.skel:null,ft=f&&f.fi
    this word (nats; only the line's largest drop may flag, and only when it stands clear of the second); swap = how
    much it prefers the two neighbours the other way round; gap = what the written line costs per frame against the
    free path (a different text costs ~1 nat/frame, the right line under 0.1). Thresholds from exam_alouf.py. */
-const RULE={drop:10,margin:4,swap:8,gap:0.6,hear:0.3};
+const RULE={drop:10,margin:4,swap:8,gap:0.6,hear:0.3,share:0.35};
 /* v4.4: the letter head's median score over the line's words (2+ consonants), the lowest word left out when there are
    three or more — one wrong word must not make a good recording look poor. Clean = median >= .7 (the finer signals
    are trusted); under .3 the head barely hears the words: nothing goes red, the doubtful words stay "not sure". */
 function headMedian(TW){let hs=TW.filter(t=>(t.n||0)>=2&&t.hskel!=null).map(t=>t.hskel).sort((a,b)=>a-b);if(!hs.length)return null;if(hs.length>=3)hs=hs.slice(1);return hs[Math.floor(hs.length/2)];}
 function marksOf(TW,F,gap){const marks=TW.map((t,i)=>markOf(t,F&&F[i]));const why=TW.map(()=>null);let lineWrong=false,cantHear=false;
  if(CLEAN){const ds=TW.map(t=>t.drop==null?-1e9:t.drop);const top=ds.indexOf(Math.max(...ds));const second=Math.max(...ds.filter((d,i)=>i!==top),-1e9);
-  if(top>=0&&(TW[top].n||0)>=2&&ds[top]>=RULE.drop&&ds[top]-second>=RULE.margin){marks[top]='off';why[top]='dropped';}
-  const sw=TW.slice(0,-1).map(t=>t.swap==null?-1e9:t.swap);if(sw.length){const j=sw.indexOf(Math.max(...sw)),na=TW[j].n||0,nb=TW[j+1].n||0;if(sw[j]>=RULE.swap&&Math.max(na,nb)>=2&&Math.min(na,nb)>=1){marks[j]='off';marks[j+1]='off';why[j]=why[j+1]='swapped';}}}
+  const dropped=top>=0&&(TW[top].n||0)>=2&&ds[top]>=RULE.drop&&ds[top]-second>=RULE.margin;if(dropped){marks[top]='off';why[top]='dropped';}
+  /* a skipped word also "gains" a little from being swapped with its neighbour (8-14 nats against a drop of 27-72); a real swap gains at least 0.4 of the drop. Under that share the pair's dropped word is a skip, and the neighbour is left alone */
+  const sw=TW.slice(0,-1).map(t=>t.swap==null?-1e9:t.swap);if(sw.length){const j=sw.indexOf(Math.max(...sw)),na=TW[j].n||0,nb=TW[j+1].n||0;const same=dropped&&(j===top||j===top-1)&&sw[j]<RULE.share*ds[top];if(sw[j]>=RULE.swap&&Math.max(na,nb)>=2&&Math.min(na,nb)>=1&&!same){marks[j]='off';marks[j+1]='off';why[j]=why[j+1]='swapped';}}}
  /* the written line costs far more than the free path: not this line (safe on every take, clean or not) */
  if(TW.length&&gap!=null&&gap>=RULE.gap){lineWrong=true;for(let i=0;i<marks.length;i++)if(marks[i]==='ok')marks[i]='unsure';}
  if(TW.length&&!CLEAN&&!lineWrong){const m=headMedian(TW);if(m!=null&&m<RULE.hear){cantHear=true;for(let i=0;i<marks.length;i++)if(marks[i]==='off')marks[i]='unsure';}}

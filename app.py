@@ -1139,7 +1139,7 @@ def mark_of(y, f, clean):
         return 'ok'
     return 'unsure' if sk < .2 and not sure else 'ok'
 
-RULE = {'drop': 10, 'margin': 4, 'swap': 8, 'gap': 0.6, 'hear': 0.3}   # kept in step with static/index.html and embed.js
+RULE = {'drop': 10, 'margin': 4, 'swap': 8, 'gap': 0.6, 'hear': 0.3, 'share': 0.35}   # kept in step with static/index.html and embed.js
 
 def head_median(TW):
     """the letter head's score on the line's words (2+ consonants), the median — with the lowest word left out when
@@ -1164,11 +1164,16 @@ def marks_of(TW, F, gap, clean):
     marks = [mark_of(TW[i], F[i] if F else None, clean) for i in range(len(TW))]; why = [None] * len(TW); line_wrong = False; cant_hear = False
     if clean and TW:
         ds = [t['drop'] if t.get('drop') is not None else -1e9 for t in TW]; top = int(np.argmax(ds)); second = max([d for i, d in enumerate(ds) if i != top], default=-1e9)
-        if (TW[top].get('n') or 0) >= 2 and ds[top] >= RULE['drop'] and ds[top] - second >= RULE['margin']: marks[top] = 'off'; why[top] = 'dropped'
+        dropped = (TW[top].get('n') or 0) >= 2 and ds[top] >= RULE['drop'] and ds[top] - second >= RULE['margin']
+        if dropped: marks[top] = 'off'; why[top] = 'dropped'
         sw = [t['swap'] if t.get('swap') is not None else -1e9 for t in TW[:-1]]
         if sw:
             j = int(np.argmax(sw)); na, nb = TW[j].get('n') or 0, TW[j + 1].get('n') or 0
-            if sw[j] >= RULE['swap'] and max(na, nb) >= 2 and min(na, nb) >= 1: marks[j] = marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'
+            # a skipped word also "gains" a little from being swapped with its neighbour (8-14 nats against a drop of
+            # 27-72); a real swap gains at least 0.4 of the drop (0.8-3.3 on Rabbi Alouf, 52 of 52). Under that share the
+            # pair's dropped word is a skip, and the neighbour is left alone
+            same = dropped and j in (top, top - 1) and sw[j] < RULE['share'] * ds[top]
+            if sw[j] >= RULE['swap'] and max(na, nb) >= 2 and min(na, nb) >= 1 and not same: marks[j] = marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'
     # the written line costs far more than the free path: not this line (measured safe on every take, clean or not)
     if TW and gap is not None and gap >= RULE['gap']:
         line_wrong = True; marks = ['unsure' if m == 'ok' else m for m in marks]
