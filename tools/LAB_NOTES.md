@@ -423,7 +423,7 @@ cannot measure without you: your voice on your phone — the scorecard.
   cores inside a container), reported in `/health` as `threads` / `cpu_count`. fp16 copies of the heads
   (`space_small/`, 5.2 MB each) give identical verdicts (46 words, 11 throat letters, 101 vowel slots: 0 changes)
   — not shipped, kept in case a size limit ever matters.
-- Still to do on the Space: the other 138 perakim into `static/tehillim/` (203 MB, via GitHub in a few commits).
+- Done Oct 23: the other 136 perakim are in `static/tehillim/` (144 in all, 102 MB, three commits); the Space gets them at the next Factory rebuild.
 
 ## 23. Shabbat round (Oct 23): whole-line evidence, the exam on Rabbi Alouf, two vote fixes — v4.3
 
@@ -464,3 +464,84 @@ process on 2 CPUs (with the new signals).
 ע at word start on Alouf 21% "unsure" (v2 conservative where Israeli word-initial ע is zero); nothing of this is
 measured on a student's voice yet — the booth exists for that. The Space runs v4.3 after one Factory reboot; the
 page and the embed already carry the rule and work against the old server (the new fields are simply absent there).
+
+## 24. Shabbat round, second half (Oct 23 night – Oct 24): the pizmonim exam and v4.4
+
+**The gap in the testing.** Everything measured so far was Rabbi Alouf reading, checked against himself: clean
+a-cappella, same voice. The site's use is a student singing a *pizmon* against *another* hazzan's recording. The
+archive has that case ready-made: 15 pizmonim with two or more synced recordings in the cache. `exam_archive.py` takes
+hazzan A's line as the reference (as the site does) and hazzan B's line k as a RIGHT take (another voice, often with
+instruments), the same clip as line j of the same pizmon as a WRONG LINE, and, where B's take is clean, a word cut out
+(SKIP) and two neighbours swapped (SWAP) from the machine's own placement. 216 takes, 1,172 word rows
+(`exam_archive_rows.json`). The ground truth is only as good as the site's sync events: 11 "right" clips are shorter
+than half the hazzan's line or twice as long and are left out of the tallies; a few lines are plainly sung with
+other words than the site's text (the same words red in two independent recordings: ביום in 31:3, בחכמה כלם in 34:3,
+לעם בחר in 17:3). 79 of 205 takes are on recordings the letter head was trained on; the rest are new to it.
+
+**What it showed (v4.3 as shipped that morning).** On the 87 plausible right takes, **a right word went red 8.6% of
+the time** and "not sure" 45%. Only 9 of 87 takes were CLEAN (median letter-head score ≥ .7), and on a non-clean take
+the per-word rule was still the v3 rule: red when the phone recognizer finds neither the word's consonants (skel < .2)
+nor the hazzan's sounds (fit < .15) — two readings of the one ear that hears least in sung, accompanied audio — and
+the letter head was never asked. The whole-line evidence and the line gap were switched off on every non-clean take,
+which also meant **a wrong line never produced the "not this line" headline** (a wrong line is non-clean by nature:
+on Alouf the gap caught 70/70 as a number but 0/70 as a verdict — a bug since v4.3's rule went in).
+
+**v4.4** (server `marks_of`, page and embed identical; `t_parity.py` runs the two JS copies in node on every exam row
+against the server's python: 541/541 lines agree):
+1. **Non-clean take, red needs the head to agree**: the skel/fit red is "not sure" when the head heard half or more of
+   the word's letters (kept ≥ .5).
+2. **The pw-red yields to a found hazzan fit**: on a clean take pw ≥ .95 is red only when the hazzan's own sounds for
+   the word were not found (fit < .5) — אשר in 29:3 had fit .92 and went red on pw alone.
+3. **CLEAN is robust**: the median letter-head score with the lowest word left out (three or more scoreable words).
+   One wrong word in a short line was pushing the median under .7 and switching the whole-line evidence off exactly
+   when it was needed: Alouf swaps caught 92 → 99%, skipped 97 → 99%, no new false alarm.
+4. **The line gap speaks on every take.** Measured safe: 0 of 157 right takes (70 Alouf + 87 archive) reach .6; the
+   archive's right takes top out at .45. It catches all 70 Alouf wrong lines as a verdict now, and 4 of 76 archive
+   wrong lines (in noisy audio the free path is not much better than the forced wrong line — the gap is honest there).
+5. **"I could not make out the words"**: a non-clean take whose robust head median is under .3 (and whose gap does not
+   say "wrong line") gets that headline, nothing red, the doubtful words "not sure". Alouf never triggers it (his
+   lowest intact median is .80); 16 of 87 archive right takes do — the heavily accompanied ones, where the reds were.
+
+| | right words red, Alouf (1,850) | skipped | swapped | replaced | wrong line (verdict) | right words red, archive (456) | archive takes "cannot hear" |
+|---|---|---|---|---|---|---|---|
+| v4.3 | 0 | 97% | 92% | 79% | 0/70 (!) | **8.6%** | – |
+| v4.4 | **0** | **99%** | **100%** | 80% | **70/70** | **3.5%** | 16 of 87 |
+
+What is left red on the archive's right takes (16 words) is, by every ear at once, not in the clip: words the singer
+does not sing as written, or cut off by the sync. Two borderline ones remain (hskel .3–.5 with kept .5–.67).
+
+**Later the same night, three more.** (6) **No singing at all** (silence, noise, a microphone that missed the
+person): the phone recognizer hears ~4 phones a second in reading, 1.5 in slow singing, 0 in noise — under 3 phones
+or one per two seconds the headline is "I did not hear any singing", nothing is judged (pure noise used to come out
+as "This does not sound like this line" with every word red). On a take the head could not make out, the ע/ח and
+vowel claims are dropped too. (7) **A skipped word was being called "swapped" with its neighbour** (the archive's skip
+takes: לישראל cut → "לישראל and אורה seem swapped", the neighbour red): a missing word also gains a little from a
+swap (8–14 nats against a drop of 27–72). Now when the line's dropped word sits in the best swap pair, the swap must
+gain at least 0.35 of the drop (real swaps 0.8–3.3 on Alouf, 52 of 52; skips 0.12 and 0.31) — archive skip false
+alarms 4 → 0, Alouf swaps still 134/136. (8) **Swaps on a half-heard take** (head median .5–.7): the swap evidence is
+safe there at a higher bar (right archive takes top out at 5.8 nats, real swaps 12–62): swap ≥ 12 → archive swaps
+caught 40 → 75%, Alouf 136/136; the drop evidence stays clean-only (right words reach 40+ nats on such takes).
+
+**Validation on pesukim the thresholds never saw** (`exam_alouf.py 80 11` with the first batch's pesukim excluded:
+80 fresh held-out pesukim, 3,255 word rows, `exam2_rows.json`): right words red **0 of 2,290**, intact "not sure"
+0%; skipped word caught **80/80**, swapped **155/156**, replaced 56/80 (70%; the weak case, as known), wrong pasuk
+**78/79** as a verdict (the 79th: gap 0.59). Throat on the 80 intact pesukim: ע 90% throat / 10% unsure / 0 plain
+(start 40/4, mid 57/2, end 5/5), ח 70/71 throat; vowel notes against the nikud 12 of 1,426 slots (0.8%).
+
+**Other things done this round.** All 144 perakim of Rabbi Alouf's Tehillim are in the repo (`static/tehillim/`,
+16 kHz mono 48 kbps, 102 MB, three commits; the Space gets them at its next Factory rebuild) — until then the page
+decides per perek from the server's own list whether a hazzan exists (it used to assume audio for every perek once
+any was present: broken play buttons and a failed hazzan request on perek 94, say). Swaps involving a short word
+(על/פניהם, עמו/ואשתמר) are caught (one side n ≥ 2, the other n ≥ 1; 6/6 on the tampered test takes); one swap pair
+per line (the largest); no vowel or throat notes on a word that was not there; the booth's scoreboard matches words
+by their letters (final forms), says when the machine could not hear a take, and when it called the line wrong.
+The exam of the morning (`exam_alouf.py`) and the pizmonim exam, the two-gate report (`exam_report.py`, which takes
+the rule out of app.py itself), the variants (`exam_variants2.py`), the truth filter (`exam_archive_truth.py`) and
+the parity test are in the repo's `tools/`.
+
+**Still open.** (a) Nothing is measured on a student's voice yet — the booth and David's 20 recordings are the
+calibration that matters most. (b) The archive exam's ground truth is the site's sync events; a cleaner archive
+test needs lines whose second recording is known to carry the same words. (c) Replaced words resembling the original
+still pass or stay "not sure" (באדני for אדני). (d) ע at word start on Alouf 21% "unsure". (e) One-consonant words
+are never red on their own (רעה, את, עמו skipped → "not sure"): the Alouf rows show the drop evidence cannot
+separate them safely (right one-consonant words reach drop 8.3, a skipped עמו 9.9).

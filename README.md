@@ -49,9 +49,12 @@ take the heads hear poorly, red needs the head to agree (under half the letters 
 when the hazzan's own sounds for the word were found (fit ≥ .5); (3) CLEAN leaves the lowest word out of the median
 (one wrong word must not make a good recording look poor: swaps caught 92 → 99%, skipped 97 → 99% on Rabbi Alouf);
 (4) the line gap speaks on every take, clean or not (0 false "wrong line" on 157 right takes); (5) a take whose head
-median is under .3 is "I could not make out the words": nothing red, the doubtful words "not sure". Right words red
-on the archive: 8.6% → 3.5% (what is left is mostly words the singers do not sing as written — the same words in
-two recordings); Rabbi Alouf: still 0 of 1,850. The three copies of the rule (server, page, embed) are checked
+median is under .3 is "I could not make out the words": nothing red, the doubtful words "not sure". Also: silence or noise says "I did not hear any
+singing" (it used to be "not this line" with every word red); a skipped word is no longer called "swapped" with its
+neighbour (the swap must gain ≥ 0.35 of the drop); the swap evidence works on half-heard takes too (head median
+.5–.7, bar 12 nats). Right words red on the archive: 8.6% → 3.5% (what is left is mostly words the singers do not
+sing as written — the same words in two recordings), archive swaps caught 40 → 75%; Rabbi Alouf: still 0 of 1,850,
+skipped 99%, swapped 100%. The three copies of the rule (server, page, embed) are checked
 word for word on every exam row by `tools/t_parity.py`. All 144 perakim of Rabbi Alouf's Tehillim are in
 `static/tehillim/` (102 MB at 16 kHz / 48 kbps).
 

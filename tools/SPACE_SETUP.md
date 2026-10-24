@@ -31,17 +31,18 @@ rebuild again) or a typo in app.py (I test locally before pushing).
 
 ## More Tehillim audio
 
-`static/tehillim/` in the GitHub repo holds eight perakim of Rabbi Alouf's reading (1, 23, 117, 121, 130, 133, 134,
-150; 2 MB). The other 138 renamed mp3s (`~/Downloads/Tehilim/tehillim/`, 203 MB) can go into the same folder in the
-repo in a few commits; then Factory rebuild. Without them the other Tehillim lines still check words and vowels
-against the nikud, there is just no hazzan to play.
+(Oct 23) `static/tehillim/` in the GitHub repo now holds all 144 perakim of Rabbi Alouf's reading that David's
+download had (16 kHz mono 48 kbps, 102 MB; the same timeline as the sync events in `lyrics_tehillim.json`). The six
+perakim he did not record (69, 87, 89, 104, 120, 139) are text-only: words and vowels are checked against the nikud,
+there is just no hazzan to play. The Space gets the files at the next Factory rebuild.
 
 ## Phone
 
 Open the address in Safari on the iPhone, tap **Record**, allow the microphone once. After 48 idle hours the Space
 sleeps; the first check after that takes a minute or two (the page says "waking the server…"). The first check of a
 line not yet analysed can take up to a minute on the free CPU (the hazzan's line is analysed once and kept); the
-eight included perakim are analysed when the Space starts, so those answer in about 10 seconds.
+eight most-used perakim (1, 23, 117, 121, 130, 133, 134, 150) are analysed when the Space starts, so those answer
+in about 10 seconds; any other pasuk is analysed the first time someone picks it (the page fetches it while you record).
 
 ## What to do on the lab page (the loop)
 

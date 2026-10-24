@@ -66,9 +66,15 @@ implementation of exactly that, and the word-verdict rule (`markOf`) is in it.
 
 ## Things to know before it faces people
 
-- **Beta accuracy** (measured on hazzanim recordings, not yet on students): a correct word wrongly marked "not
-  heard" under 2%; a skipped word caught ~9/10; swapped words ~1/2; ע said like alef caught ~9/10; ח better;
-  vowels are a hint only. It says "not sure" rather than accuse.
+- **Beta accuracy** (v4.4, Oct 24; measured on hazzanim recordings, not yet on students). Clean a-cappella reading
+  (Rabbi Alouf's Tehillim, 1,850 right words): no right word marked "not heard"; a skipped word caught 99%, swapped
+  words 99%, a replaced word 80%, the wrong pasuk 70 of 70 ("This does not sound like this line"). Another hazzan
+  singing a pizmon with instruments, checked against the site's reference (the archive's own second recordings):
+  a right word red 3.5% — and most of those are words the singer does not sing as written — "not sure" about half,
+  and 1 take in 6 gets "I could not make out the words" instead of a verdict. ע said like alef caught ~2/3 (a third
+  "not sure"); ח better; vowels are a hint only. It says "not sure" rather than accuse. Two more headlines it can
+  give: "I did not hear any singing" (silence, noise) and "I could not make out the words" (far from the phone,
+  music) — both flag nothing.
 - **Speed**: 15–30 s per check. One check at a time on the small machine: two people at once, the second waits.
   If use grows, David upgrades the Space's hardware in one click (CPU upgrade ≈ $0.03/h; a GPU answers in 2 s).
 - **Sleep**: after 48 idle hours the server sleeps; the first visitor waits about a minute (the page says
@@ -115,5 +121,5 @@ Base: `https://davidsitt-pizmonim-dikduk.hf.space`. All JSON, CORS `*`. No keys.
   ≥2 consonants, "not heard" when `skel<.2` and `fit<.15` (or, on a clean take, `pw≥.95`); "not sure" when
   `skel<.4` or `fit<.2` or `kept<.5` or `pw≥.8`; else fine. One-consonant words are never flagged.
 - Hazzan audio: archive recordings play straight from `https://www.pizmonim.org/MP3/<file>` (seek to `t0`, stop at
-  `t1`); Tehillim from `GET /tehillim/audio/tehillim-023.mp3` (8 perakim today; when the site hosts the package's
+  `t1`); Tehillim from `GET /tehillim/audio/tehillim-023.mp3` (144 perakim since Oct 23; when the site hosts the package's
   mp3s, the checker can be pointed at the site's copy).
