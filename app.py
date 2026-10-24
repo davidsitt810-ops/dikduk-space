@@ -182,7 +182,7 @@ except Exception as e:
 # nikud when the line has it). Loaded when the file is there.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from vowels import vowel_place, compare_vowels, letters_kept, VOWEL_NAME, VOWELS
-from order import order_evidence, order_from_tokens
+from order import order_evidence, order_from_tokens, rival_evidence
 FULL = None; FULL_SYM = []; FULL_LAYER = 12
 try:
     ck = torch.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'full_head.pt'), map_location='cpu')
@@ -603,7 +603,7 @@ def full_lp(AH):
     with torch.inference_mode():
         return torch.log_softmax(FULL(torch.from_numpy(AH[FULL_LAYER].astype(np.float32))[None]), -1)[0].numpy()
 
-def analyse(x: np.ndarray, words, want_emb=False):
+def analyse(x: np.ndarray, words, want_emb=False, alts=None):
     """everything the page needs about one audio: where each word is, the phones heard in it, the throat letters, the vowels"""
     t = time.time()
     lp, spf, H = run_model(x)
@@ -626,6 +626,11 @@ def analyse(x: np.ndarray, words, want_emb=False):
         lp_ext, pw_ph = phone_line_tokens(lp, words); ev_p = order_from_tokens(lp_ext, pw_ph, None, PAD)
     except Exception as e:
         print('order (phones):', e, flush=True); ev_p = None
+    # does another line of the same text fit better than the one that was picked? (order.rival_evidence; v4.5)
+    try:
+        rival = rival_evidence(hlp, words, alts, HEAD_S2I, he_read, 0) if (hlp is not None and alts) else None
+    except Exception as e:
+        print('rival:', e, flush=True); rival = None
     for i, w in enumerate(W):
         w['drop'] = ev_h['drop'][i] if ev_h else None; w['swap'] = (ev_h['swap'][i] if i < len(words) - 1 else None) if ev_h else None
         w['drop_ph'] = ev_p['drop'][i] if ev_p else None; w['swap_ph'] = (ev_p['swap'][i] if i < len(words) - 1 else None) if ev_p else None
@@ -638,7 +643,8 @@ def analyse(x: np.ndarray, words, want_emb=False):
             w['vskel'] = vl.get(i)
         for th in w['throat']:
             th.update(throat_probe(lp, spf, H, th, ar_lp, ar_spf, ar_hits.get((i, th['k'])), want_emb, AH, hl.get((i, th['k'])))); th['heard'] = heard_in(seq, th['t0'], th['t1'])
-    return {'dur': round(x.shape[0] / SR, 3), 'spf': round(spf, 5), 'words': W, 'phones': seq, 'gap': ev_h['gap'] if ev_h else None, 'gap_ph': ev_p['gap'] if ev_p else None, 'ms': int((time.time() - t) * 1000)}, lp, spf
+    return {'dur': round(x.shape[0] / SR, 3), 'spf': round(spf, 5), 'words': W, 'phones': seq, 'gap': ev_h['gap'] if ev_h else None, 'gap_ph': ev_p['gap'] if ev_p else None,
+            'rival': ({'gain': rival['gain'], 'n': rival['n'], 'line': ' '.join(alts[rival['best']])} if rival else None), 'ms': int((time.time() - t) * 1000)}, lp, spf
 
 # A combined "this word was not sung" score: logistic on the word's reference-free signals (skel, letter head, vowel
 # head, consonant count, letters kept), fitted on Rabbi Alouf's held-out pesukim tampered the way a student errs
@@ -866,8 +872,9 @@ def job_status(jid: str):
     return out
 
 @app.post('/check')
-async def check(request: Request, words: str = Query(...), ref: str = None, t0: float = 0, t1: float = 0, emb: int = 0, drill: str = None, nikud: str = None, job: int = 0):
+async def check(request: Request, words: str = Query(...), ref: str = None, t0: float = 0, t1: float = 0, emb: int = 0, drill: str = None, nikud: str = None, job: int = 0, pid: str = None, alts: str = None):
     W = he_words(words)
+    ALT = [he_words(a) for a in alts.split('|') if he_words(a) and he_words(a) != W] if alts else other_lines(pid, W)
     if not W:
         return JSONResponse({'err': 'no words'}, status_code=400)
     data = await request.body()
@@ -882,13 +889,13 @@ async def check(request: Request, words: str = Query(...), ref: str = None, t0: 
     if x.shape[0] > SR * 40:
         x = x[:SR * 40]
     if job:
-        return JSONResponse({'job': new_job(lambda progress: run_check(x, W, ref, t0, t1, emb, drill, nikud, progress))}, status_code=202)
+        return JSONResponse({'job': new_job(lambda progress: run_check(x, W, ref, t0, t1, emb, drill, nikud, progress, ALT))}, status_code=202)
     # the plain path (scripts, older pages): the same work in a thread, so /health and the polls keep answering
-    return await run_in_threadpool(run_check, x, W, ref, t0, t1, emb, drill, nikud)
+    return await run_in_threadpool(run_check, x, W, ref, t0, t1, emb, drill, nikud, lambda s: None, ALT)
 
-def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None):
+def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None, alts=None):
     progress('listening to your take')
-    take, lp, spf = analyse(x, W, bool(emb) or bool(drill))
+    take, lp, spf = analyse(x, W, bool(emb) or bool(drill), alts)
     out = {'words': W, 'take': take}
     for w in take['words']: w['pw'] = word_pw(w, None)
     if drill in ('throat', 'plain'):
@@ -957,6 +964,20 @@ def sync_lines(s, f):
         out[k] = (t / 10, ev[i + 1][0] / 10 if i + 1 < len(ev) else t / 10 + 8)
     return out
 
+def other_lines(pid, W):
+    """the other lines of pizmon <pid> / Tehillim 't<n>' as word lists (for the rival-line evidence); [] when unknown"""
+    if not pid: return []
+    try:
+        data = lyrics(); S = data.get('s', {}) if isinstance(data, dict) else {}; s = S.get(str(pid))
+        if not s: return []
+        out = []
+        for l in s.get('l') or []:
+            ws = he_words(l)
+            if len(ws) >= 1 and ws != W and ws not in out: out.append(ws)
+        return out[:60]
+    except Exception as e:
+        print('other_lines:', e, flush=True); return []
+
 def resolve_text(spec: str):
     """'t23:1' (Tehillim perek:pasuk) or '200:3' (pizmon:line) or plain Hebrew words -> what a check needs"""
     data = lyrics(); S = data.get('s', {}) if isinstance(data, dict) else {}
@@ -964,7 +985,7 @@ def resolve_text(spec: str):
     if m:
         n, k = int(m.group(1)), int(m.group(2)) - 1; s = S.get(f't{n}')
         if not s or k >= len(s['l']): raise ValueError(f'no Tehillim {n}:{k + 1}')
-        out = {'label': f'Tehillim {n}:{k + 1}', 'words': s['l'][k], 'nikud': (s.get('ln') or [None] * len(s['l']))[k], 'ref': None, 't0': None, 't1': None}
+        out = {'label': f'Tehillim {n}:{k + 1}', 'words': s['l'][k], 'nikud': (s.get('ln') or [None] * len(s['l']))[k], 'ref': None, 't0': None, 't1': None, 'pid': f't{n}'}
         f = f'tehillim-{n:03d}.mp3'
         if tehillim_file(f) and f in (s.get('t') or {}):
             L = sync_lines(s, f)
@@ -979,7 +1000,7 @@ def resolve_text(spec: str):
     if m:
         pid, k = m.group(1), int(m.group(2)) - 1; s = S.get(pid)
         if not s or k >= len(s['l']): raise ValueError(f'no pizmon {pid} line {k + 1}')
-        out = {'label': f'pizmon {pid} line {k + 1}', 'words': s['l'][k], 'nikud': None, 'ref': None, 't0': None, 't1': None}
+        out = {'label': f'pizmon {pid} line {k + 1}', 'words': s['l'][k], 'nikud': None, 'ref': None, 't0': None, 't1': None, 'pid': pid}
         recs = list((s.get('t') or {}).keys()); b = s.get('b') if s.get('b') in recs else (recs[0] if recs else None)
         if b:
             L = sync_lines(s, b)
@@ -1109,7 +1130,7 @@ async def submit(request: Request, meta: str = Query(...)):
                 x = decode_audio(data)
                 if x.shape[0] > SR * 40: x = x[:SR * 40]
                 if x.shape[0] < SR * 0.5: raise ValueError('too short')
-                out = run_check(x, he_words(R['words']), R['ref'], R['t0'] or 0, R['t1'] or 0, 0, None, R['nikud'], progress)
+                out = run_check(x, he_words(R['words']), R['ref'], R['t0'] or 0, R['t1'] or 0, 0, None, R['nikud'], progress, other_lines(R.get('pid'), he_words(R['words'])))
                 rec['summary'] = summarize(out)
                 out.pop('ref', None)   # the hazzan's analysis is big and lives in the reference cache anyway
                 rec['result'] = out
@@ -1139,7 +1160,7 @@ def mark_of(y, f, clean):
         return 'ok'
     return 'unsure' if sk < .2 and not sure else 'ok'
 
-RULE = {'drop': 10, 'margin': 4, 'swap': 8, 'gap': 0.6, 'hear': 0.3, 'share': 0.35, 'half': 0.5, 'swap2': 12}   # kept in step with static/index.html and embed.js
+RULE = {'drop': 10, 'margin': 4, 'swap': 8, 'rival': 0.3, 'altFit': 0.4, 'hear': 0.3, 'share': 0.35, 'half': 0.5, 'swap2': 12}   # kept in step with static/index.html and embed.js
 
 def head_median(TW):
     """the letter head's score on the line's words (2+ consonants), the median — with the lowest word left out when
@@ -1158,7 +1179,7 @@ def clean_of(TW):
     """a clean take: the heads hear the line well enough for the finer signals (pw, the whole-line evidence)"""
     m = head_median(TW); return m is not None and m >= .7
 
-def marks_of(TW, F, gap, clean):
+def marks_of(TW, F, gap, clean, rival=None):
     """the page's verdict per word (markOf + the whole-line evidence on a clean take; the line gap on every take;
        a take the head barely hears gets no red) -> (marks, why, line_wrong, cant_hear)"""
     marks = [mark_of(TW[i], F[i] if F and i < len(F) else None, clean) for i in range(len(TW))]; why = [None] * len(TW); line_wrong = False; cant_hear = False
@@ -1182,8 +1203,13 @@ def marks_of(TW, F, gap, clean):
             j = int(np.argmax(sw)); na, nb = TW[j].get('n') or 0, TW[j + 1].get('n') or 0
             ds = [t['drop'] if t.get('drop') is not None else -1e9 for t in TW]; pd = max(ds[j], ds[j + 1]); same = pd >= RULE['drop'] and sw[j] < RULE['share'] * pd
             if sw[j] >= RULE['swap2'] and max(na, nb) >= 2 and min(na, nb) >= 1 and not same: marks[j] = marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'
-    # the written line costs far more than the free path: not this line (measured safe on every take, clean or not)
-    if TW and gap is not None and gap >= RULE['gap']:
+    # not this line: another line of the same text beats the written one by 0.3 nats a frame AND fits the audio
+    # well itself (its own gap to the free path under 0.4). Measured: Rabbi Alouf's wrong pasuk 70/70, his right
+    # pasuk 0/70; 80 Israelis reading other sentences — voices the head reads poorly — 0/80 right ones called wrong
+    # (the free-path gap alone called 33 of those 80 wrong: a poorly read voice raises it just like a wrong text).
+    # Without the text's other lines (free words) there is no wrong-line verdict.
+    rg = rival.get('gain') if isinstance(rival, dict) else None
+    if TW and gap is not None and rg is not None and rg >= RULE['rival'] and (gap - rg) <= RULE['altFit']:
         line_wrong = True; marks = ['unsure' if m == 'ok' else m for m in marks]
     # the head barely hears the words (instruments, a far microphone): nothing is red, the doubtful words are 'unsure'
     if TW and not clean and not line_wrong:
@@ -1195,7 +1221,7 @@ def summarize(out):
     """the machine's claims about one take, in the page's words: marks per word, throat verdicts, vowel differences"""
     W, TW, F = out['words'], out['take']['words'], (out.get('fit') or None)   # an empty fit list is no fit
     clean = clean_of(TW)
-    marks, why, line_wrong, cant_hear = marks_of(TW, F, out['take'].get('gap'), clean)
+    marks, why, line_wrong, cant_hear = marks_of(TW, F, out['take'].get('gap'), clean, out['take'].get('rival'))
     # no singing in the recording at all (silence, noise, a microphone that did not pick the person up): the phone
     # recognizer hears nothing — reading gives ~4 phones a second, slow singing 1.5, noise and silence 0
     no_speech = no_speech_in(out['take'])
@@ -1216,7 +1242,7 @@ def summarize(out):
             for d in ds: vow.append({'w': W[int(i)], 'k': d['k'], 'you': nm(d['you']), 'ref': nm(d['ref']), 'against': against})
     miss = {W[i]: t['miss'] for i, t in enumerate(TW) if t.get('miss')}
     if cant_hear or no_speech: throat, vow, miss = [], [], {}   # the words were not made out: no claims about the letters inside them
-    return {'marks': marks, 'why': why, 'line_wrong': line_wrong, 'cant_hear': cant_hear, 'no_speech': no_speech, 'gap': out['take'].get('gap'), 'throat': throat, 'vowels': vow, 'miss': miss, 'clean': clean, 'head': head_median(TW), 'hazzan': bool(F), 'dur': out['take'].get('dur')}
+    return {'marks': marks, 'why': why, 'line_wrong': line_wrong, 'cant_hear': cant_hear, 'no_speech': no_speech, 'rival': out['take'].get('rival'), 'gap': out['take'].get('gap'), 'throat': throat, 'vowels': vow, 'miss': miss, 'clean': clean, 'head': head_median(TW), 'hazzan': bool(F), 'dur': out['take'].get('dur')}
 
 def list_takes(set_=None, name=None, who=None):
     items = []

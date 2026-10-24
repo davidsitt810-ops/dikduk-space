@@ -39,16 +39,17 @@ def add_rows(case, n, i, take, fit, tampered, ref):
     for k, w in enumerate(take['words']):
         f = fit[k] if fit else {}
         rows.append({'case': case, 'per': n, 'ps': i, 'k': k, 'nw': len(take['words']), 'bad': 1 if k in tampered else 0, 'w': w['w'], 'n': w['n'], 'skel': w['skel'], 'fit': f.get('fit'), 'hskel': w.get('hskel'), 'vskel': w.get('vskel'),
-                     'kept': w.get('kept'), 'pw': app.word_pw(w), 'drop': w.get('drop'), 'swap': w.get('swap'), 'drop_ph': w.get('drop_ph'), 'swap_ph': w.get('swap_ph'), 'gap': take.get('gap'), 'gap_ph': take.get('gap_ph'), 'clean': clean,
+                     'kept': w.get('kept'), 'pw': app.word_pw(w), 'drop': w.get('drop'), 'swap': w.get('swap'), 'drop_ph': w.get('drop_ph'), 'swap_ph': w.get('swap_ph'), 'gap': take.get('gap'), 'gap_ph': take.get('gap_ph'), 'rival': (take.get('rival') or {}).get('gain'), 'clean': clean,
                      'selffit': (ref['words'][k].get('selffit') if ref and k < len(ref['words']) else None), 'dur': round(w['t1'] - w['t0'], 3)})
 for done, (n, rec, i) in enumerate(jobs, 1):
     p = rec['pesukim'][i]; off = p['t0'] - .2; x = cut(rec['original'], off, p['t1'] + .2)
     if x.shape[0] < SR: continue
     W = [w.get('said', w['w']) for w in p['words']]; wt = [(w['t0'], w['t1']) for w in p['words']]
-    ref, lp_r, spf_r = app.analyse(x, W); sf = app.fit_against(lp_r, spf_r, ref['words'])
+    ALL = [[w.get('said', w['w']) for w in q['words']] for q in rec['pesukim'] if q['words']]   # the perek's pesukim (rival lines)
+    ref, lp_r, spf_r = app.analyse(x, W, False, [a for a in ALL if a != W]); sf = app.fit_against(lp_r, spf_r, ref['words'])
     for w, s in zip(ref['words'], sf): w['selffit'] = s.get('fit')
     def check(xx, WW, R=ref):
-        take, lp, spf = app.analyse(xx, WW); return take, (app.fit_against(lp, spf, R['words']) if R else None)
+        take, lp, spf = app.analyse(xx, WW, False, [a for a in ALL if a != WW]); return take, (app.fit_against(lp, spf, R['words']) if R else None)
     # intact (the reference is itself): words, throat verdicts, vowels against the nikud
     add_rows('intact', n, i, ref, sf, set(), ref)
     try:
@@ -87,7 +88,7 @@ for done, (n, rec, i) in enumerate(jobs, 1):
     others = [q for q in rec['pesukim'] if q is not p and q['t0'] is not None and abs(len(q['words']) - len(W)) <= 2]
     if others:
         q = random.choice(others); Wq = [w.get('said', w['w']) for w in q['words']]
-        xq = cut(rec['original'], q['t0'] - .2, q['t1'] + .2); rq, lpq, spfq = app.analyse(xq, Wq); sfq = app.fit_against(lpq, spfq, rq['words'])
+        xq = cut(rec['original'], q['t0'] - .2, q['t1'] + .2); rq, lpq, spfq = app.analyse(xq, Wq, False, [a for a in ALL if a != Wq]); sfq = app.fit_against(lpq, spfq, rq['words'])
         for w, s in zip(rq['words'], sfq): w['selffit'] = s.get('fit')
         tk, ft = check(x, Wq, rq); add_rows('wrongline', n, i, tk, ft, set(range(len(Wq))), rq)
     if done % 5 == 0:

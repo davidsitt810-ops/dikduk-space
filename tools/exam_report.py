@@ -13,7 +13,8 @@ code = 'import numpy as np\n' + src[src.index("RULE = {'drop'"):src.index('\ndef
 LIVE = {}; exec(code, LIVE)
 def live_marks(TW):
     F = [{'fit': t.get('fit')} for t in TW] if any(t.get('fit') is not None for t in TW) else None
-    clean = LIVE['clean_of'](TW); marks, why, lw, cant = LIVE['marks_of'](TW, F, TW[0].get('gap'), clean); return marks, why, lw, cant, clean
+    rival = {'gain': TW[0]['rival']} if TW and TW[0].get('rival') is not None else None   # rows from exams that scored the text's other lines carry it
+    clean = LIVE['clean_of'](TW); marks, why, lw, cant = LIVE['marks_of'](TW, F, TW[0].get('gap'), clean, rival); return marks, why, lw, cant, clean
 # ---- v4.3 as shipped on Oct 23 morning, for the before/after
 RULE43 = {'drop': 10, 'margin': 4, 'swap': 8, 'gap': 0.6}
 def mark_of43(r, clean):

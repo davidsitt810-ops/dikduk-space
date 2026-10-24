@@ -75,3 +75,27 @@ def order_evidence(lp, words, s2i, he_read, blank=0, pairs=(('ע', 'א'), ('ח',
            'drop': [gain of leaving word j out], 'swap': [gain of swapping j and j+1], 'drop_tok', 'swap_tok': per letter}"""
     lp2, per_word, space = line_tokens(lp, words, s2i, he_read, pairs)
     return order_from_tokens(lp2, per_word, space, blank)
+
+def line_score(lp, words, s2i, he_read, blank=0, pairs=(('ע', 'א'), ('ח', 'כ'))):
+    """the best-path log-probability of one line (words) on the head, per frame; None when the line has no letters"""
+    lp2, per_word, space = line_tokens(lp, words, s2i, he_read, pairs)
+    toks = joined(per_word, space)
+    if not toks: return None
+    return ctc_best(lp2, toks, blank) / lp2.shape[0]
+
+def rival_evidence(lp, words, alts, s2i, he_read, blank=0):
+    """does another line of the same text fit the audio better than the line that was picked? -> {'gain': nats per
+       frame by which the best other line beats the written one (negative: the written line wins), 'best': its
+       index in alts, 'n': how many were tried} or None when there is nothing to compare with. A wrong pick of a line
+       shows as a large positive gain whoever is singing; a voice the head reads poorly does not (both lines suffer
+       alike), which is what the free-path gap cannot tell apart."""
+    orig = line_score(lp, words, s2i, he_read, blank)
+    if orig is None: return None
+    best = None
+    for i, alt in enumerate(alts or []):
+        if not alt or list(alt) == list(words): continue
+        sc = line_score(lp, alt, s2i, he_read, blank)
+        if sc is None: continue
+        if best is None or sc > best[0]: best = (sc, i)
+    if best is None: return None
+    return {'gain': round(best[0] - orig, 4), 'best': best[1], 'n': len(alts)}

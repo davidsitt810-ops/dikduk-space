@@ -313,7 +313,7 @@ async function waitJob(id){const t0=Date.now();let misses=0;
   if(Date.now()-t0>420000)throw new Error('the server took more than 7 minutes');}}
 $('#check').onclick=async()=>{if(!TAKE||!LINE)return;busyText('sending your recording');$('#busy').hidden=false;$('#check').disabled=true;err('');
  try{const q=new URLSearchParams({words:LINE.text,job:1});if(REC&&LINE.t0!=null){q.set('ref',REC);q.set('t0',LINE.t0);q.set('t1',LINE.t1);}
-  if(P&&P.s.ln&&P.s.ln[LINE.k])q.set('nikud',P.s.ln[LINE.k]);
+  if(P&&P.s.ln&&P.s.ln[LINE.k])q.set('nikud',P.s.ln[LINE.k]);if(P&&P.id)q.set('pid',P.id);   /* the text's id: the server scores its other lines against this one (rival) */
   const r=await fetch(url('/check?'+q),{method:'POST',body:TAKE.blob,headers:{'content-type':TAKE.blob.type||'application/octet-stream'}});
   let j=await r.json();if(!r.ok||j.err)throw new Error(j.err||('server said '+r.status));
   if(j.job)j=await waitJob(j.job);   /* an older server answers with the result itself */
@@ -340,20 +340,21 @@ function markOf(y,f){const n=y&&y.n||0,sk=y&&y.skel!=null?y.skel:null,ft=f&&f.fi
    this word (nats; only the line's largest drop may flag, and only when it stands clear of the second); swap = how
    much it prefers the two neighbours the other way round; gap = what the written line costs per frame against the
    free path (a different text costs ~1 nat/frame, the right line under 0.1). Thresholds from exam_alouf.py. */
-const RULE={drop:10,margin:4,swap:8,gap:0.6,hear:0.3,share:0.35,half:0.5,swap2:12};
+const RULE={drop:10,margin:4,swap:8,rival:0.3,altFit:0.4,hear:0.3,share:0.35,half:0.5,swap2:12};
 /* v4.4: the letter head's median score over the line's words (2+ consonants), the lowest word left out when there are
    three or more — one wrong word must not make a good recording look poor. Clean = median >= .7 (the finer signals
    are trusted); under .3 the head barely hears the words: nothing goes red, the doubtful words stay "not sure". */
 function headMedian(TW){let hs=TW.filter(t=>(t.n||0)>=2&&t.hskel!=null).map(t=>t.hskel).sort((a,b)=>a-b);if(!hs.length)return null;if(hs.length>=3)hs=hs.slice(1);return hs[Math.floor((hs.length-1)/2)];}   /* the lower middle: one well-heard word does not make a short line clean */
-function marksOf(TW,F,gap){const marks=TW.map((t,i)=>markOf(t,F&&F[i]));const why=TW.map(()=>null);let lineWrong=false,cantHear=false;
+function marksOf(TW,F,gap,rival){const marks=TW.map((t,i)=>markOf(t,F&&F[i]));const why=TW.map(()=>null);let lineWrong=false,cantHear=false;
  if(CLEAN){const ds=TW.map(t=>t.drop==null?-1e9:t.drop);const top=ds.indexOf(Math.max(...ds));const second=Math.max(...ds.filter((d,i)=>i!==top),-1e9);
   const dropped=top>=0&&(TW[top].n||0)>=2&&ds[top]>=RULE.drop&&ds[top]-second>=RULE.margin;if(dropped){marks[top]='off';why[top]='dropped';}
   /* a skipped word also "gains" a little from being swapped with its neighbour (8-14 nats against a drop of 27-72); a real swap gains at least 0.4 of the drop. Under that share the pair's dropped word is a skip, and the neighbour is left alone */
   const sw=TW.slice(0,-1).map(t=>t.swap==null?-1e9:t.swap);if(sw.length){const j=sw.indexOf(Math.max(...sw)),na=TW[j].n||0,nb=TW[j+1].n||0;const pd=Math.max(ds[j],ds[j+1]),same=pd>=RULE.drop&&sw[j]<RULE.share*pd;if(sw[j]>=RULE.swap&&Math.max(na,nb)>=2&&Math.min(na,nb)>=1&&!same){marks[j]='off';marks[j+1]='off';why[j]=why[j+1]='swapped';}}}
  else if(TW.length){/* a take heard half-well (head median .5-.7): the swap evidence at a higher bar (right takes top out at 5.8, real swaps 12-62); the drop evidence is not safe there */
   const m=headMedian(TW);const sw=TW.slice(0,-1).map(t=>t.swap==null?-1e9:t.swap);if(m!=null&&m>=RULE.half&&sw.length){const j=sw.indexOf(Math.max(...sw)),na=TW[j].n||0,nb=TW[j+1].n||0;const ds=TW.map(t=>t.drop==null?-1e9:t.drop),pd=Math.max(ds[j],ds[j+1]),same=pd>=RULE.drop&&sw[j]<RULE.share*pd;if(sw[j]>=RULE.swap2&&Math.max(na,nb)>=2&&Math.min(na,nb)>=1&&!same){marks[j]='off';marks[j+1]='off';why[j]=why[j+1]='swapped';}}}
- /* the written line costs far more than the free path: not this line (safe on every take, clean or not) */
- if(TW.length&&gap!=null&&gap>=RULE.gap){lineWrong=true;for(let i=0;i<marks.length;i++)if(marks[i]==='ok')marks[i]='unsure';}
+ /* not this line: another line of the same text beats the written one by 0.3 nats a frame AND fits the audio well itself (its own gap to the free path under 0.4). The free-path gap alone is not used: a voice the head reads poorly raises it just like a wrong text (33 of 80 Israelis reading the right sentence were called wrong by it) */
+ const rg=rival&&rival.gain!=null?rival.gain:null;
+ if(TW.length&&gap!=null&&rg!=null&&rg>=RULE.rival&&(gap-rg)<=RULE.altFit){lineWrong=true;for(let i=0;i<marks.length;i++)if(marks[i]==='ok')marks[i]='unsure';}
  if(TW.length&&!CLEAN&&!lineWrong){const m=headMedian(TW);if(m!=null&&m<RULE.hear){cantHear=true;for(let i=0;i<marks.length;i++)if(marks[i]==='off')marks[i]='unsure';}}
  return {marks,why,lineWrong,cantHear};}
 /* a throat letter's verdict in words: v = throat / plain / unsure; the ears (classifier, Arabic-letter ear, trained
@@ -368,7 +369,7 @@ function thSay(t){if(!t||!t.v)return {v:'?',lead:'not found',ears:''};const f=x=
 const VCLS={throat:'good',plain:'bad',unsure:'warn'};
 function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(j.fit&&j.fit.length)?j.fit:null;   /* an empty fit list is no fit */
  const HM=headMedian(TW);CLEAN=HM!=null&&HM>=.7;
- let {marks,why,lineWrong,cantHear}=marksOf(TW,F,j.take.gap);
+ let {marks,why,lineWrong,cantHear}=marksOf(TW,F,j.take.gap,j.take.rival);
  /* no singing in the recording at all: the phone recognizer hears nothing (reading ~4 phones a second, slow singing 1.5, noise and silence 0) */
  const noSpeech=(j.take.phones||[]).length<Math.max(3,0.5*(j.take.dur||0));if(noSpeech){marks=marks.map(m=>m?'unsure':m);why=why.map(()=>null);lineWrong=false;cantHear=false;}
  /* on a take the heads hear poorly, a "plain" ע/ח is not a fault to show (the raw verdict stays in the lab line), and the vowel ear is not trusted at all */
@@ -399,7 +400,7 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
  const off=marks.filter(m=>m==='off').length,uns=marks.filter(m=>m==='unsure').length,say=$('#say');
  if(noSpeech){say.className='say warn';say.textContent='I did not hear any singing in this recording. Check that the microphone picked you up (hold the phone closer), then record again.';}
  else if(lineWrong){say.className='say bad';say.textContent='This does not sound like this line. Check that you picked the right line, then try again.';}
- else if(cantHear){say.className='say warn';say.textContent='I could not make out the words well enough to judge this one. Try again a little closer to the phone, without music in the background.';}
+ else if(cantHear){say.className='say warn';say.textContent='I could not make out the words of this line in the recording. Check that it is the right line, then try again a little closer to the phone, without music in the background.';}
  else if(!F&&j.ref_err&&!/Tehillim/.test(j.ref_err)){say.className='say warn';say.textContent='No hazzan recording to compare with, so only your own consonants were checked.';}
  else if(!lines.length){say.className='say ok';say.textContent=F?'Every word came through as the hazzan sings it.':'Every word came through.';}
  else if(off){const ow=W.filter((w,i)=>marks[i]==='off'),uw=W.filter((w,i)=>marks[i]==='unsure');say.className='say bad';say.innerHTML=(W.length-off)+' of '+W.length+' words came through. Not heard: '+ow.map(he).join(', ')+(uw.length?'. Not sure: '+uw.map(he).join(', '):'')+'.';}
@@ -413,7 +414,7 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
   $('#thP').hidden=false;}else $('#thP').hidden=true;
  /* lab details: the numbers per word, the vowel comparison, every sound heard */
  const f2=x=>x==null?'–':(+x).toFixed(2);
- $('#nums').innerHTML='<tr><th>word</th><th>cons</th><th>fit</th><th>head</th><th>kept</th><th>pw</th><th>drop</th><th>swap→</th><th>not heard</th></tr>'+W.map((w,i)=>{const t=TW[i],f=F&&F[i];return `<tr><td class="he" lang="he">${esc(w)}</td><td>${f2(t.skel)}</td><td>${f2(f&&f.fit)}</td><td>${f2(t.hskel)}</td><td>${f2(t.kept)}</td><td>${f2(t.pw)}</td><td>${t.drop==null?'–':t.drop.toFixed(0)}</td><td>${t.swap==null?'–':t.swap.toFixed(0)}</td><td class="he" lang="he">${esc((t.miss||[]).join(' '))}</td></tr>`;}).join('')+`<tr><td colspan="9">clean take: ${CLEAN?'yes':'no'} (head ${HM==null?'–':HM.toFixed(2)}) · line gap ${j.take.gap==null?'–':j.take.gap.toFixed(2)} · took ${j.take.ms} ms</td></tr>`;
+ $('#nums').innerHTML='<tr><th>word</th><th>cons</th><th>fit</th><th>head</th><th>kept</th><th>pw</th><th>drop</th><th>swap→</th><th>not heard</th></tr>'+W.map((w,i)=>{const t=TW[i],f=F&&F[i];return `<tr><td class="he" lang="he">${esc(w)}</td><td>${f2(t.skel)}</td><td>${f2(f&&f.fit)}</td><td>${f2(t.hskel)}</td><td>${f2(t.kept)}</td><td>${f2(t.pw)}</td><td>${t.drop==null?'–':t.drop.toFixed(0)}</td><td>${t.swap==null?'–':t.swap.toFixed(0)}</td><td class="he" lang="he">${esc((t.miss||[]).join(' '))}</td></tr>`;}).join('')+`<tr><td colspan="9">clean take: ${CLEAN?'yes':'no'} (head ${HM==null?'–':HM.toFixed(2)}) · line gap ${j.take.gap==null?'–':j.take.gap.toFixed(2)}${j.take.rival?` · best other line ${j.take.rival.gain>=0?'+':''}${j.take.rival.gain.toFixed(2)} (${esc(j.take.rival.line)})`:''} · took ${j.take.ms} ms</td></tr>`;
  const vrows=[];const addV=(src,label)=>{for(const i in (src||{}))for(const d of src[i])vrows.push({w:W[i],d,label});};
  if(CLEAN&&!cantHear&&!noSpeech){addV(j.vowels,'the hazzan');addV(j.vowels_nikud,'the nikud');}
  if(j.vowel_names){$('#vw').innerHTML=vrows.length?vrows.map(x=>`<div class="tr"><div class="hd"><span class="lt">${esc(heL(x.w)[x.d.k]||'')}</span><span>in ${he(x.w)}</span></div><div><span class="k">you</span><span class="v warn">${esc(VN[x.d.you]||x.d.you)}</span></div><div><span class="k">${esc(x.label)}</span><span class="v">${esc(VN[x.d.ref]||x.d.ref)}</span></div></div>`).join('')

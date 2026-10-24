@@ -21,16 +21,17 @@ for f in files:
     for r in R: L[(r['case'], r.get('per', r.get('pid')), r.get('ps', r.get('line')), r.get('rec', ''))][r['k']] = r
     for key, d in L.items():
         TW = [d[k] for k in sorted(d)]; F = [{'fit': t.get('fit')} for t in TW] if any(t.get('fit') is not None for t in TW) else None
-        lines.append({'TW': TW, 'F': F, 'gap': TW[0].get('gap')})
+        # a synthetic rival score on two lines in three (the recorded rows have none): the new branch must agree too
+        k = len(lines) % 3; lines.append({'TW': TW, 'F': F, 'gap': TW[0].get('gap'), 'rival': None if k == 0 else {'gain': (TW[0].get('gap') or 0) - 0.1 if k == 1 else -0.3, 'n': 5}})
 print(len(lines), 'lines')
 py = []
 for l in lines:
-    clean = ns['clean_of'](l['TW']); marks, why, lw, cant = ns['marks_of'](l['TW'], l['F'], l['gap'], clean); py.append({'marks': marks, 'lw': lw, 'cant': cant, 'clean': clean})
+    clean = ns['clean_of'](l['TW']); marks, why, lw, cant = ns['marks_of'](l['TW'], l['F'], l['gap'], clean, l['rival']); py.append({'marks': marks, 'lw': lw, 'cant': cant, 'clean': clean})
 json.dump(lines, open(os.path.join(HERE, '_parity_lines.json'), 'w'))
 for name, js in JS.items():
     prog = js + """
 const lines = JSON.parse(require('fs').readFileSync(process.argv[2], 'utf8')); const out = [];
-for (const l of lines) { const HM = headMedian(l.TW); CLEAN = HM != null && HM >= .7; const r = marksOf(l.TW, l.F, l.gap); out.push({marks: r.marks.map(m => m || ''), lw: r.lineWrong, cant: r.cantHear, clean: CLEAN}); }
+for (const l of lines) { const HM = headMedian(l.TW); CLEAN = HM != null && HM >= .7; const r = marksOf(l.TW, l.F, l.gap, l.rival); out.push({marks: r.marks.map(m => m || ''), lw: r.lineWrong, cant: r.cantHear, clean: CLEAN}); }
 process.stdout.write(JSON.stringify(out));"""
     open(os.path.join(HERE, f'_parity_{name}.js'), 'w').write(prog)
     res = json.loads(subprocess.run(['node', os.path.join(HERE, f'_parity_{name}.js'), os.path.join(HERE, '_parity_lines.json')], capture_output=True, text=True, check=True).stdout)

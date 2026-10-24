@@ -45,8 +45,10 @@ if os.environ.get('RESUME') and os.path.exists(os.path.join(HERE, 'exam_archive_
     rows = json.load(open(os.path.join(HERE, 'exam_archive_rows.json'), encoding='utf-8')); takes = json.load(open(os.path.join(HERE, 'exam_archive_takes.json'), encoding='utf-8'))
     done_pids = set(t['pid'] for t in takes); n_takes = len(takes); pairs = [p for p in pairs if p not in done_pids]
     print(f'resuming: {len(done_pids)} pizmonim done, {len(pairs)} to go', flush=True)
-def check(x, W, R):
-    take, lp, spf = app.analyse(x, W)
+ALTS = {}   # pid -> all its lines as word lists
+def check(x, W, R, pid=None):
+    alts = [a for a in ALTS.get(pid, []) if a != W]
+    take, lp, spf = app.analyse(x, W, False, alts)
     for w in take['words']: w['pw'] = app.word_pw(w, None)
     out = {'words': W, 'take': take, 'ref': R, 'fit': app.fit_against(lp, spf, R['words'])}
     if app.FULL is not None or app.FT is not None:
@@ -56,13 +58,14 @@ def check(x, W, R):
 def add(case, pid, B, k, out, S, tampered, extra=None):
     global n_takes
     n_takes += 1; TW = out['take']['words']; F = out.get('fit') or []
-    takes.append({'case': case, 'pid': pid, 'rec': B, 'line': k, 'seen': pid in seen, 'clean': S['clean'], 'gap': S['gap'], 'line_wrong': S['line_wrong'], 'marks': S['marks'], 'why': S['why'], 'words': out['words'], 'tampered': sorted(tampered), 'dur': S['dur'], 'ref_dur': out['ref'].get('dur'), 'nvow': len(S['vowels']), 'throat': S['throat'], **(extra or {})})
+    takes.append({'case': case, 'pid': pid, 'rec': B, 'line': k, 'seen': pid in seen, 'clean': S['clean'], 'gap': S['gap'], 'rival': (out['take'].get('rival') or {}).get('gain'), 'line_wrong': S['line_wrong'], 'marks': S['marks'], 'why': S['why'], 'words': out['words'], 'tampered': sorted(tampered), 'dur': S['dur'], 'ref_dur': out['ref'].get('dur'), 'nvow': len(S['vowels']), 'throat': S['throat'], **(extra or {})})
     for i, w in enumerate(TW):
         f = F[i] if i < len(F) else {}
         rows.append({'case': case, 'pid': pid, 'rec': B, 'line': k, 'k': i, 'seen': pid in seen, 'bad': 1 if i in tampered else 0, 'w': w['w'], 'n': w['n'], 'skel': w['skel'], 'fit': f.get('fit'), 'hskel': w.get('hskel'), 'vskel': w.get('vskel'), 'kept': w.get('kept'), 'pw': w.get('pw'),
-                     'drop': w.get('drop'), 'swap': w.get('swap'), 'gap': out['take'].get('gap'), 'clean': S['clean'], 'mark': S['marks'][i], 'why': S['why'][i], 'line_wrong': S['line_wrong'], 'selffit': (out['ref']['words'][i].get('selffit') if i < len(out['ref']['words']) else None), 'dur': round(w['t1'] - w['t0'], 3)})
+                     'drop': w.get('drop'), 'swap': w.get('swap'), 'gap': out['take'].get('gap'), 'rival': (out['take'].get('rival') or {}).get('gain'), 'clean': S['clean'], 'mark': S['marks'][i], 'why': S['why'][i], 'line_wrong': S['line_wrong'], 'selffit': (out['ref']['words'][i].get('selffit') if i < len(out['ref']['words']) else None), 'dur': round(w['t1'] - w['t0'], 3)})
 for pid in pairs:
     s = LY[pid]; recs = [f for f in s['t'] if len(sync_lines(pid, f)) >= 3 and cached(f)]
+    ALTS[pid] = [app.he_words(l) for l in s['l'] if app.he_words(l)]
     A = s['b'] if s.get('b') in recs else recs[0]; others = [f for f in recs if f != A][:2]
     linesA = sync_lines(pid, A); refs = {}
     ks = [k for k in sorted(linesA) if k < len(s['l']) and any(k in sync_lines(pid, B) for B in others)]   # lines both hazzanim sang
@@ -78,7 +81,7 @@ for pid in pairs:
             t0, t1 = linesB[k]; x = audio(B)[int(t0 * app.SR):int(t1 * app.SR)]
             if x.shape[0] < app.SR: continue
             W = app.he_words(s['l'][k])
-            try: out, S = check(x, W, refs[k])
+            try: out, S = check(x, W, refs[k], pid)
             except Exception as e: print('check fail', pid, B, k, e, flush=True); continue
             add('right', pid, B, k, out, S, set())
             TW = out['take']['words']
@@ -86,7 +89,7 @@ for pid in pairs:
             js = [j for j in refs if j != k and app.he_words(s['l'][j]) != W]
             if js:
                 j = random.choice(js); Wj = app.he_words(s['l'][j])
-                try: outj, Sj = check(x, Wj, refs[j]); add('wrongline', pid, B, j, outj, Sj, set(range(len(Wj))), {'sung': k})
+                try: outj, Sj = check(x, Wj, refs[j], pid); add('wrongline', pid, B, j, outj, Sj, set(range(len(Wj))), {'sung': k})
                 except Exception as e: print('wrongline fail', pid, B, k, e, flush=True)
             # tampering only where the machine placed the words with some confidence (a clean take)
             if S['clean'] and len(W) >= 4:
@@ -95,13 +98,13 @@ for pid in pairs:
                 if cands:
                     i = random.choice(cands); a, b = wt[i]
                     xs = np.concatenate([x[:int(a * app.SR)], x[int(b * app.SR):]])
-                    try: outs, Ss = check(xs, W, refs[k]); add('skip', pid, B, k, outs, Ss, {i})
+                    try: outs, Ss = check(xs, W, refs[k], pid); add('skip', pid, B, k, outs, Ss, {i})
                     except Exception as e: print('skip fail', pid, B, k, e, flush=True)
                 cands = [i for i in range(0, len(W) - 1) if (TW[i]['n'] or 0) >= 2 and (TW[i + 1]['n'] or 0) >= 2 and wt[i][1] <= wt[i + 1][0] + 1e-3 and wt[i][1] > wt[i][0] + .15 and wt[i + 1][1] > wt[i + 1][0] + .15]
                 if cands:
                     i = random.choice(cands); (a1, b1), (a2, b2) = wt[i], wt[i + 1]; sr = app.SR
                     xs = np.concatenate([x[:int(a1 * sr)], x[int(a2 * sr):int(b2 * sr)], x[int(b1 * sr):int(a2 * sr)], x[int(a1 * sr):int(b1 * sr)], x[int(b2 * sr):]])
-                    try: outw, Sw = check(xs, W, refs[k]); add('swap', pid, B, k, outw, Sw, {i, i + 1})
+                    try: outw, Sw = check(xs, W, refs[k], pid); add('swap', pid, B, k, outw, Sw, {i, i + 1})
                     except Exception as e: print('swap fail', pid, B, k, e, flush=True)
     print(f'{pid}: {A} + {others} lines {list(refs)} · takes {n_takes} · {int(time.time() - t_start)} s', flush=True)
     json.dump(rows, open(os.path.join(HERE, 'exam_archive_rows.json'), 'w'), ensure_ascii=False); json.dump(takes, open(os.path.join(HERE, 'exam_archive_takes.json'), 'w'), ensure_ascii=False)

@@ -95,7 +95,7 @@ const T = {   /* every piece of text, so a site can translate or reword (Dikduk.
  thThroat: 'from the throat ✓', thAlef: 'said like alef ✕', thPlain: 'not from the throat ✕', thUnsure: 'not sure', labelOk: '✓', labelUnsure: 'not sure', labelOff: 'not heard',
  lineN: 'Line {k}', pizmonN: 'Pizmon {id}', tehillimN: 'Tehillim {n}', swapped: '{a} and {b} seem swapped',
  wrongLine: 'This does not sound like this line. Check that you picked the right line, then try again.',
- cantHear: 'I could not make out the words well enough to judge this one. Try again a little closer to the phone, without music in the background.',
+ cantHear: 'I could not make out the words of this line in the recording. Check that it is the right line, then try again a little closer to the phone, without music in the background.',
  noSpeech: 'I did not hear any singing in this recording. Check that the microphone picked you up (hold the phone closer), then record again.'};
 const fmt = (s, o) => s.replace(/\{(\w+)\}/g, (m, k) => o[k] != null ? o[k] : m);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
@@ -260,7 +260,7 @@ function mount(root, opts) {
    misses = 0; busyText((st.stage || S.working) + ' · ' + Math.round((Date.now() - t0) / 1000) + ' s' + (st.queued ? ' · ' + st.queued + S.ahead : ''));
    if (st.state === 'done') return st.result; if (st.state === 'error') throw new Error(st.err || 'error'); if (Date.now() - t0 > 420000) throw new Error(S.tooLong); } }
  $('check').onclick = async () => { if (!TAKE || !LINE) return; busyText(S.sending); $('busy').hidden = false; $('check').disabled = true; err('');
-  try { const q = new URLSearchParams({words: LINE.text, job: 1}); if (REC && LINE.t0 != null) { q.set('ref', REC); q.set('t0', LINE.t0); q.set('t1', LINE.t1); } if (P && P.s.ln && P.s.ln[LINE.k]) q.set('nikud', P.s.ln[LINE.k]);
+  try { const q = new URLSearchParams({words: LINE.text, job: 1}); if (REC && LINE.t0 != null) { q.set('ref', REC); q.set('t0', LINE.t0); q.set('t1', LINE.t1); } if (P && P.s.ln && P.s.ln[LINE.k]) q.set('nikud', P.s.ln[LINE.k]); if (P && P.id) q.set('pid', P.id);
    const r = await fetch(url('/check?' + q), {method: 'POST', body: TAKE.blob, headers: {'content-type': TAKE.blob.type || 'application/octet-stream'}}); let j = await r.json(); if (!r.ok || j.err) throw new Error(j.err || ('server said ' + r.status));
    if (j.job) j = await waitJob(j.job); RESULT = j; render(j); if (typeof opts.onResult === 'function') { try { opts.onResult(j, {pid: P.id, line: LINE.k, rec: REC}); } catch (e) {} } }
   catch (e) { err(S.failed + e.message); }
@@ -271,23 +271,24 @@ function mount(root, opts) {
   const sure = CLEAN && kp != null && kp >= .75 && hs != null && hs >= .6 && (pw == null || pw < .8);
   if (n >= 2) { if (sk < .2 && (ft == null || ft < .15)) { if (ft == null && CLEAN && !(kp != null && kp < .75)) return 'unsure'; if (!CLEAN && kp != null && kp >= .5) return 'unsure'; return 'off'; } if (CLEAN && pw != null && pw >= .95 && (ft == null || ft < .5)) return 'off'; if (sure) return 'ok'; if (sk < .4 || (ft != null && ft < .2) || (kp != null && kp < .5) || (pw != null && pw >= .8)) return 'unsure'; return 'ok'; } return sk < .2 && !sure ? 'unsure' : 'ok'; }
  /* whole-line evidence on a clean take (server: order.py); thresholds from exam_alouf.py — kept in step with index.html */
- const RULE = {drop: 10, margin: 4, swap: 8, gap: 0.6, hear: 0.3, share: 0.35, half: 0.5, swap2: 12};
+ const RULE = {drop: 10, margin: 4, swap: 8, rival: 0.3, altFit: 0.4, hear: 0.3, share: 0.35, half: 0.5, swap2: 12};
  function headMedian(TW) { let hs = TW.filter(t => (t.n || 0) >= 2 && t.hskel != null).map(t => t.hskel).sort((a, b) => a - b); if (!hs.length) return null; if (hs.length >= 3) hs = hs.slice(1); return hs[Math.floor((hs.length - 1) / 2)]; }
- function marksOf(TW, F, gap) { const marks = TW.map((t, i) => markOf(t, F && F[i])); const why = TW.map(() => null); let lineWrong = false, cantHear = false;
+ function marksOf(TW, F, gap, rival) { const marks = TW.map((t, i) => markOf(t, F && F[i])); const why = TW.map(() => null); let lineWrong = false, cantHear = false;
   if (CLEAN) { const ds = TW.map(t => t.drop == null ? -1e9 : t.drop); const top = ds.indexOf(Math.max(...ds)); const second = Math.max(...ds.filter((d, i) => i !== top), -1e9);
    const dropped = top >= 0 && (TW[top].n || 0) >= 2 && ds[top] >= RULE.drop && ds[top] - second >= RULE.margin; if (dropped) { marks[top] = 'off'; why[top] = 'dropped'; }
    const sw = TW.slice(0, -1).map(t => t.swap == null ? -1e9 : t.swap); if (sw.length) { const j = sw.indexOf(Math.max(...sw)), na = TW[j].n || 0, nb = TW[j + 1].n || 0; const pd = Math.max(ds[j], ds[j + 1]), same = pd >= RULE.drop && sw[j] < RULE.share * pd; if (sw[j] >= RULE.swap && Math.max(na, nb) >= 2 && Math.min(na, nb) >= 1 && !same) { marks[j] = 'off'; marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'; } }
   } else if (TW.length) {
    const m = headMedian(TW); const sw = TW.slice(0, -1).map(t => t.swap == null ? -1e9 : t.swap); if (m != null && m >= RULE.half && sw.length) { const j = sw.indexOf(Math.max(...sw)), na = TW[j].n || 0, nb = TW[j + 1].n || 0; const ds = TW.map(t => t.drop == null ? -1e9 : t.drop), pd = Math.max(ds[j], ds[j + 1]), same = pd >= RULE.drop && sw[j] < RULE.share * pd; if (sw[j] >= RULE.swap2 && Math.max(na, nb) >= 2 && Math.min(na, nb) >= 1 && !same) { marks[j] = 'off'; marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'; } }
   }
-  if (TW.length && gap != null && gap >= RULE.gap) { lineWrong = true; for (let i = 0; i < marks.length; i++) if (marks[i] === 'ok') marks[i] = 'unsure'; }
+  const rg = rival && rival.gain != null ? rival.gain : null;
+  if (TW.length && gap != null && rg != null && rg >= RULE.rival && (gap - rg) <= RULE.altFit) { lineWrong = true; for (let i = 0; i < marks.length; i++) if (marks[i] === 'ok') marks[i] = 'unsure'; }
   if (TW.length && !CLEAN && !lineWrong) { const m = headMedian(TW); if (m != null && m < RULE.hear) { cantHear = true; for (let i = 0; i < marks.length; i++) if (marks[i] === 'off') marks[i] = 'unsure'; } }
   return {marks, why, lineWrong, cantHear}; }
  const VCLS = {throat: 'good', plain: 'bad', unsure: 'warn'};
  const thLead = t => !t || !t.v ? '–' : t.v === 'throat' ? S.thThroat : t.v === 'plain' ? (t.c === 'ע' ? S.thAlef : S.thPlain) : S.thUnsure;
  function render(j) { const W = j.words, TW = j.take.words, RW = j.ref ? j.ref.words : null, F = (j.fit && j.fit.length) ? j.fit : null;
   const HM = headMedian(TW); CLEAN = HM != null && HM >= .7;
-  let {marks, why, lineWrong, cantHear} = marksOf(TW, F, j.take.gap);
+  let {marks, why, lineWrong, cantHear} = marksOf(TW, F, j.take.gap, j.take.rival);
   const noSpeech = (j.take.phones || []).length < Math.max(3, 0.5 * (j.take.dur || 0)); if (noSpeech) { marks = marks.map(m => m ? 'unsure' : m); why = why.map(() => null); lineWrong = false; cantHear = false; }
   if (!CLEAN) TW.forEach(t => (t.throat || []).forEach(th => { if (th.v === 'plain') { th.raw = 'plain'; th.v = 'unsure'; } })); const LABEL = {ok: S.labelOk, unsure: S.labelUnsure, off: S.labelOff, '': ''};
   $('res').innerHTML = W.map((w, i) => { const t = TW[i]; let n = 0; const ths = (t.throat || []); const cls = () => { const th = ths[n++]; if (!th || marks[i] === 'off' || cantHear || noSpeech) return ''; if (th.v === 'plain') { const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return ''; } return VCLS[th.v] || ''; };

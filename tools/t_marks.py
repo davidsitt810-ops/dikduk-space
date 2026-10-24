@@ -26,6 +26,7 @@ _spec = importlib.util.spec_from_file_location('exam_report', os.path.join(HERE,
 def offline(res):
     TW = res['take']['words']; F = res.get('fit')
     for i, t in enumerate(TW): t['fit'] = F[i].get('fit') if F else None
+    if TW: TW[0]['rival'] = (res['take'].get('rival') or {}).get('gain')   # the rule reads the take's rival score off the first row
     marks, why, lw, cant, clean = _er.live_marks(TW); return marks
 agree = 0; total = 0; heads = collections.Counter(); ids = []
 for n, rec, i in jobs:
