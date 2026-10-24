@@ -19,9 +19,9 @@ def check(x, W, alts=None):
     return out, app.summarize(out)
 def add(case, f, out, S, tampered):
     TW = out['take']['words']
-    takes.append({'case': case, 'f': f, 'words': out['words'], 'marks': S['marks'], 'why': S['why'], 'clean': S['clean'], 'head': S.get('head'), 'gap': S['gap'], 'rival': (out['take'].get('rival') or {}).get('gain'), 'line_wrong': S['line_wrong'], 'cant_hear': S.get('cant_hear'), 'no_speech': S.get('no_speech'), 'dur': S['dur'], 'tampered': sorted(tampered), 'throat': S['throat'], 'nvow': len(S['vowels'])})
+    takes.append({'case': case, 'f': f, 'words': out['words'], 'marks': S['marks'], 'why': S['why'], 'clean': S['clean'], 'head': S.get('head'), 'gap': S['gap'], 'rival': (out['take'].get('rival') or {}).get('gain'), 'rival_head': (out['take'].get('rival') or {}).get('head'), 'line_wrong': S['line_wrong'], 'cant_hear': S.get('cant_hear'), 'no_speech': S.get('no_speech'), 'dur': S['dur'], 'tampered': sorted(tampered), 'throat': S['throat'], 'nvow': len(S['vowels'])})
     for i, w in enumerate(TW):
-        rows.append({'case': case, 'f': f, 'k': i, 'bad': 1 if i in tampered else 0, 'w': w['w'], 'n': w['n'], 'skel': w['skel'], 'fit': None, 'hskel': w.get('hskel'), 'vskel': w.get('vskel'), 'kept': w.get('kept'), 'pw': w.get('pw'), 'drop': w.get('drop'), 'swap': w.get('swap'), 'gap': out['take'].get('gap'), 'rival': (out['take'].get('rival') or {}).get('gain'), 'clean': S['clean'], 'mark': S['marks'][i], 'why': S['why'][i], 'dur': round(w['t1'] - w['t0'], 3)})
+        rows.append({'case': case, 'f': f, 'k': i, 'bad': 1 if i in tampered else 0, 'w': w['w'], 'n': w['n'], 'skel': w['skel'], 'fit': None, 'hskel': w.get('hskel'), 'vskel': w.get('vskel'), 'kept': w.get('kept'), 'pw': w.get('pw'), 'drop': w.get('drop'), 'swap': w.get('swap'), 'gap': out['take'].get('gap'), 'rival': (out['take'].get('rival') or {}).get('gain'), 'rival_head': (out['take'].get('rival') or {}).get('head'), 'clean': S['clean'], 'mark': S['marks'][i], 'why': S['why'][i], 'dur': round(w['t1'] - w['t0'], 3)})
 texts = [(os.path.basename(w), by.get(os.path.basename(w))) for w in wavs]
 for w in wavs:
     f = os.path.basename(w); text = by.get(f)

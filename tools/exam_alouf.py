@@ -39,7 +39,7 @@ def add_rows(case, n, i, take, fit, tampered, ref):
     for k, w in enumerate(take['words']):
         f = fit[k] if fit else {}
         rows.append({'case': case, 'per': n, 'ps': i, 'k': k, 'nw': len(take['words']), 'bad': 1 if k in tampered else 0, 'w': w['w'], 'n': w['n'], 'skel': w['skel'], 'fit': f.get('fit'), 'hskel': w.get('hskel'), 'vskel': w.get('vskel'),
-                     'kept': w.get('kept'), 'pw': app.word_pw(w), 'drop': w.get('drop'), 'swap': w.get('swap'), 'drop_ph': w.get('drop_ph'), 'swap_ph': w.get('swap_ph'), 'gap': take.get('gap'), 'gap_ph': take.get('gap_ph'), 'rival': (take.get('rival') or {}).get('gain'), 'clean': clean,
+                     'kept': w.get('kept'), 'pw': app.word_pw(w), 'drop': w.get('drop'), 'swap': w.get('swap'), 'drop_ph': w.get('drop_ph'), 'swap_ph': w.get('swap_ph'), 'gap': take.get('gap'), 'gap_ph': take.get('gap_ph'), 'rival': (take.get('rival') or {}).get('gain'), 'rival_head': (take.get('rival') or {}).get('head'), 'clean': clean,
                      'selffit': (ref['words'][k].get('selffit') if ref and k < len(ref['words']) else None), 'dur': round(w['t1'] - w['t0'], 3)})
 for done, (n, rec, i) in enumerate(jobs, 1):
     p = rec['pesukim'][i]; off = p['t0'] - .2; x = cut(rec['original'], off, p['t1'] + .2)

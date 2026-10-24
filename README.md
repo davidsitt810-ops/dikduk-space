@@ -65,6 +65,15 @@ gap, measured on 80 Israelis reading other sentences — voices the head reads p
 "not this line"; the rival test calls 0 of 80, and still 70/70 of Rabbi Alouf's wrong pesukim. A "plain" ע/ח and the
 vowel notes are shown on clean takes only.
 
+v4.6 (Oct 24, before dawn) ships the letter head retrained on other voices (`letter_head.pt`, head v7): 1,500 clips
+of Israelis reading (FLEURS he_il train, ע written as א and ח as כ, as they say them) and 410 Egyptian Arabic clips
+(ع ح from the throat) added to Rabbi Alouf and the archive. On Israelis reading: clean takes 2 → 15 of 80, "not sure"
+32 → 21% of right words, swapped words caught 37 → 75%, the wrong sentence called 23 → 60 of 78; Rabbi Alouf
+unchanged (0 false alarms of 2,290, skipped 98%, swapped 99%, wrong pasuk 79/79, ע 90% from the throat); the
+pizmonim archive 0.9 → 2.0% right words red (words the singers do not sing as written). The wrong-line verdict also
+asks that the other line be heard itself (its head median ≥ .3). `tools/exam_israeli_words.py` is the other-voices
+exam; `tools/extract_il_train.py` and `train_head2.py … HEAD_IL=1 HEAD_EG=1` reproduce the head.
+
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
 - `GET /health`, `GET /info`, `GET /lyrics` (the site's lyrics.json + the Tehillim perakim, with CORS).
 - `GET /ref?f=<archive mp3 | tehillim-NNN.mp3>&t0=&t1=&words=<line>` — the hazzan's line, analysed and cached.

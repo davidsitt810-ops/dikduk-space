@@ -281,8 +281,8 @@ function mount(root, opts) {
   } else if (TW.length) {
    const m = headMedian(TW); const sw = TW.slice(0, -1).map(t => t.swap == null ? -1e9 : t.swap); if (m != null && m >= RULE.half && sw.length) { const j = sw.indexOf(Math.max(...sw)), na = TW[j].n || 0, nb = TW[j + 1].n || 0; const ds = TW.map(t => t.drop == null ? -1e9 : t.drop), pd = Math.max(ds[j], ds[j + 1]), same = pd >= RULE.drop && sw[j] < RULE.share * pd; if (sw[j] >= RULE.swap2 && Math.max(na, nb) >= 2 && Math.min(na, nb) >= 1 && !same) { marks[j] = 'off'; marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'; } }
   }
-  const rg = rival && rival.gain != null ? rival.gain : null;
-  if (TW.length && gap != null && rg != null && rg >= RULE.rival && (gap - rg) <= RULE.altFit) { lineWrong = true; for (let i = 0; i < marks.length; i++) if (marks[i] === 'ok') marks[i] = 'unsure'; }
+  const rg = rival && rival.gain != null ? rival.gain : null, rh = rival && rival.head != null ? rival.head : null;
+  if (TW.length && gap != null && rg != null && rg >= RULE.rival && (gap - rg) <= RULE.altFit && (rh == null || rh >= RULE.hear)) { lineWrong = true; for (let i = 0; i < marks.length; i++) if (marks[i] === 'ok') marks[i] = 'unsure'; }
   if (TW.length && !CLEAN && !lineWrong) { const m = headMedian(TW); if (m != null && m < RULE.hear) { cantHear = true; for (let i = 0; i < marks.length; i++) if (marks[i] === 'off') marks[i] = 'unsure'; } }
   return {marks, why, lineWrong, cantHear}; }
  const VCLS = {throat: 'good', plain: 'bad', unsure: 'warn'};
@@ -326,7 +326,7 @@ function mount(root, opts) {
  health();
  return {open: id => { LY ? openP(id) : null; }, get result() { return RESULT; }};
 }
-window.Dikduk = Object.assign(window.Dikduk || {}, {mount, strings: (window.Dikduk && window.Dikduk.strings) || {}, version: '4.5'});
+window.Dikduk = Object.assign(window.Dikduk || {}, {mount, strings: (window.Dikduk && window.Dikduk.strings) || {}, version: '4.6'});
 function auto() { document.querySelectorAll('[data-dikduk]').forEach(el => { if (el.dataset.dkMounted) return; el.dataset.dkMounted = '1'; mount(el, {api: el.dataset.api, pz: el.dataset.pz, th: el.dataset.th, line: el.dataset.line, rec: el.dataset.rec, archive: el.dataset.archive}); }); }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', auto); else auto();
 })();

@@ -354,8 +354,8 @@ function marksOf(TW,F,gap,rival){const marks=TW.map((t,i)=>markOf(t,F&&F[i]));co
  else if(TW.length){/* a take heard half-well (head median .5-.7): the swap evidence at a higher bar (right takes top out at 5.8, real swaps 12-62); the drop evidence is not safe there */
   const m=headMedian(TW);const sw=TW.slice(0,-1).map(t=>t.swap==null?-1e9:t.swap);if(m!=null&&m>=RULE.half&&sw.length){const j=sw.indexOf(Math.max(...sw)),na=TW[j].n||0,nb=TW[j+1].n||0;const ds=TW.map(t=>t.drop==null?-1e9:t.drop),pd=Math.max(ds[j],ds[j+1]),same=pd>=RULE.drop&&sw[j]<RULE.share*pd;if(sw[j]>=RULE.swap2&&Math.max(na,nb)>=2&&Math.min(na,nb)>=1&&!same){marks[j]='off';marks[j+1]='off';why[j]=why[j+1]='swapped';}}}
  /* not this line: another line of the same text beats the written one by 0.3 nats a frame AND fits the audio well itself (its own gap to the free path under 0.4). The free-path gap alone is not used: a voice the head reads poorly raises it just like a wrong text (33 of 80 Israelis reading the right sentence were called wrong by it) */
- const rg=rival&&rival.gain!=null?rival.gain:null;
- if(TW.length&&gap!=null&&rg!=null&&rg>=RULE.rival&&(gap-rg)<=RULE.altFit){lineWrong=true;for(let i=0;i<marks.length;i++)if(marks[i]==='ok')marks[i]='unsure';}
+ const rg=rival&&rival.gain!=null?rival.gain:null,rh=rival&&rival.head!=null?rival.head:null;   /* rh: is the other line itself heard (its head median)? */
+ if(TW.length&&gap!=null&&rg!=null&&rg>=RULE.rival&&(gap-rg)<=RULE.altFit&&(rh==null||rh>=RULE.hear)){lineWrong=true;for(let i=0;i<marks.length;i++)if(marks[i]==='ok')marks[i]='unsure';}
  if(TW.length&&!CLEAN&&!lineWrong){const m=headMedian(TW);if(m!=null&&m<RULE.hear){cantHear=true;for(let i=0;i<marks.length;i++)if(marks[i]==='off')marks[i]='unsure';}}
  return {marks,why,lineWrong,cantHear};}
 /* a throat letter's verdict in words: v = throat / plain / unsure; the ears (classifier, Arabic-letter ear, trained

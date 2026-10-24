@@ -58,11 +58,11 @@ def check(x, W, R, pid=None):
 def add(case, pid, B, k, out, S, tampered, extra=None):
     global n_takes
     n_takes += 1; TW = out['take']['words']; F = out.get('fit') or []
-    takes.append({'case': case, 'pid': pid, 'rec': B, 'line': k, 'seen': pid in seen, 'clean': S['clean'], 'gap': S['gap'], 'rival': (out['take'].get('rival') or {}).get('gain'), 'line_wrong': S['line_wrong'], 'marks': S['marks'], 'why': S['why'], 'words': out['words'], 'tampered': sorted(tampered), 'dur': S['dur'], 'ref_dur': out['ref'].get('dur'), 'nvow': len(S['vowels']), 'throat': S['throat'], **(extra or {})})
+    takes.append({'case': case, 'pid': pid, 'rec': B, 'line': k, 'seen': pid in seen, 'clean': S['clean'], 'gap': S['gap'], 'rival': (out['take'].get('rival') or {}).get('gain'), 'rival_head': (out['take'].get('rival') or {}).get('head'), 'line_wrong': S['line_wrong'], 'marks': S['marks'], 'why': S['why'], 'words': out['words'], 'tampered': sorted(tampered), 'dur': S['dur'], 'ref_dur': out['ref'].get('dur'), 'nvow': len(S['vowels']), 'throat': S['throat'], **(extra or {})})
     for i, w in enumerate(TW):
         f = F[i] if i < len(F) else {}
         rows.append({'case': case, 'pid': pid, 'rec': B, 'line': k, 'k': i, 'seen': pid in seen, 'bad': 1 if i in tampered else 0, 'w': w['w'], 'n': w['n'], 'skel': w['skel'], 'fit': f.get('fit'), 'hskel': w.get('hskel'), 'vskel': w.get('vskel'), 'kept': w.get('kept'), 'pw': w.get('pw'),
-                     'drop': w.get('drop'), 'swap': w.get('swap'), 'gap': out['take'].get('gap'), 'rival': (out['take'].get('rival') or {}).get('gain'), 'clean': S['clean'], 'mark': S['marks'][i], 'why': S['why'][i], 'line_wrong': S['line_wrong'], 'selffit': (out['ref']['words'][i].get('selffit') if i < len(out['ref']['words']) else None), 'dur': round(w['t1'] - w['t0'], 3)})
+                     'drop': w.get('drop'), 'swap': w.get('swap'), 'gap': out['take'].get('gap'), 'rival': (out['take'].get('rival') or {}).get('gain'), 'rival_head': (out['take'].get('rival') or {}).get('head'), 'clean': S['clean'], 'mark': S['marks'][i], 'why': S['why'][i], 'line_wrong': S['line_wrong'], 'selffit': (out['ref']['words'][i].get('selffit') if i < len(out['ref']['words']) else None), 'dur': round(w['t1'] - w['t0'], 3)})
 for pid in pairs:
     s = LY[pid]; recs = [f for f in s['t'] if len(sync_lines(pid, f)) >= 3 and cached(f)]
     ALTS[pid] = [app.he_words(l) for l in s['l'] if app.he_words(l)]

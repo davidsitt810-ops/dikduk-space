@@ -9,6 +9,12 @@ os.environ.setdefault('DK_NO_WARM', '1')
 import numpy as np
 import app
 from order import rival_evidence
+def rival_full(hlp, W, alts):
+    rv = rival_evidence(hlp, W, alts, app.HEAD_S2I, app.he_read)
+    if not rv: return None
+    hw, _ = app.head_place(hlp, alts[rv['best']]); vals = sorted(v for i, v in hw.items() if len([c for c in app.he_read(alts[rv['best']][i]) if c in app.HEAD_S2I and c not in 'אעהוי']) >= 2)
+    if len(vals) >= 3: vals = vals[1:]
+    rv['head'] = vals[(len(vals) - 1) // 2] if vals else None; return rv
 HERE = os.path.dirname(os.path.abspath(__file__)); random.seed(7)
 NA = int(sys.argv[1]) if len(sys.argv) > 1 else 70; NI = int(sys.argv[2]) if len(sys.argv) > 2 else 80
 PER = [7, 12, 18, 21, 23, 32, 35, 40, 46, 94, 118, 123, 126, 140]
@@ -34,14 +40,14 @@ for n, rec, i in jobs[:NA]:
     try: hlp = head_of(x)
     except Exception as e: print('fail', n, i, e, flush=True); continue
     ev = app.order_evidence(hlp, W, app.HEAD_S2I, app.he_read, 0)
-    rv = rival_evidence(hlp, W, [a for a in allW if a != W], app.HEAD_S2I, app.he_read)
-    rows.append({'set': 'alouf', 'case': 'right', 'per': n, 'ps': i, 'gap': ev['gap'], 'rival': rv and rv['gain'], 'n_alts': rv and rv['n']})
+    rv = rival_full(hlp, W, [a for a in allW if a != W])
+    rows.append({'set': 'alouf', 'case': 'right', 'per': n, 'ps': i, 'gap': ev['gap'], 'rival': rv and rv['gain'], 'rhead': rv and rv['head'], 'n_alts': rv and rv['n']})
     others = [a for a in allW if a != W and abs(len(a) - len(W)) <= 2]
     if others:
         Wo = random.choice(others)
         ev2 = app.order_evidence(hlp, Wo, app.HEAD_S2I, app.he_read, 0)
-        rv2 = rival_evidence(hlp, Wo, [a for a in allW if a != Wo], app.HEAD_S2I, app.he_read)
-        rows.append({'set': 'alouf', 'case': 'wrongline', 'per': n, 'ps': i, 'gap': ev2['gap'], 'rival': rv2 and rv2['gain'], 'n_alts': rv2 and rv2['n']})
+        rv2 = rival_full(hlp, Wo, [a for a in allW if a != Wo])
+        rows.append({'set': 'alouf', 'case': 'wrongline', 'per': n, 'ps': i, 'gap': ev2['gap'], 'rival': rv2 and rv2['gain'], 'rhead': rv2 and rv2['head'], 'n_alts': rv2 and rv2['n']})
 print(f'alouf done: {len(rows)} rows, {int(time.time() - t_start)} s', flush=True)
 meta = json.load(open(os.path.join(HERE, '..', 'fleurs', 'dev.json'), encoding='utf-8')); by = {r[1]: r[3] for r in meta}
 wavs = sorted(glob.glob(os.path.join(HERE, '..', 'fleurs_fresh', 'dev', '*.wav')))
@@ -56,17 +62,25 @@ for w in wavs:
     try: hlp = head_of(x)
     except Exception as e: print('fail', f, e, flush=True); continue
     alts = random.sample([t for t in texts if t != W], 5)
-    ev = app.order_evidence(hlp, W, app.HEAD_S2I, app.he_read, 0); rv = rival_evidence(hlp, W, alts, app.HEAD_S2I, app.he_read)
-    rows.append({'set': 'israeli', 'case': 'right', 'f': f, 'gap': ev['gap'], 'rival': rv and rv['gain'], 'n_alts': 5})
+    ev = app.order_evidence(hlp, W, app.HEAD_S2I, app.he_read, 0); rv = rival_full(hlp, W, alts)
+    rows.append({'set': 'israeli', 'case': 'right', 'f': f, 'gap': ev['gap'], 'rival': rv and rv['gain'], 'rhead': rv and rv['head'], 'n_alts': 5})
     Wo = random.choice([t for t in texts if t != W and abs(len(t) - len(W)) <= 3])
-    ev2 = app.order_evidence(hlp, Wo, app.HEAD_S2I, app.he_read, 0); rv2 = rival_evidence(hlp, Wo, alts[:4] + [W], app.HEAD_S2I, app.he_read)
-    rows.append({'set': 'israeli', 'case': 'wrongline', 'f': f, 'gap': ev2['gap'], 'rival': rv2 and rv2['gain'], 'n_alts': 5})
+    ev2 = app.order_evidence(hlp, Wo, app.HEAD_S2I, app.he_read, 0); rv2 = rival_full(hlp, Wo, alts[:4] + [W])
+    rows.append({'set': 'israeli', 'case': 'wrongline', 'f': f, 'gap': ev2['gap'], 'rival': rv2 and rv2['gain'], 'rhead': rv2 and rv2['head'], 'n_alts': 5})
     done += 1
     if done >= NI: break
-json.dump(rows, open(os.path.join(HERE, 'calib_rival.json'), 'w'), ensure_ascii=False)
+json.dump(rows, open(os.path.join(HERE, os.environ.get('CALIB_OUT', 'calib_rival') + '.json'), 'w'), ensure_ascii=False)
 print(f'done: {len(rows)} rows, {int(time.time() - t_start)} s')
 for s in ('alouf', 'israeli'):
     for case in ('right', 'wrongline'):
         g = [r['gap'] for r in rows if r['set'] == s and r['case'] == case and r['gap'] is not None]; rv = [r['rival'] for r in rows if r['set'] == s and r['case'] == case and r['rival'] is not None]
         if not g: continue
         print(f"{s:8s} {case:9s} n={len(g):3d}  gap p05/p50/p95/max {np.percentile(g, 5):.2f}/{np.percentile(g, 50):.2f}/{np.percentile(g, 95):.2f}/{max(g):.2f}   rival gain p05/p50/p95 min/max {np.percentile(rv, 5):.3f}/{np.percentile(rv, 50):.3f}/{np.percentile(rv, 95):.3f} {min(rv):.3f}/{max(rv):.3f}")
+
+print('\nwith the rule rival >= .3 & alt-gap <= .4 & rival head >= .3:')
+for st in ('alouf', 'israeli'):
+    for case in ('right', 'wrongline'):
+        rr = [r for r in rows if r['set'] == st and r['case'] == case and r['rival'] is not None]
+        hit = sum(1 for r in rr if r['rival'] >= .3 and r['gap'] - r['rival'] <= .4 and (r['rhead'] is None or r['rhead'] >= .3))
+        hit0 = sum(1 for r in rr if r['rival'] >= .3 and r['gap'] - r['rival'] <= .4)
+        print(f'  {st:8s} {case:9s} called wrong {hit}/{len(rr)} (without the head condition {hit0})')

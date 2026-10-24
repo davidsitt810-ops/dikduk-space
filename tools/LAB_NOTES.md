@@ -607,3 +607,46 @@ otherwise, 0.5–0.8% on Alouf). The booth's scoreboard says per take whether it
 
 The server/page/embed parity holds on all of it (`t_parity.py`: 938 recorded lines + synthetic rivals). Also: the
 text's other lines are looked up in the worker, not on the event loop (the site's lyrics may be fetched there).
+
+## 26. The letter head retrained on other voices (Oct 24, small hours) — head v7
+
+**Why.** §25's test showed the letter head reads voices it was not trained on poorly (Israelis: head median .53,
+2 of 80 takes clean, half the words "not sure"). The head had never trained on a non-hazzan voice: the 119 Israeli
+dev clips in the manifest were an exam set only.
+
+**Data.** FLEURS he_il *train* split (CC BY 4.0, 1.8 GB tar, streamed): 1,500 clips of Israelis reading, 2–20 s,
+transcripts without digits or Latin letters, **ע written as א and ח as כ** in the targets (that is how they say
+them, so the head learns their voices without learning that an alef sound is an ayin); features = the Arabic
+model's layer 12, as for everything else (`extract_il_train.py`, src `il2`). Trained warm from the shipped head,
+3 epochs, LR 3e-4, Alouf ×2, archive ×1 (`train_head2.py letters 3 … HEAD_IL=1`).
+
+| head | held-out hazzan lines LER / ע→ע | held-out Alouf LER / ע→ע | Israeli dev LER / ע→א | Egyptian ع→ע (throat speakers unseen) |
+|---|---|---|---|---|
+| v5 (shipped) | 25% / 94% | 7% / 100% | 63% / 71% | 86% |
+| v6 (+Israeli) | 26% / 93% | 7% / 99% | **31%** / 98% | **19%** |
+| **v7 (+Israeli +Egyptian)** | 26% / 92% | 6% / 98% | **32%** / 96% | **78%** |
+
+v6 learned "an unknown voice's throat sound is an alef" (the Egyptian column): a student's real ע would have lost
+the head's vote. v7 adds the 410 Egyptian Arabic clips (ع ح from the throat, mapped to Hebrew letters) and keeps
+both. On the full exams, v7 against v5, same rule:
+
+| | Alouf 80 fresh pesukim: FA / skip / swap / replaced / wrong pasuk | Israeli 80: clean takes / head median / "not sure" / red / skip / swap / wrong line | archive 87 right takes: red / "not sure" / clean |
+|---|---|---|---|
+| v5 | 0 / 98% / 99% / 70% / 79/79 | 2 / .53 / 32% / 0.6% / 34% / 37% / 23/78 | 0.9% / 53% / 9 |
+| v7 | 0 / 98% / 99% / 71% / 79/79 | **15** / **.65** / **21%** / 1.3%* / **46%** / **75%** / **60/78** | (below) |
+
+\* 16 words, 12 of them in sentences whose transcript has digits, Latin letters or quotes that `he_words` drops (the
+audio says them, the written words do not): on clean-transcript sentences 4 of ~1,000 — the same ביתר/פירוט pair as
+before, and one dropped word. Alouf's throat verdicts are unchanged with v7 (ע 90% throat / 10% unsure, ח 99%).
+Also from the Israeli run: a "dropped" word whose consonants the phone recognizer found in place (skel ≥ .8, kept ≥ .6)
+is now doubtful rather than red (1 of 202 true catches on Alouf had that).
+
+**Archive with v7** (87 plausible right takes): right words red 9 of 456 (2.0%; v5: 4), clean 14 (v5: 9), one right take
+called the wrong line — pizmon 17 line 1 in 'mah nikhbad.mp3', where the rival line (הנחילו יה צור עולמים) has a head
+median of .80 against .24 for the written line: the clip holds line 2, the site's sync is off, the machine was right.
+Wrong lines called 11 of 98 (the rest unreadable with instruments). The wrong-line verdict now also requires the
+rival line to be heard itself (its own head median ≥ .3, `rival.head`): no cost on Alouf (70/70) or the Israelis
+(65/80 caught with v7, 0/80 false).
+
+**Shipped as v4.6**: head v7 is `letter_head.pt` (v5 kept as `space_test/letter_head_v5_shipped.pt`); the rule is
+v4.5's plus the drop guard and the rival-head condition; parity 547/547; the regression suite green.

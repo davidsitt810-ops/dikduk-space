@@ -629,6 +629,11 @@ def analyse(x: np.ndarray, words, want_emb=False, alts=None):
     # does another line of the same text fit better than the one that was picked? (order.rival_evidence; v4.5)
     try:
         rival = rival_evidence(hlp, words, alts, HEAD_S2I, he_read, 0) if (hlp is not None and alts) else None
+        if rival:
+            # is the other line actually heard? its words placed on the head, the median letter score (as head_median does for the written line)
+            hw_alt, _ = head_place(hlp, alts[rival['best']]); vals = sorted(v for i, v in hw_alt.items() if len([c for c in he_read(alts[rival['best']][i]) if c in HEAD_S2I and c not in 'אעהוי']) >= 2 and v is not None)
+            if len(vals) >= 3: vals = vals[1:]
+            rival['head'] = round(vals[(len(vals) - 1) // 2], 3) if vals else None
     except Exception as e:
         print('rival:', e, flush=True); rival = None
     for i, w in enumerate(W):
@@ -644,7 +649,7 @@ def analyse(x: np.ndarray, words, want_emb=False, alts=None):
         for th in w['throat']:
             th.update(throat_probe(lp, spf, H, th, ar_lp, ar_spf, ar_hits.get((i, th['k'])), want_emb, AH, hl.get((i, th['k'])))); th['heard'] = heard_in(seq, th['t0'], th['t1'])
     return {'dur': round(x.shape[0] / SR, 3), 'spf': round(spf, 5), 'words': W, 'phones': seq, 'gap': ev_h['gap'] if ev_h else None, 'gap_ph': ev_p['gap'] if ev_p else None,
-            'rival': ({'gain': rival['gain'], 'n': rival['n'], 'line': ' '.join(alts[rival['best']])} if rival else None), 'ms': int((time.time() - t) * 1000)}, lp, spf
+            'rival': ({'gain': rival['gain'], 'n': rival['n'], 'head': rival.get('head'), 'line': ' '.join(alts[rival['best']])} if rival else None), 'ms': int((time.time() - t) * 1000)}, lp, spf
 
 # A combined "this word was not sung" score: logistic on the word's reference-free signals (skel, letter head, vowel
 # head, consonant count, letters kept), fitted on Rabbi Alouf's held-out pesukim tampered the way a student errs
@@ -721,7 +726,7 @@ def try_page():
 
 @app.get('/health')
 def health():
-    return {'ok': True, 'version': 4.5, 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
+    return {'ok': True, 'version': 4.6, 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
             'page_from': 'github' if (_PAGES.get('index.html') or {}).get('body') else 'local', 'jobs': {'queued': sum(1 for v in JOBS.values() if v['state'] == 'queued'), 'running': sum(1 for v in JOBS.values() if v['state'] == 'running')},
             'ears': {'letter_head': HEAD is not None, 'vowel_head': FULL is not None, 'fine_tuned': FT is not None, 'classifier_v2': bool(CLF2), 'tehillim_lyrics': len(TEHILLIM_LYR), 'tehillim_audio': os.path.isdir(TEHILLIM_DIR) and len(os.listdir(TEHILLIM_DIR)) or (TEHILLIM_BASE or 0),
                      'tehillim_perakim': sorted(int(m.group(1)) for m in (re.match(r'tehillim-(\d{3})\.mp3$', f) for f in (os.listdir(TEHILLIM_DIR) if os.path.isdir(TEHILLIM_DIR) else [])) if m)}}
@@ -1212,8 +1217,9 @@ def marks_of(TW, F, gap, clean, rival=None):
     # pasuk 0/70; 80 Israelis reading other sentences — voices the head reads poorly — 0/80 right ones called wrong
     # (the free-path gap alone called 33 of those 80 wrong: a poorly read voice raises it just like a wrong text).
     # Without the text's other lines (free words) there is no wrong-line verdict.
-    rg = rival.get('gain') if isinstance(rival, dict) else None
-    if TW and gap is not None and rg is not None and rg >= RULE['rival'] and (gap - rg) <= RULE['altFit']:
+    rg = rival.get('gain') if isinstance(rival, dict) else None; rh = rival.get('head') if isinstance(rival, dict) else None
+    # ... and the other line must itself be heard (its head median >= .3): on an unreadable take a short line can "win" by a hair
+    if TW and gap is not None and rg is not None and rg >= RULE['rival'] and (gap - rg) <= RULE['altFit'] and (rh is None or rh >= RULE['hear']):
         line_wrong = True; marks = ['unsure' if m == 'ok' else m for m in marks]
     # the head barely hears the words (instruments, a far microphone): nothing is red, the doubtful words are 'unsure'
     if TW and not clean and not line_wrong:
