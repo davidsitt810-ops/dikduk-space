@@ -84,9 +84,12 @@ def usable_cpus():
     return max(1, n)
 THREADS = usable_cpus(); torch.set_num_threads(THREADS)
 # DK_DEVICE=cuda runs the two big models on a GPU when one is there (a Colab T4 answers a check in a second or two);
-# anything else, or a GPU that fails to load, means CPU. The heads and the aligner stay on the CPU either way.
+# DK_DEVICE=mps uses an Apple-Silicon Mac's GPU (mac/bench.sh compares it with the CPU: the numbers differ in the last
+# digits, as CUDA's do); anything else, or a GPU that fails to load, means CPU. The heads and the aligner stay on the
+# CPU either way.
 DEV = 'cpu'
 if os.environ.get('DK_DEVICE', '').lower().startswith('cuda') and torch.cuda.is_available(): DEV = 'cuda'
+elif os.environ.get('DK_DEVICE', '').lower().startswith('mps') and getattr(torch.backends, 'mps', None) and torch.backends.mps.is_available(): DEV = 'mps'
 SR = 16000
 ARCHIVE = 'https://www.pizmonim.org/MP3/'
 UA = {'User-Agent': 'Mozilla/5.0 (pizmonim dikduk checker)', 'Accept': '*/*'}
@@ -1033,7 +1036,7 @@ DK_KEY = os.environ.get('DK_KEY', '')
 
 def key_ok(key):
     if DK_KEY: return key == DK_KEY
-    return not os.environ.get('SPACE_ID')
+    return not os.environ.get('SPACE_ID') and not os.environ.get('DK_PUBLIC')   # open only on a private machine; a home server behind a tunnel sets DK_PUBLIC=1 (mac/install.sh)
 
 def need_key(key):
     if not key_ok(key): return JSONResponse({'err': 'this needs the key (the Space secret DK_KEY)' if DK_KEY or os.environ.get('SPACE_ID') else 'no key set'}, status_code=403)

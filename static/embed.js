@@ -3,7 +3,9 @@
    <script src="embed.js"></script>
    <script>Dikduk.mount(document.getElementById('dikduk'), {api:'https://davidsitt-pizmonim-dikduk.hf.space', pz:'200', line:3});</script>
    or simply <div data-dikduk data-api="https://…hf.space" data-pz="200" data-line="3"></div> and the script mounts it.
-   Options: api (the checker server), pz | th (pizmon id | Tehillim perek), line (1-based), rec (hazzan recording file),
+   Options: api (the checker server — or several, an array or a space-separated string: the first one whose /health
+   answers is used, so a fast home server can come first and the Space second as the fallback; if a check cannot reach
+   the chosen one, the others are asked once more), pz | th (pizmon id | Tehillim perek), line (1-based), rec (hazzan recording file),
    lyrics (the site's lyrics object or a URL — saves a fetch), archive (base URL of the archive mp3s), onResult(result).
    Styling: everything is under .dk; colours and fonts are CSS variables on the container (--dk-bg, --dk-panel, --dk-line,
    --dk-fg, --dk-mute, --dk-accent, --dk-good, --dk-warn, --dk-bad, --dk-ink, --dk-he, --dk-ui); the site's own fonts are
@@ -162,9 +164,13 @@ const HTML = `
 
 function mount(root, opts) {
  ensureCss(); opts = opts || {}; const S = Object.assign({}, T, window.Dikduk && window.Dikduk.strings || {}, opts.strings || {});
- const API = String(opts.api || '').replace(/\/$/, ''); const ARCHIVE = opts.archive || 'https://www.pizmonim.org/MP3/';
+ const APIS = [].concat(opts.api || []).join(' ').split(/[\s,]+/).filter(Boolean).map(a => a.replace(/\/$/, '')); let API = APIS[0] || ''; const ARCHIVE = opts.archive || 'https://www.pizmonim.org/MP3/';
  root.classList.add('dk'); root.innerHTML = HTML;
  const $ = s => root.querySelector(`[data-r="${s}"]`); const url = p => API + p;
+ /* several servers: whichever answers /health first (and says ok) is the one; a dead tunnel fails fast, a sleeping Space answers late */
+ function pickApi() { if (APIS.length <= 1) return fetch(url('/health'), {cache: 'no-store'}).then(r => r.json());
+  return new Promise((res, rej) => { let left = APIS.length, done = false; APIS.forEach(async a => { try { const r = await fetch(a + '/health', {cache: 'no-store'}); if (!r.ok) throw new Error(String(r.status)); const j = await r.json(); if (!j || !j.ok) throw new Error('not ok'); if (!done) { done = true; API = a; res(j); } }
+   catch (e) { if (--left === 0 && !done) rej(e); } }); }); }
  root.querySelectorAll('[data-t]').forEach(e => { e.textContent = S[e.dataset.t]; });
  root.querySelector('.dk-lede').textContent = S.lede; $('srv').textContent = S.waking;
  root.querySelectorAll('[data-change]').forEach(b => { if (!b.textContent) b.textContent = S.change; });
@@ -186,7 +192,7 @@ function mount(root, opts) {
  $('kindTh').onclick = () => { KIND = 'th'; $('kindTh').classList.add('on'); $('kindPz').classList.remove('on'); kindHint(); $('pid').focus(); };
  if (KIND === 'th') { $('kindTh').classList.add('on'); $('kindPz').classList.remove('on'); }
  async function health() { const el = $('srv'); el.className = 'dk-pill wait'; el.textContent = S.waking;
-  try { const r = await fetch(url('/health'), {cache: 'no-store'}); SRV = await r.json(); el.className = 'dk-pill ok'; el.textContent = S.ready; await loadLyrics(); kindHint(); fromOpts(); }
+  try { SRV = await pickApi(); el.className = 'dk-pill ok'; el.textContent = S.ready; await loadLyrics(); kindHint(); fromOpts(); }
   catch (e) { el.className = 'dk-pill bad'; el.textContent = S.down; err(S.downMsg); } }
  async function loadLyrics() { if (LY) return; try { if (opts.lyrics && typeof opts.lyrics === 'object') LY = opts.lyrics; else LY = await (await fetch(typeof opts.lyrics === 'string' ? opts.lyrics : url('/lyrics'))).json(); } catch (e) { err(S.lyricsErr); } }
  function recLines(pid, f) { const s = LY.s[pid]; const ev = (s.t && s.t[f] || '').split(';').filter(Boolean).map(x => x.split(',').map(Number)); const out = s.l.map((t, k) => ({k, text: t, t0: null, t1: null}));
@@ -261,7 +267,9 @@ function mount(root, opts) {
    if (st.state === 'done') return st.result; if (st.state === 'error') throw new Error(st.err || 'error'); if (Date.now() - t0 > 420000) throw new Error(S.tooLong); } }
  $('check').onclick = async () => { if (!TAKE || !LINE) return; busyText(S.sending); $('busy').hidden = false; $('check').disabled = true; err('');
   try { const q = new URLSearchParams({words: LINE.text, job: 1}); if (REC && LINE.t0 != null) { q.set('ref', REC); q.set('t0', LINE.t0); q.set('t1', LINE.t1); } if (P && P.s.ln && P.s.ln[LINE.k]) q.set('nikud', P.s.ln[LINE.k]); if (P && P.id) q.set('pid', P.id);
-   const r = await fetch(url('/check?' + q), {method: 'POST', body: TAKE.blob, headers: {'content-type': TAKE.blob.type || 'application/octet-stream'}}); let j = await r.json(); if (!r.ok || j.err) throw new Error(j.err || ('server said ' + r.status));
+   const post = () => fetch(url('/check?' + q), {method: 'POST', body: TAKE.blob, headers: {'content-type': TAKE.blob.type || 'application/octet-stream'}});
+   let r; try { r = await post(); } catch (e) { if (APIS.length <= 1) throw e; SRV = await pickApi(); r = await post(); }   // the chosen server went away: ask the others once
+   let j = await r.json(); if (!r.ok || j.err) throw new Error(j.err || ('server said ' + r.status));
    if (j.job) j = await waitJob(j.job); RESULT = j; render(j); if (typeof opts.onResult === 'function') { try { opts.onResult(j, {pid: P.id, line: LINE.k, rec: REC}); } catch (e) {} } }
   catch (e) { err(S.failed + e.message); }
   $('busy').hidden = true; $('check').disabled = false; };
@@ -326,7 +334,7 @@ function mount(root, opts) {
  health();
  return {open: id => { LY ? openP(id) : null; }, get result() { return RESULT; }};
 }
-window.Dikduk = Object.assign(window.Dikduk || {}, {mount, strings: (window.Dikduk && window.Dikduk.strings) || {}, version: '4.6'});
-function auto() { document.querySelectorAll('[data-dikduk]').forEach(el => { if (el.dataset.dkMounted) return; el.dataset.dkMounted = '1'; mount(el, {api: el.dataset.api, pz: el.dataset.pz, th: el.dataset.th, line: el.dataset.line, rec: el.dataset.rec, archive: el.dataset.archive}); }); }
+window.Dikduk = Object.assign(window.Dikduk || {}, {mount, strings: (window.Dikduk && window.Dikduk.strings) || {}, version: '4.7'});
+function auto() { document.querySelectorAll('[data-dikduk]').forEach(el => { if (el.dataset.dkMounted) return; el.dataset.dkMounted = '1'; mount(el, {api: el.dataset.api, pz: el.dataset.pz, th: el.dataset.th, line: el.dataset.line, rec: el.dataset.rec, archive: el.dataset.archive}); }); }   // data-api may hold several servers, space-separated
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', auto); else auto();
 })();

@@ -122,6 +122,13 @@ Base: `https://davidsitt-pizmonim-dikduk.hf.space`. All JSON, CORS `*`. No keys.
   vowels?:{i:[{k, you, ref}]}, vowels_nikud?:{…}, vowel_names:{…}}`. Word verdict (`markOf` in `embed.js`): with
   ≥2 consonants, "not heard" when `skel<.2` and `fit<.15` (or, on a clean take, `pw≥.95`); "not sure" when
   `skel<.4` or `fit<.2` or `kept<.5` or `pw≥.8`; else fine. One-consonant words are never flagged.
+- **Two servers, the Mac mini first (v4.7)**: David's M4 Mac mini can run the same server at home behind a Cloudflare
+  Tunnel (`mac/README_MAC.md` in the repo; hostname to be confirmed, planned `https://dikduk.thepizmonim.com`). The
+  embed takes several servers and uses whichever answers `/health` first, re-asking the others if a check cannot
+  reach the chosen one: `data-api="https://dikduk.thepizmonim.com https://davidsitt-pizmonim-dikduk.hf.space"`
+  (or `api: [..]` in `mount`). Load the script from a CDN that is up even when a server is not:
+  `<script src="https://cdn.jsdelivr.net/gh/davidsitt810-ops/dikduk-space@main/static/embed.js"></script>`
+  (jsDelivr caches the branch for up to 12 h; `https://purge.jsdelivr.net/gh/davidsitt810-ops/dikduk-space@main/static/embed.js` refreshes). Until the Mac is up, the single Space URL works as before.
 - **Letter checker** (v4.7): `GET /letters` is a ready page (one letter at a time: hear Rabbi Alouf, say it, ✓/✕/not
   sure); for a site-written version, `GET /letters.json` lists the letters, their variants and his example words
   (audio at `GET /letters/audio/<name>.mp3`, ~5 KB each), and `POST /letter?c=<letter>[&want=b|v|k|kh|p|f|sh|s]

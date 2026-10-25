@@ -92,6 +92,11 @@ are the Israeli sounds, caught: ע 74%, ח 78%, ק 88%, ט 64%, צ 63%,
 Alouf says a word-initial ב without dagesh as b (110 of 120; his vav is v), so the vet examples come from inside
 words; and his ק before a sheva or i/e is heard as ك half the time — the emphasis lives in the vowel. `strict=1`
 turns "not sure" into "not clearly right — work on this".
+Also in v4.7: `embed.js` takes several servers (`api: [...]` or a space-separated `data-api`) and uses whichever
+answers `/health` first — a home server first, the Space as the fallback; `mac/` installs the server on an
+Apple-Silicon Mac as a boot-time service behind a Cloudflare Tunnel (`install.sh`, `tunnel.sh`, `update.sh`,
+`bench.py`); `DK_DEVICE=mps` tries the Mac's GPU; `DK_PUBLIC=1` keeps the booth's recordings behind `DK_KEY` off the
+Space too.
 
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
 - `GET /letters` — the letter checker; `POST /letter?c=<letter>[&want=…][&strict=1]` with a short take as the body; `GET /letters.json`, `GET /letters/audio/<name>.mp3` — Rabbi Alouf's example words.
