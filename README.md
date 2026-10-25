@@ -84,9 +84,10 @@ vote there, a head that heard neither ע nor א is one), א (plain, the same ear
 ear's ق/ك, ط/ت, ص/س — heard best before a, o, u, so the student is asked to say them with "a"), ר (a rolled r as ر /
 r; the Israeli r as غ), בּ/ב כּ/כ פּ/פ (b/v the phone ear's alone; k/kh and p/f with the Arabic ear), שׁ/שׂ, ת (always
 t). Measured on word-initial letters (`tools/letters_study.py`, `letters_rules.py`; LAB_NOTES §27): Rabbi Alouf's
-own letters called right / wrong: ע 70% / 5% (80% / 2% on clean onsets), ח 81% / 1%, א 82% / 0, ק 84% / 1% (a/o/u),
-ט 84% / 6%, צ 88% / 4%, ר 82% / 2%, בּ 86% / 2%, כּ 96% / 0, כ 87% / 3%, פּ 90% / 0, פ 88% / 0, שׁ 99% / 0, שׂ 94% / 1%,
-ת 84% / 1%; Israelis reading, whose ע ח ק ט צ ר are the Israeli sounds, caught: ע 74%, ח 76%, ק 89%, ט 64%, צ 63%,
+own letters called right / wrong: ע 72% / 6% (82% / 0 on clean onsets; the misses are takes where both ears first
+fire on the next consonant), ח 85% / 1%, א 82% / 0, ק 85% / 1% (a/o/u), ט 84% / 6%, צ 93% / 4%, ר 88% / 2%, בּ 89% / 2%,
+כּ 96% / 0, כ 89% / 3%, פּ 90% / 0, פ 92% / 0, שׁ 100% / 0, שׂ 96% / 1%, ת 84% / 1%; Israelis reading, whose ע ח ק ט צ ר
+are the Israeli sounds, caught: ע 74%, ח 78%, ק 88%, ט 64%, צ 63%,
 ר 30% (18% confirmed as rolled — some do roll it), and 0–5% of them called right. Two findings along the way: Rabbi
 Alouf says a word-initial ב without dagesh as b (110 of 120; his vav is v), so the vet examples come from inside
 words; and his ק before a sheva or i/e is heard as ك half the time — the emphasis lives in the vowel. `strict=1`

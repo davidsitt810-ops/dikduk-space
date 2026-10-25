@@ -684,17 +684,17 @@ sounds. Verdict per letter, Rabbi Alouf called right / wrong / not sure — Isra
 
 | letter | rule | Alouf | Israelis |
 |---|---|---|---|
-| ע | head ratio ≥ .6 / ≤ .3 (mass ≥ .2; neither heard = a plain vote), v2 classifier ≥ .5 / ≤ .3, Arabic ع ≥ .4; two votes and none against | 70% / 5% / 25% (clean onsets 80% / 2%) | 74% / 0% |
-| ח | the same with ح, classifier ≥ .6, a khaf heard (خ / ه / phone x ≥ .5, ح < .15) a plain vote; no "neither heard" vote | 81% / 1% / 18% | 76% / 4% |
+| ע | head ratio ≥ .6 / ≤ .3 (mass ≥ .2; neither heard = a plain vote), v2 classifier ≥ .5 / ≤ .3, Arabic ع ≥ .4; two votes and none against | 72% / 6% / 22% (clean onsets 82% / 0 / 18%) | 74% / 0% |
+| ח | the same with ح, classifier ≥ .6, a khaf heard (خ / ه / phone x ≥ .5, ح < .15) a plain vote; no "neither heard" vote | 85% / 1% / 14% | 78% / 4% |
 | א | the ע ears read the other way | 82% / 0% / 18% | (right 93%) |
-| ק | Arabic ق ≥ .5 and > ك: right; ك ≥ .5 and ق < .2: wrong | 84% / 1% (a/o/u words) | 89% / 2% |
+| ק | Arabic ق ≥ .5 and > ك: right; ك ≥ .5 and ق < .2: wrong | 85% / 1% (a/o/u words) | 88% / 2% |
 | ט | ط vs ت | 84% / 6% | 64% / 0% |
-| צ | ص vs س (and the phone ear's ts) | 88% / 4% | 63% / 5% |
-| ר | rolled: ر ≥ .5 or phone r ≥ .4, and غ < .3; from the back: غ ≥ .3 and ر < .15 | 82% / 2% / 17% | 30% / 18% (some do roll it) |
-| בּ b / ב v | phone b vs v (the Arabic ear has no v) | 86% / 2%; v on his vav-initial words 66% / 8% | – |
-| כּ k / כ kh | k, ك vs x, χ, خ | 96% / 0; 87% / 3% | – |
-| פּ p / פ f | p, ب vs f, ف | 90% / 0; 88% / 0 | – |
-| שׁ / שׂ | ʃ, ش vs s, س | 99% / 0; 94% / 1% | – |
+| צ | ص vs س (and the phone ear's ts) | 93% / 4% | 63% / 5% |
+| ר | rolled: ر ≥ .5 or phone r ≥ .4, and غ < .3; from the back: غ ≥ .3 and ر < .15 | 88% / 2% / 10% | 30% / 18% (some do roll it) |
+| בּ b / ב v | phone b vs v (the Arabic ear has no v) | 89% / 2%; v on his vav-initial words 66% / 8% | – |
+| כּ k / כ kh | k, ك vs x, χ, خ | 96% / 0; 89% / 3% | – |
+| פּ p / פ f | p, ب vs f, ف | 90% / 0; 92% / 0 | – |
+| שׁ / שׂ | ʃ, ش vs s, س | 100% / 0; 96% / 1% | – |
 | ת | t, ت vs s, θ, س, ث | 84% / 1% | (right 84%) |
 
 **What the study taught.**
@@ -714,8 +714,12 @@ sounds. Verdict per letter, Rabbi Alouf called right / wrong / not sure — Isra
    rolled r" otherwise — not "wrong".
 5. A cut artifact in the Israeli set: a word's cut often holds the tail of the previous word's consonant, so the
    "onset" lands on it; on cuts with a clean onset ע is 80% / 2% on Rabbi Alouf and 78% / 0% on Israelis. The
-   energy-anchored onset (symbols more than 50 ms before the take's energy onset are ignored) came out of the
-   end-to-end test on the example snippets, 14 of which had landed in the leading quiet.
+   energy-anchored onset (symbols more than 50 ms before the take's energy onset are ignored) and the rule that the
+   Arabic ear's opening alef / lam / sukun — a "ال" it writes when nothing was said yet — do not set the onset came
+   out of the end-to-end test on the example snippets, 14 of which had landed in the leading quiet (88 of the 88
+   word-initial ones come back right after the fix). The numbers in the table are from the final study run
+   (`letters_rows.json`; the earlier runs, `letters_rows_v0/v1.json`, are within a few points). Known miss: a soft
+   ʿayin whose vowel neither ear fires on, so the window lands on the next consonant (7 of 120 of Rabbi Alouf's).
 
 **Strict mode** (`strict=1`, a checkbox on the page): "not sure" becomes "not clearly right — work on this one".
 **End-to-end** (`tools/t_letters.py`): the 94 example snippets posted back → right or not sure, never wrong; Israeli
