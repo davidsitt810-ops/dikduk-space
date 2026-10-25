@@ -662,3 +662,62 @@ sentence called 153/199; a cut word caught 46%, swapped words 70%. ע on Israeli
 **Not done, on purpose:** refitting the word logistic (`WORD_MODEL`, pw) on the v7 head's features. It would cut the
 Israelis' "not sure" from 16% to 6% (archive 53 → 42%) but halves the replaced-word catch on Rabbi Alouf (57 → 33 of
 80): pw ≥ .95 is what catches a replaced word on a clean take. A knob for later, with a learner's voice in hand.
+
+## 27. The letter checker (Oct 24, evening–night) — v4.7
+
+David's ask: "a letter checker where I say just the letter and you tell me right or wrong, and show it properly."
+Built as `/letters` + `POST /letter` (`space/letters.py` holds the logic; `app.letter_probe` runs the ears).
+
+**Design.** A letter cannot be said alone, so the student says it with a vowel (עַ), by its name (עַיִן), or in a
+word Rabbi Alouf says that opens with it (עַמֶּךָ) — all three open with the letter, so the checker judges the take's
+OPENING consonant and nothing after it: trim the silence (20 ms RMS, the louder of −35 dB and 5% of the peak), find
+the onset with both ears (each ear's first confident symbol at or after the energy onset; the earlier one), close the
+window a little after each ear's second symbol (the vowel, or the next consonant when the vowel was not heard;
+whichever comes first), and read every ear's peaks in that window: the phone ear's symbols, the Arabic ear's letters,
+the letter head's letters, the throat classifiers. The "hear him" examples are his own word-initial letters cut from
+the Tehillim (`tools/make_letters.py`: 94 mp3s, 490 KB), chosen among the ones the checker itself hears right.
+
+**The study** (`tools/letters_study.py`, 4,843 cuts, `letters_rows.json`): word-initial letters cut as a student would
+record them — Rabbi Alouf's (120 per letter and variant; the nikud gives dagesh / rafe and shin / sin) and Israelis
+reading (FLEURS dev + fresh, 199 sentences, the machine's own word placement), whose ע ח ק ט צ ר are the Israeli
+sounds. Verdict per letter, Rabbi Alouf called right / wrong / not sure — Israelis caught / called right:
+
+| letter | rule | Alouf | Israelis |
+|---|---|---|---|
+| ע | head ratio ≥ .6 / ≤ .3 (mass ≥ .2; neither heard = a plain vote), v2 classifier ≥ .5 / ≤ .3, Arabic ع ≥ .4; two votes and none against | 70% / 5% / 25% (clean onsets 80% / 2%) | 74% / 0% |
+| ח | the same with ح, classifier ≥ .6, a khaf heard (خ / ه / phone x ≥ .5, ح < .15) a plain vote; no "neither heard" vote | 81% / 1% / 18% | 76% / 4% |
+| א | the ע ears read the other way | 82% / 0% / 18% | (right 93%) |
+| ק | Arabic ق ≥ .5 and > ك: right; ك ≥ .5 and ق < .2: wrong | 84% / 1% (a/o/u words) | 89% / 2% |
+| ט | ط vs ت | 84% / 6% | 64% / 0% |
+| צ | ص vs س (and the phone ear's ts) | 88% / 4% | 63% / 5% |
+| ר | rolled: ر ≥ .5 or phone r ≥ .4, and غ < .3; from the back: غ ≥ .3 and ر < .15 | 82% / 2% / 17% | 30% / 18% (some do roll it) |
+| בּ b / ב v | phone b vs v (the Arabic ear has no v) | 86% / 2%; v on his vav-initial words 66% / 8% | – |
+| כּ k / כ kh | k, ك vs x, χ, خ | 96% / 0; 87% / 3% | – |
+| פּ p / פ f | p, ب vs f, ف | 90% / 0; 88% / 0 | – |
+| שׁ / שׂ | ʃ, ش vs s, س | 99% / 0; 94% / 1% | – |
+| ת | t, ت vs s, θ, س, ث | 84% / 1% | (right 84%) |
+
+**What the study taught.**
+1. *At the start of a word the Arabic ear's alef is not evidence of a plain ʿayin*: it writes an alef (the hamza seat
+   Arabic spelling wants there) for 34 of Rabbi Alouf's 120 word-initial ע; the line checker's "alef heard → plain"
+   vote would have left 38% of them "not sure". Dropped for the letter checker; the ع peak keeps its throat vote
+   (62% of his, 7% of the Israelis').
+2. *The emphasis lives in the vowel.* Rabbi Alouf's ק before a sheva is heard as ك 13 of 19 times, before i/e half
+   the time, before a/o/u 1 of 80; his צ before i/e is س 15 of 38 times, before a 1 of 39. The checker asks for the
+   letter with "a" and the examples are such words.
+3. *Rabbi Alouf says a word-initial ב without dagesh as b* — 110 of 120 (קִי בָנוּ, יִשָּׂא בְרָכָה…), while his vav is v
+   (88 of 120 first phones) and his word-initial כ without dagesh is kh (69 of 79): the ear is fine, the reading is
+   what it is. The vet examples therefore come from inside words (לָרֹכֵב, אוֹיֵב, אָהַבְתָּ), and the page tells the
+   student to say just the letter there.
+4. *The Israeli r is mostly nothing to these ears*: heard as غ in 30%, as a rolled r in 18% (plausibly real: Israelis
+   of Mizrahi or Russian background roll it), as nothing in half. So ר confirms a rolled r and says "I did not hear a
+   rolled r" otherwise — not "wrong".
+5. A cut artifact in the Israeli set: a word's cut often holds the tail of the previous word's consonant, so the
+   "onset" lands on it; on cuts with a clean onset ע is 80% / 2% on Rabbi Alouf and 78% / 0% on Israelis. The
+   energy-anchored onset (symbols more than 50 ms before the take's energy onset are ignored) came out of the
+   end-to-end test on the example snippets, 14 of which had landed in the leading quiet.
+
+**Strict mode** (`strict=1`, a checkbox on the page): "not sure" becomes "not clearly right — work on this one".
+**End-to-end** (`tools/t_letters.py`): the 94 example snippets posted back → right or not sure, never wrong; Israeli
+cuts for ע ח ק never right; silence and a tone → "I did not hear anything"; bad inputs → 400; the page drives through
+a fake microphone in Chromium (`flow_letters.py`): record → post → ✓ with all three ears.

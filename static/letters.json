@@ -1,0 +1,1138 @@
+{
+"v": 1,
+"made": "space_test/make_letters.py from letters_rows.json",
+"letters": [
+{
+"c": "ע",
+"name": "ʿayin",
+"he": "עַיִן",
+"kind": "throat",
+"tip": "From the throat — like the Arabic ع. Not a plain alef.",
+"examples": {
+"": [
+{
+"w": "עמך",
+"pointed": "עַמֶּ֑ךָ",
+"per": 77,
+"ps": 15,
+"k": 0,
+"audio": "ayin-1.mp3",
+"dur": 0.95,
+"vow": "A"
+},
+{
+"w": "עשר",
+"pointed": "עָשָׂ֣ר",
+"per": 60,
+"ps": 1,
+"k": 0,
+"audio": "ayin-2.mp3",
+"dur": 0.81,
+"vow": "A"
+},
+{
+"w": "עצת",
+"pointed": "עֲצַת",
+"per": 33,
+"ps": 9,
+"k": 0,
+"audio": "ayin-3.mp3",
+"dur": 0.71,
+"vow": "A"
+},
+{
+"w": "עולם",
+"pointed": "עוֹלָ֑ם",
+"per": 24,
+"ps": 6,
+"k": 0,
+"audio": "ayin-4.mp3",
+"dur": 0.69,
+"vow": "O"
+},
+{
+"w": "עונת",
+"pointed": "עֲ֭וֺנֹת",
+"per": 65,
+"ps": 3,
+"k": 0,
+"audio": "ayin-5.mp3",
+"dur": 0.89,
+"vow": "A"
+},
+{
+"w": "עניתם",
+"pointed": "עֲנִ֫יתָ֥ם",
+"per": 99,
+"ps": 7,
+"k": 0,
+"audio": "ayin-6.mp3",
+"dur": 1.09,
+"vow": "A"
+}
+]
+}
+},
+{
+"c": "ח",
+"name": "ḥet",
+"he": "חֵית",
+"kind": "throat",
+"tip": "From the throat — like the Arabic ح. Softer than the Israeli khaf (כ without dagesh).",
+"examples": {
+"": [
+{
+"w": "חמד",
+"pointed": "חָמַ֣ד",
+"per": 68,
+"ps": 16,
+"k": 0,
+"audio": "het-1.mp3",
+"dur": 0.89,
+"vow": "A"
+},
+{
+"w": "חפש",
+"pointed": "חֵ֣פֶשׂ",
+"per": 64,
+"ps": 6,
+"k": 0,
+"audio": "het-2.mp3",
+"dur": 1.01,
+"vow": "E"
+},
+{
+"w": "חסדך",
+"pointed": "חַסְדֶּ֑ךָ",
+"per": 90,
+"ps": 13,
+"k": 0,
+"audio": "het-3.mp3",
+"dur": 1.05,
+"vow": "A"
+},
+{
+"w": "חנני",
+"pointed": "חׇנֵּ֣נִי",
+"per": 56,
+"ps": 1,
+"k": 0,
+"audio": "het-4.mp3",
+"dur": 0.81,
+"vow": "O"
+},
+{
+"w": "חיני",
+"pointed": "חַיֵּֽנִי",
+"per": 119,
+"ps": 36,
+"k": 0,
+"audio": "het-5.mp3",
+"dur": 0.97,
+"vow": "A"
+},
+{
+"w": "חפץ",
+"pointed": "חָפֵ֣ץ",
+"per": 115,
+"ps": 2,
+"k": 0,
+"audio": "het-6.mp3",
+"dur": 0.95,
+"vow": "A"
+}
+]
+}
+},
+{
+"c": "א",
+"name": "alef",
+"he": "אָלֶף",
+"kind": "plain",
+"tip": "Plain — just the vowel, with a light catch. Not from the throat (that is ʿayin).",
+"examples": {
+"": [
+{
+"w": "אלהים",
+"pointed": "אֱלֹהִ֗ים",
+"per": 73,
+"ps": 27,
+"k": 0,
+"audio": "alef-1.mp3",
+"dur": 1.29,
+"vow": "E"
+},
+{
+"w": "אדון",
+"pointed": "אָד֣וֹן",
+"per": 12,
+"ps": 4,
+"k": 0,
+"audio": "alef-2.mp3",
+"dur": 0.73,
+"vow": "A"
+},
+{
+"w": "ארצות",
+"pointed": "אַרְצ֣וֹת",
+"per": 105,
+"ps": 43,
+"k": 0,
+"audio": "alef-3.mp3",
+"dur": 0.73,
+"vow": "A"
+},
+{
+"w": "אמר",
+"pointed": "אָמַ֣ר",
+"per": 10,
+"ps": 10,
+"k": 0,
+"audio": "alef-4.mp3",
+"dur": 0.79,
+"vow": "A"
+},
+{
+"w": "אשר",
+"pointed": "אֲשֶׁ֥ר",
+"per": 3,
+"ps": 6,
+"k": 0,
+"audio": "alef-5.mp3",
+"dur": 0.75,
+"vow": "A"
+},
+{
+"w": "אמתך",
+"pointed": "אֲמִתְּךָ֢",
+"per": 71,
+"ps": 21,
+"k": 0,
+"audio": "alef-6.mp3",
+"dur": 0.91,
+"vow": "A"
+}
+]
+}
+},
+{
+"c": "ק",
+"name": "qof",
+"he": "קוֹף",
+"kind": "emphatic",
+"tip": "Deep k, from the back — like the Arabic ق. Not the plain k of kaf. Say it with \"a\": קָ.",
+"examples": {
+"": [
+{
+"w": "קרח",
+"pointed": "קֹ֬רַח",
+"per": 47,
+"ps": 0,
+"k": 0,
+"audio": "qof-1.mp3",
+"dur": 0.95,
+"vow": "O"
+},
+{
+"w": "קדמה",
+"pointed": "קַדְּמָ֣ה",
+"per": 17,
+"ps": 12,
+"k": 0,
+"audio": "qof-2.mp3",
+"dur": 0.79,
+"vow": "A"
+},
+{
+"w": "קדשו",
+"pointed": "קׇדְשׁ֣וֹ",
+"per": 3,
+"ps": 4,
+"k": 0,
+"audio": "qof-3.mp3",
+"dur": 0.65,
+"vow": "O"
+},
+{
+"w": "קדקדו",
+"pointed": "קׇ֝דְקֳד֗וֹ",
+"per": 7,
+"ps": 16,
+"k": 0,
+"audio": "qof-4.mp3",
+"dur": 0.85,
+"vow": "O"
+},
+{
+"w": "קום",
+"pointed": "קֽוּם",
+"per": 36,
+"ps": 12,
+"k": 0,
+"audio": "qof-5.mp3",
+"dur": 0.91,
+"vow": "U"
+},
+{
+"w": "קול",
+"pointed": "ק֣וֹל",
+"per": 74,
+"ps": 22,
+"k": 0,
+"audio": "qof-6.mp3",
+"dur": 0.67,
+"vow": "O"
+}
+]
+}
+},
+{
+"c": "ט",
+"name": "ṭet",
+"he": "טֵית",
+"kind": "emphatic",
+"tip": "Heavy t — like the Arabic ط. Not the light t of tav. Say it with \"a\": טָ.",
+"examples": {
+"": [
+{
+"w": "טמן",
+"pointed": "טָמַ֣ן",
+"per": 35,
+"ps": 7,
+"k": 0,
+"audio": "tet-1.mp3",
+"dur": 0.69,
+"vow": "A"
+},
+{
+"w": "טהרני",
+"pointed": "טַהֲרֵֽנִי",
+"per": 51,
+"ps": 3,
+"k": 0,
+"audio": "tet-2.mp3",
+"dur": 1.31,
+"vow": "A"
+},
+{
+"w": "טהור",
+"pointed": "טָ֭הוֹר",
+"per": 51,
+"ps": 11,
+"k": 0,
+"audio": "tet-3.mp3",
+"dur": 0.71,
+"vow": "A"
+},
+{
+"w": "טמנו",
+"pointed": "טָ֥מְנֽוּ",
+"per": 140,
+"ps": 5,
+"k": 0,
+"audio": "tet-4.mp3",
+"dur": 0.87,
+"vow": "A"
+}
+]
+}
+},
+{
+"c": "צ",
+"name": "ṣadi",
+"he": "צָדִי",
+"kind": "emphatic",
+"tip": "Heavy s — like the Arabic ص. Not the Israeli \"ts\". Say it with \"a\": צָ.",
+"examples": {
+"": [
+{
+"w": "צדיק",
+"pointed": "צַדִּ֑יק",
+"per": 129,
+"ps": 3,
+"k": 0,
+"audio": "sadi-1.mp3",
+"dur": 0.83,
+"vow": "A"
+},
+{
+"w": "צלמם",
+"pointed": "צַלְמָ֬ם",
+"per": 73,
+"ps": 19,
+"k": 0,
+"audio": "sadi-2.mp3",
+"dur": 0.87,
+"vow": "A"
+},
+{
+"w": "צרינו",
+"pointed": "צָרֵֽינוּ",
+"per": 108,
+"ps": 13,
+"k": 0,
+"audio": "sadi-3.mp3",
+"dur": 1.23,
+"vow": "A"
+},
+{
+"w": "צרתי",
+"pointed": "צָ֝רָתִ֗י",
+"per": 142,
+"ps": 2,
+"k": 0,
+"audio": "sadi-4.mp3",
+"dur": 0.99,
+"vow": "A"
+},
+{
+"w": "צמאה",
+"pointed": "צָמְאָ֬ה",
+"per": 42,
+"ps": 2,
+"k": 0,
+"audio": "sadi-5.mp3",
+"dur": 0.77,
+"vow": "A"
+},
+{
+"w": "צופים",
+"pointed": "צוּפִֽים",
+"per": 19,
+"ps": 10,
+"k": 0,
+"audio": "sadi-6.mp3",
+"dur": 0.75,
+"vow": "U"
+}
+]
+}
+},
+{
+"c": "ר",
+"name": "resh",
+"he": "רֵישׁ",
+"kind": "resh",
+"tip": "Rolled with the tip of the tongue — like the Arabic ر. Not from the back of the throat (the Israeli r). The machine confirms a rolled r well and catches the Israeli r only sometimes.",
+"examples": {
+"": [
+{
+"w": "רחם",
+"pointed": "רִחַ֥ם",
+"per": 103,
+"ps": 12,
+"k": 0,
+"audio": "resh-1.mp3",
+"dur": 0.87,
+"vow": "I"
+},
+{
+"w": "רבת",
+"pointed": "רַ֭בַּת",
+"per": 129,
+"ps": 0,
+"k": 0,
+"audio": "resh-2.mp3",
+"dur": 0.71,
+"vow": "A"
+},
+{
+"w": "רחקו",
+"pointed": "רָחָֽקוּ",
+"per": 119,
+"ps": 149,
+"k": 0,
+"audio": "resh-3.mp3",
+"dur": 1.05,
+"vow": "A"
+},
+{
+"w": "רעתי",
+"pointed": "רָעָ֫תִ֥י",
+"per": 35,
+"ps": 25,
+"k": 0,
+"audio": "resh-4.mp3",
+"dur": 0.97,
+"vow": "A"
+},
+{
+"w": "רדפי",
+"pointed": "רֹדְפָ֑י",
+"per": 35,
+"ps": 2,
+"k": 0,
+"audio": "resh-5.mp3",
+"dur": 1.17,
+"vow": "O"
+},
+{
+"w": "רבים",
+"pointed": "רַבִּ֥ים",
+"per": 119,
+"ps": 155,
+"k": 0,
+"audio": "resh-6.mp3",
+"dur": 1.17,
+"vow": "A"
+}
+]
+}
+},
+{
+"c": "ב",
+"name": "bet / vet",
+"he": "בֵּית",
+"kind": "dagesh",
+"want": [
+[
+"b",
+"בּ bet: b"
+],
+[
+"v",
+"ב vet: v"
+]
+],
+"tips": {
+"b": "With the dagesh — a hard b, lips closed.",
+"v": "No dagesh — v, the lips nearly touching. Not b."
+},
+"examples": {
+"b": [
+{
+"w": "בכח",
+"pointed": "בַּכֹּ֑חַ",
+"per": 29,
+"ps": 3,
+"k": 0,
+"audio": "bet-b-1.mp3",
+"dur": 1.19,
+"vow": "A"
+},
+{
+"w": "במחנה",
+"pointed": "בַּֽמַּחֲנֶ֑ה",
+"per": 106,
+"ps": 15,
+"k": 0,
+"audio": "bet-b-2.mp3",
+"dur": 1.07,
+"vow": "A"
+},
+{
+"w": "בלחץ",
+"pointed": "בְּלַ֣חַץ",
+"per": 43,
+"ps": 1,
+"k": 0,
+"audio": "bet-b-3.mp3",
+"dur": 1.01,
+"vow": "A"
+},
+{
+"w": "בטח",
+"pointed": "בֹּטֵ֣חַ",
+"per": 115,
+"ps": 7,
+"k": 0,
+"audio": "bet-b-4.mp3",
+"dur": 1.15,
+"vow": "O"
+},
+{
+"w": "ברית",
+"pointed": "בְּרִ֣ית",
+"per": 105,
+"ps": 9,
+"k": 0,
+"audio": "bet-b-5.mp3",
+"dur": 0.87,
+"vow": "I"
+},
+{
+"w": "ברוחו",
+"pointed": "בְּרוּח֣וֹ",
+"per": 32,
+"ps": 1,
+"k": 0,
+"audio": "bet-b-6.mp3",
+"dur": 0.77,
+"vow": "U"
+}
+],
+"v": [
+{
+"w": "לרכב",
+"pointed": "לָ֭רֹכֵב",
+"per": 68,
+"ps": 33,
+"k": 3,
+"audio": "bet-v-1.mp3",
+"dur": 1.09,
+"vow": null
+},
+{
+"w": "ודברי",
+"pointed": "וְדִבְרֵ֖י",
+"per": 145,
+"ps": 4,
+"k": 2,
+"audio": "bet-v-2.mp3",
+"dur": 0.71,
+"vow": null
+},
+{
+"w": "גברו",
+"pointed": "גָּ֣בְרוּ",
+"per": 65,
+"ps": 3,
+"k": 1,
+"audio": "bet-v-3.mp3",
+"dur": 0.73,
+"vow": null
+},
+{
+"w": "אויב",
+"pointed": "אוֹיֵֽב",
+"per": 42,
+"ps": 9,
+"k": 3,
+"audio": "bet-v-4.mp3",
+"dur": 0.65,
+"vow": null
+},
+{
+"w": "אהבת",
+"pointed": "אָהַ֥בְתָּ",
+"per": 52,
+"ps": 5,
+"k": 2,
+"audio": "bet-v-5.mp3",
+"dur": 0.89,
+"vow": null
+},
+{
+"w": "נתיב",
+"pointed": "נָתִ֗יב",
+"per": 78,
+"ps": 49,
+"k": 3,
+"audio": "bet-v-6.mp3",
+"dur": 1.19,
+"vow": null
+}
+]
+}
+},
+{
+"c": "כ",
+"name": "kaf / khaf",
+"he": "כַּף",
+"kind": "dagesh",
+"want": [
+[
+"k",
+"כּ kaf: k"
+],
+[
+"kh",
+"כ khaf: kh"
+]
+],
+"tips": {
+"k": "With the dagesh — a plain k (not the deep q of qof).",
+"kh": "No dagesh — kh, a rough sound from the back of the mouth. Not k, and not the throat ḥet."
+},
+"examples": {
+"k": [
+{
+"w": "כדונג",
+"pointed": "כַּדּוֹנָ֑ג",
+"per": 22,
+"ps": 14,
+"k": 0,
+"audio": "kaf-k-1.mp3",
+"dur": 0.95,
+"vow": "A"
+},
+{
+"w": "כשתלי",
+"pointed": "כִּשְׁתִלֵ֣י",
+"per": 128,
+"ps": 2,
+"k": 0,
+"audio": "kaf-k-2.mp3",
+"dur": 0.83,
+"vow": "I"
+},
+{
+"w": "כלותם",
+"pointed": "כַּלּוֹתָֽם",
+"per": 18,
+"ps": 37,
+"k": 0,
+"audio": "kaf-k-3.mp3",
+"dur": 0.91,
+"vow": "A"
+},
+{
+"w": "כפיו",
+"pointed": "כַּפָּ֣יו",
+"per": 78,
+"ps": 71,
+"k": 0,
+"audio": "kaf-k-4.mp3",
+"dur": 1.21,
+"vow": "A"
+},
+{
+"w": "כספו",
+"pointed": "כַּסְפּ֤וֹ",
+"per": 15,
+"ps": 4,
+"k": 0,
+"audio": "kaf-k-5.mp3",
+"dur": 0.69,
+"vow": "A"
+},
+{
+"w": "כאפר",
+"pointed": "כָּאֵ֥פֶר",
+"per": 147,
+"ps": 15,
+"k": 0,
+"audio": "kaf-k-6.mp3",
+"dur": 1.11,
+"vow": "A"
+}
+],
+"kh": [
+{
+"w": "כצאן",
+"pointed": "כַצֹּ֣אן",
+"per": 77,
+"ps": 20,
+"k": 0,
+"audio": "kaf-kh-1.mp3",
+"dur": 0.87,
+"vow": "A"
+},
+{
+"w": "כליתי",
+"pointed": "כָלִֽיתִי",
+"per": 39,
+"ps": 10,
+"k": 0,
+"audio": "kaf-kh-2.mp3",
+"dur": 0.99,
+"vow": "A"
+},
+{
+"w": "כפתים",
+"pointed": "כְפִתִּ֑ים",
+"per": 147,
+"ps": 16,
+"k": 0,
+"audio": "kaf-kh-3.mp3",
+"dur": 0.89,
+"vow": "I"
+},
+{
+"w": "כן",
+"pointed": "כֵ֨ן",
+"per": 147,
+"ps": 19,
+"k": 0,
+"audio": "kaf-kh-4.mp3",
+"dur": 1.07,
+"vow": "E"
+},
+{
+"w": "כשלו",
+"pointed": "כָשְׁל֣וּ",
+"per": 27,
+"ps": 1,
+"k": 0,
+"audio": "kaf-kh-5.mp3",
+"dur": 1.01,
+"vow": "A"
+},
+{
+"w": "כף",
+"pointed": "כָ֑ף",
+"per": 47,
+"ps": 1,
+"k": 0,
+"audio": "kaf-kh-6.mp3",
+"dur": 0.65,
+"vow": "A"
+}
+]
+}
+},
+{
+"c": "פ",
+"name": "pe / fe",
+"he": "פֵּא",
+"kind": "dagesh",
+"want": [
+[
+"p",
+"פּ pe: p"
+],
+[
+"f",
+"פ fe: f"
+]
+],
+"tips": {
+"p": "With the dagesh — p, lips closed.",
+"f": "No dagesh — f. Not p."
+},
+"examples": {
+"p": [
+{
+"w": "פלאות",
+"pointed": "פְּלָא֥וֹת",
+"per": 119,
+"ps": 128,
+"k": 0,
+"audio": "pe-p-1.mp3",
+"dur": 1.15,
+"vow": "A"
+},
+{
+"w": "פתאם",
+"pointed": "פִּתְאֹ֥ם",
+"per": 64,
+"ps": 4,
+"k": 0,
+"audio": "pe-p-2.mp3",
+"dur": 0.85,
+"vow": "I"
+},
+{
+"w": "פחד",
+"pointed": "פָּחַ֥ד",
+"per": 119,
+"ps": 160,
+"k": 0,
+"audio": "pe-p-3.mp3",
+"dur": 0.91,
+"vow": "A"
+},
+{
+"w": "פניך",
+"pointed": "פָּנֶ֨יךָ",
+"per": 27,
+"ps": 8,
+"k": 0,
+"audio": "pe-p-4.mp3",
+"dur": 1.41,
+"vow": "A"
+},
+{
+"w": "פחים",
+"pointed": "פַּ֫חִ֥ים",
+"per": 11,
+"ps": 5,
+"k": 0,
+"audio": "pe-p-5.mp3",
+"dur": 0.75,
+"vow": "A"
+},
+{
+"w": "פקודי",
+"pointed": "פִּקּ֣וּדֵי",
+"per": 119,
+"ps": 127,
+"k": 0,
+"audio": "pe-p-6.mp3",
+"dur": 1.01,
+"vow": "I"
+}
+],
+"f": [
+{
+"w": "פקדיך",
+"pointed": "פִקֻּדֶ֗יךָ",
+"per": 119,
+"ps": 3,
+"k": 0,
+"audio": "pe-f-1.mp3",
+"dur": 1.17,
+"vow": "I"
+},
+{
+"w": "פלשת",
+"pointed": "פְ֝לֶ֗שֶׁת",
+"per": 108,
+"ps": 9,
+"k": 0,
+"audio": "pe-f-2.mp3",
+"dur": 1.29,
+"vow": "E"
+},
+{
+"w": "פסל",
+"pointed": "פֶ֗סֶל",
+"per": 97,
+"ps": 6,
+"k": 0,
+"audio": "pe-f-3.mp3",
+"dur": 1.19,
+"vow": "E"
+},
+{
+"w": "פדות",
+"pointed": "פְדֽוּת",
+"per": 130,
+"ps": 6,
+"k": 0,
+"audio": "pe-f-4.mp3",
+"dur": 0.73,
+"vow": "U"
+},
+{
+"w": "פיך",
+"pointed": "פִֽיךָ",
+"per": 138,
+"ps": 3,
+"k": 0,
+"audio": "pe-f-5.mp3",
+"dur": 0.79,
+"vow": "I"
+},
+{
+"w": "פניך",
+"pointed": "פָנֶ֣יךָ",
+"per": 119,
+"ps": 57,
+"k": 0,
+"audio": "pe-f-6.mp3",
+"dur": 0.97,
+"vow": "A"
+}
+]
+}
+},
+{
+"c": "ש",
+"name": "shin / sin",
+"he": "שִׁין",
+"kind": "dagesh",
+"want": [
+[
+"sh",
+"שׁ shin: sh"
+],
+[
+"s",
+"שׂ sin: s"
+]
+],
+"tips": {
+"sh": "Dot on the right — sh.",
+"s": "Dot on the left — s, like samekh."
+},
+"examples": {
+"sh": [
+{
+"w": "שמרי",
+"pointed": "שֹׁמְרֵ֣י",
+"per": 106,
+"ps": 2,
+"k": 0,
+"audio": "shin-sh-1.mp3",
+"dur": 1.05,
+"vow": "O"
+},
+{
+"w": "שמים",
+"pointed": "שָׁמַ֣יִם",
+"per": 108,
+"ps": 5,
+"k": 0,
+"audio": "shin-sh-2.mp3",
+"dur": 1.19,
+"vow": "A"
+},
+{
+"w": "שמך",
+"pointed": "שְׁמֶ֑ךָ",
+"per": 9,
+"ps": 10,
+"k": 0,
+"audio": "shin-sh-3.mp3",
+"dur": 1.03,
+"vow": "E"
+},
+{
+"w": "שחת",
+"pointed": "שַׁ֗חַת",
+"per": 55,
+"ps": 23,
+"k": 0,
+"audio": "shin-sh-4.mp3",
+"dur": 1.05,
+"vow": "A"
+},
+{
+"w": "שיתו",
+"pointed": "שִׁ֤יתוּ",
+"per": 48,
+"ps": 13,
+"k": 0,
+"audio": "shin-sh-5.mp3",
+"dur": 0.69,
+"vow": "I"
+},
+{
+"w": "שפכו",
+"pointed": "שֻׁפְּכ֥וּ",
+"per": 73,
+"ps": 1,
+"k": 0,
+"audio": "shin-sh-6.mp3",
+"dur": 0.81,
+"vow": "U"
+}
+],
+"s": [
+{
+"w": "שרפה",
+"pointed": "שְׂרֻפָ֣ה",
+"per": 80,
+"ps": 16,
+"k": 0,
+"audio": "shin-s-1.mp3",
+"dur": 0.77,
+"vow": "U"
+},
+{
+"w": "שטני",
+"pointed": "שֹׂטְנֵ֢י",
+"per": 71,
+"ps": 12,
+"k": 0,
+"audio": "shin-s-2.mp3",
+"dur": 0.79,
+"vow": "O"
+},
+{
+"w": "שק",
+"pointed": "שָׂ֗ק",
+"per": 35,
+"ps": 12,
+"k": 0,
+"audio": "shin-s-3.mp3",
+"dur": 1.13,
+"vow": "A"
+},
+{
+"w": "שפתי",
+"pointed": "שְׂפָתָ֑י",
+"per": 66,
+"ps": 13,
+"k": 0,
+"audio": "shin-s-4.mp3",
+"dur": 0.93,
+"vow": "A"
+},
+{
+"w": "שמח",
+"pointed": "שָׂמַ֣ח",
+"per": 105,
+"ps": 37,
+"k": 0,
+"audio": "shin-s-5.mp3",
+"dur": 0.77,
+"vow": "A"
+},
+{
+"w": "שנאת",
+"pointed": "שָׂנֵ֣אתָ",
+"per": 50,
+"ps": 16,
+"k": 0,
+"audio": "shin-s-6.mp3",
+"dur": 1.03,
+"vow": "A"
+}
+]
+}
+},
+{
+"c": "ת",
+"name": "tav",
+"he": "תָּו",
+"kind": "tav",
+"tip": "Always t (with or without dagesh). Never s or th.",
+"examples": {
+"": [
+{
+"w": "תשיב",
+"pointed": "תָשִׁ֣יב",
+"per": 74,
+"ps": 10,
+"k": 0,
+"audio": "tav-1.mp3",
+"dur": 0.79,
+"vow": "A"
+},
+{
+"w": "תמיד",
+"pointed": "תָּמִ֥יד",
+"per": 40,
+"ps": 11,
+"k": 0,
+"audio": "tav-2.mp3",
+"dur": 0.89,
+"vow": "A"
+},
+{
+"w": "תמוג",
+"pointed": "תָּמ֥וּג",
+"per": 46,
+"ps": 6,
+"k": 0,
+"audio": "tav-3.mp3",
+"dur": 0.87,
+"vow": "A"
+},
+{
+"w": "תנוס",
+"pointed": "תָנ֑וּס",
+"per": 114,
+"ps": 4,
+"k": 0,
+"audio": "tav-4.mp3",
+"dur": 0.79,
+"vow": "A"
+},
+{
+"w": "תנדף",
+"pointed": "תִּ֫נְדֹּ֥ף",
+"per": 68,
+"ps": 2,
+"k": 0,
+"audio": "tav-5.mp3",
+"dur": 0.89,
+"vow": "I"
+},
+{
+"w": "תאסף",
+"pointed": "תֶּאֱסֹ֣ף",
+"per": 26,
+"ps": 8,
+"k": 0,
+"audio": "tav-6.mp3",
+"dur": 0.91,
+"vow": "E"
+}
+]
+}
+}
+]
+}

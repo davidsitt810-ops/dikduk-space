@@ -74,7 +74,26 @@ pizmonim archive 0.9 → 2.0% right words red (words the singers do not sing as 
 asks that the other line be heard itself (its head median ≥ .3). `tools/exam_israeli_words.py` is the other-voices
 exam; `tools/extract_il_train.py` and `train_head2.py … HEAD_IL=1 HEAD_EG=1` reproduce the head.
 
+v4.7 (Oct 24, night) adds the **letter checker**: `GET /letters` (the page) and `POST /letter?c=<letter>[&want=b|v|
+k|kh|p|f|sh|s][&strict=1]` with a 2–3 s take as the body. The student picks a letter, hears Rabbi Alouf say a word
+that opens with it (`static/letters.json` + `static/letters/*.mp3`, cut from his Tehillim by `tools/make_letters.py`),
+and says it — the letter with its vowel, or his word; the server trims the silence, finds the take's opening
+consonant with both ears (`letters.py: onset_window`) and judges only that sound. Letters: ע ח (the throat vote:
+head + classifier + Arabic ع/ح, with two measured changes for a word's start — the Arabic ear's alef is not a plain
+vote there, a head that heard neither ע nor א is one), א (plain, the same ears read the other way), ק ט צ (the Arabic
+ear's ق/ك, ط/ت, ص/س — heard best before a, o, u, so the student is asked to say them with "a"), ר (a rolled r as ر /
+r; the Israeli r as غ), בּ/ב כּ/כ פּ/פ (b/v the phone ear's alone; k/kh and p/f with the Arabic ear), שׁ/שׂ, ת (always
+t). Measured on word-initial letters (`tools/letters_study.py`, `letters_rules.py`; LAB_NOTES §27): Rabbi Alouf's
+own letters called right / wrong: ע 70% / 5% (80% / 2% on clean onsets), ח 81% / 1%, א 82% / 0, ק 84% / 1% (a/o/u),
+ט 84% / 6%, צ 88% / 4%, ר 82% / 2%, בּ 86% / 2%, כּ 96% / 0, כ 87% / 3%, פּ 90% / 0, פ 88% / 0, שׁ 99% / 0, שׂ 94% / 1%,
+ת 84% / 1%; Israelis reading, whose ע ח ק ט צ ר are the Israeli sounds, caught: ע 74%, ח 76%, ק 89%, ט 64%, צ 63%,
+ר 30% (18% confirmed as rolled — some do roll it), and 0–5% of them called right. Two findings along the way: Rabbi
+Alouf says a word-initial ב without dagesh as b (110 of 120; his vav is v), so the vet examples come from inside
+words; and his ק before a sheva or i/e is heard as ك half the time — the emphasis lives in the vowel. `strict=1`
+turns "not sure" into "not clearly right — work on this".
+
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
+- `GET /letters` — the letter checker; `POST /letter?c=<letter>[&want=…][&strict=1]` with a short take as the body; `GET /letters.json`, `GET /letters/audio/<name>.mp3` — Rabbi Alouf's example words.
 - `GET /health`, `GET /info`, `GET /lyrics` (the site's lyrics.json + the Tehillim perakim, with CORS).
 - `GET /ref?f=<archive mp3 | tehillim-NNN.mp3>&t0=&t1=&words=<line>` — the hazzan's line, analysed and cached.
 - `POST /check?words=<line>[&ref=<f>&t0=&t1=][&nikud=<pointed line>][&drill=throat|plain]` with the audio as the body — the take.

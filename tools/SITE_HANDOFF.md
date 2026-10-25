@@ -122,6 +122,13 @@ Base: `https://davidsitt-pizmonim-dikduk.hf.space`. All JSON, CORS `*`. No keys.
   vowels?:{i:[{k, you, ref}]}, vowels_nikud?:{…}, vowel_names:{…}}`. Word verdict (`markOf` in `embed.js`): with
   ≥2 consonants, "not heard" when `skel<.2` and `fit<.15` (or, on a clean take, `pw≥.95`); "not sure" when
   `skel<.4` or `fit<.2` or `kept<.5` or `pw≥.8`; else fine. One-consonant words are never flagged.
+- **Letter checker** (v4.7): `GET /letters` is a ready page (one letter at a time: hear Rabbi Alouf, say it, ✓/✕/not
+  sure); for a site-written version, `GET /letters.json` lists the letters, their variants and his example words
+  (audio at `GET /letters/audio/<name>.mp3`, ~5 KB each), and `POST /letter?c=<letter>[&want=b|v|k|kh|p|f|sh|s]
+  [&strict=1]` with a 2–3 s take as the body → `{v: right|wrong|unsure|no_speech, say, more, heard:[IPA], alouf,
+  why, peak, ar_peak, win, dur, ms}`. The server judges only the take's opening sound. Measured numbers are in the
+  README (v4.7) — roughly: Rabbi Alouf's own letters called right 80–98% and wrong 0–5%, Israeli-style ע ח ק caught
+  74–89%.
 - Hazzan audio: archive recordings play straight from `https://www.pizmonim.org/MP3/<file>` (seek to `t0`, stop at
   `t1`); Tehillim from `GET /tehillim/audio/tehillim-023.mp3` (144 perakim since Oct 23; when the site hosts the package's
   mp3s, the checker can be pointed at the site's copy).

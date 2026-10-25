@@ -448,11 +448,15 @@ def place_words(lp, spf, words):
             heard = max(mass, key=mass.get)
             cons.append({'k': k, 'c': c, 'heard': heard, 't0': a['f0'] * spf, 't1': a['f1'] * spf, 'p': a['score'],
                          'mass': {p: round(v, 3) for p, v in mass.items()}})
-        notes = []
-        for c in cons:
-            if c['c'] == 'ת' and c['heard'] == 's' and c['mass'].get('s', 0) >= 2 * max(c['mass'].get('t', 0), c['mass'].get('θ', 0), 1e-6):
-                notes.append({'k': c['k'], 'c': 'ת', 'say': 'sav'})   # a tav said like samekh (the Ashkenazi way)
-        W.append({'w': w, 'cons': cons, 'n': len(cons), 'notes': notes})
+        W.append({'w': w, 'cons': cons, 'n': len(cons), 'notes': []})
+    # a tav said like samekh (the Ashkenazi way): the ת's own frames hold 's' and no 't' — unless an s-sound next to it
+    # (the ש of עשה before אות: David's take, Oct 24) is what the aligner's ת token was put on; then no note
+    allc = [c for w in W for c in w['cons']]
+    for j, c in enumerate(allc):
+        if c['c'] != 'ת' or c['heard'] != 's' or c['mass'].get('s', 0) < 2 * max(c['mass'].get('t', 0), c['mass'].get('θ', 0), 1e-6): continue
+        near = [allc[i] for i in (j - 1, j + 1) if 0 <= i < len(allc)]
+        if any(n['heard'] in ('s', 'ʃ', 'ts', 'z') and n['t1'] >= c['t0'] - 0.06 and n['t0'] <= c['t1'] + 0.06 for n in near): continue
+        w = next(w for w in W if c in w['cons']); w['notes'].append({'k': c['k'], 'c': 'ת', 'say': 'sav'})
     # word spans: the cut between two words is at the next word's first consonant; when the next word opens with
     # א/ע/ה (a vowel or a throat sound, not in the skeleton) the cut is right after this word's last consonant if this
     # word ends in a consonant (what follows cannot be its vowel), else halfway (both words have a vowel there).
@@ -681,6 +685,80 @@ def fit_against(lp, spf, ref_words):
                     't0': round(L[0]['f0'] * spf, 3), 't1': round(L[-1]['f1'] * spf, 3), 'n': len(L)})
     return out
 
+# ---------------------------------------------------------------- one letter (the letter checker, /letter)
+import letters as LT
+AR_I2T = {v: k for k, v in AR_V.items()}
+AR_LOOK_IDS = {g: [AR_V[c] for c in cs if c in AR_V] for g, cs in LT.AR_LOOK.items()}
+AR_LOOK_IDS = {g: ids for g, ids in AR_LOOK_IDS.items() if ids}
+PH_IDS = {p: VOCAB[p] for p in LT.PH if p in VOCAB}
+
+def trim_silence(x, pad=0.15, floor_db=-35.0):
+    """the take without its leading and trailing silence (20 ms energy frames; the louder of a fixed floor and 5% of
+       the peak decides); -> (x, start_s, energy_on_s): the cut, where it began in the original, and where the energy
+       starts inside the cut (the pad, unless the take began mid-sound)"""
+    n = int(SR * 0.02)
+    if x.shape[0] < 2 * n: return x, 0.0, 0.0
+    fr = x[: (x.shape[0] // n) * n].reshape(-1, n)
+    rms = np.sqrt((fr ** 2).mean(1) + 1e-12)
+    peak = rms.max()
+    if peak <= 0: return x, 0.0, 0.0
+    thr = max(peak * 10 ** (floor_db / 20), peak * 0.05)
+    on = np.nonzero(rms >= thr)[0]
+    if not len(on): return x, 0.0, 0.0
+    a = max(0, int(on[0] * n - pad * SR)); b = min(x.shape[0], int((on[-1] + 1) * n + pad * SR))
+    return x[a:b], round(a / SR, 3), round((on[0] * n - a) / SR, 3)
+
+def ar_greedy(lp, spf):
+    ids = lp.argmax(-1); seq, prev = [], -1
+    for t, i in enumerate(ids.tolist()):
+        if i != prev and i != AR_PAD:
+            tok = AR_I2T.get(i, '?')
+            if tok not in ('|', ' ', '<s>', '</s>', '<unk>'): seq.append({'p': tok, 't': round(t * spf, 3), 'c': round(float(np.exp(lp[t, i])), 3)})
+        prev = i
+    return seq
+
+def letter_probe(x: np.ndarray, c: str = None):
+    """one short take that opens with a letter: the ears' readings of its opening consonant (letters.py decides the
+       window; the verdict is letters.verdict). c: the letter the student was asked for (ע/ח/א add the throat probe)."""
+    t = time.time()
+    x, cut, energy_on = trim_silence(x)
+    dur = x.shape[0] / SR
+    if dur < 0.15: return {'dur': round(dur, 3), 'no_speech': True, 'ms': int((time.time() - t) * 1000)}
+    lp, spf, H = run_model(x); seq = greedy(lp, spf)
+    ar_lp, ar_spf, AH = arabic_lp(x); ar_seq = ar_greedy(ar_lp, ar_spf)
+    hlp = head_lp(AH) if FT is None else ft_lps(x)[0]
+    win = LT.onset_window(seq, dur, ar_seq, energy_on)
+    out = {'dur': round(dur, 3), 'cut': cut, 'energy_on': energy_on, 'phones': seq[:12], 'arabic': ar_seq[:8], 'ms': 0}
+    if win is None or not seq:
+        out['no_speech'] = True; out['ms'] = int((time.time() - t) * 1000); return out
+    t_on, t0, t1 = win
+    out.update({'onset': t_on, 'win': [t0, t1]})
+    out['peak'], f0, f1 = LT.peaks(lp, spf, t0, t1, PH_IDS)
+    # groups of Arabic tokens: the summed probability per frame, then the max (and the sum over the window)
+    g0, g1 = int(t0 / ar_spf), max(int(t0 / ar_spf) + 1, int(np.ceil(t1 / ar_spf)))
+    aseg = np.exp(ar_lp[g0:g1])
+    out['ar_peak'] = {g: round(float(aseg[:, ids].sum(1).max()), 3) for g, ids in AR_LOOK_IDS.items()} if len(aseg) else {}
+    out['ar_mass'] = {g: round(float(aseg[:, ids].sum()), 3) for g, ids in AR_LOOK_IDS.items()} if len(aseg) else {}
+    if hlp is not None:
+        hseg = np.exp(hlp[g0:g1])
+        out['head_mass'] = {s: round(float(hseg[:, i].sum()), 3) for s, i in HEAD_S2I.items() if 'א' <= s <= 'ת'} if len(hseg) else {}
+        out['head_peak'] = {s: round(float(hseg[:, i].max()), 3) for s, i in HEAD_S2I.items() if 'א' <= s <= 'ת'} if len(hseg) else {}
+    out['heard'] = [s['p'] for s in seq if t0 <= s['t'] < t1]
+    if c in ('ע', 'ח', 'א'):
+        cc = 'ח' if c == 'ח' else 'ע'
+        alts = AR.get(cc) or []
+        am = {m: float(np.exp(ar_lp[g0:g1, AR_V[m]]).sum()) for m in alts if m in AR_V} if len(aseg) else {}
+        ar_hit = {'heard': max(am, key=am.get), 'mass': {m: round(v, 3) for m, v in am.items()}, 'f0': g0, 'f1': g1, 'p': None} if am else None
+        head_hit = None
+        if hlp is not None and len(hseg):
+            pair = ('ע', 'א') if cc == 'ע' else ('ח', 'כ')
+            hm = {m: float(hseg[:, HEAD_S2I[m]].sum()) for m in pair if m in HEAD_S2I}
+            head_hit = {'heard': max(hm, key=hm.get), 'mass': {m: round(v, 3) for m, v in hm.items()}, 'p': round(float(max(hseg[:, HEAD_S2I[m]].max() for m in pair if m in HEAD_S2I)), 3)}
+        th = throat_probe(lp, spf, H, {'c': cc, 't0': t0, 't1': t1, 'k': 0}, ar_lp, ar_spf, ar_hit, False, AH, head_hit)
+        out['throat'] = {k: th.get(k) for k in ('p', 'p2', 'ar', 'ar_heard', 'ar_mass', 'head', 'votes', 'v', 'peak')}
+    out['ms'] = int((time.time() - t) * 1000)
+    return out
+
 # ---------------------------------------------------------------- routes
 STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'index.html')
 
@@ -690,7 +768,7 @@ STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'ind
 # URL (empty = always the local files; locally the default).
 PAGE_BASE = os.environ.get('DK_PAGE_BASE', 'https://raw.githubusercontent.com/davidsitt810-ops/dikduk-space/main/static/' if os.environ.get('SPACE_ID') else '')
 _PAGES = {}
-STATIC_OK = {'index.html': '<script>', 'record.html': '<script>', 'scripts.json': '{', 'embed.js': 'Dikduk'}
+STATIC_OK = {'index.html': '<script>', 'record.html': '<script>', 'letters.html': '<script>', 'scripts.json': '{', 'letters.json': '{', 'embed.js': 'Dikduk'}
 
 def static_text(name):
     """a static file by name: GitHub's copy when it answers and looks whole, else the local file"""
@@ -726,9 +804,9 @@ def try_page():
 
 @app.get('/health')
 def health():
-    return {'ok': True, 'version': 4.6, 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
+    return {'ok': True, 'version': 4.7, 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
             'page_from': 'github' if (_PAGES.get('index.html') or {}).get('body') else 'local', 'jobs': {'queued': sum(1 for v in JOBS.values() if v['state'] == 'queued'), 'running': sum(1 for v in JOBS.values() if v['state'] == 'running')},
-            'ears': {'letter_head': HEAD is not None, 'vowel_head': FULL is not None, 'fine_tuned': FT is not None, 'classifier_v2': bool(CLF2), 'tehillim_lyrics': len(TEHILLIM_LYR), 'tehillim_audio': os.path.isdir(TEHILLIM_DIR) and len(os.listdir(TEHILLIM_DIR)) or (TEHILLIM_BASE or 0),
+            'letters': sorted(LT.BY_C), 'ears': {'letter_head': HEAD is not None, 'vowel_head': FULL is not None, 'fine_tuned': FT is not None, 'classifier_v2': bool(CLF2), 'tehillim_lyrics': len(TEHILLIM_LYR), 'tehillim_audio': os.path.isdir(TEHILLIM_DIR) and len(os.listdir(TEHILLIM_DIR)) or (TEHILLIM_BASE or 0),
                      'tehillim_perakim': sorted(int(m.group(1)) for m in (re.match(r'tehillim-(\d{3})\.mp3$', f) for f in (os.listdir(TEHILLIM_DIR) if os.path.isdir(TEHILLIM_DIR) else [])) if m)}}
 
 @app.get('/info')
@@ -1021,6 +1099,46 @@ def record_page():
     return ('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
             '<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>'
             '</head><body>' + body + '</body></html>')
+
+@app.get('/letters', response_class=HTMLResponse)
+def letters_page():
+    """the letter checker"""
+    body = static_text('letters.html')
+    return ('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
+            '<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>'
+            '</head><body>' + body + '</body></html>')
+
+@app.get('/letters.json')
+def letters_json():
+    """the letters offered, with Rabbi Alouf's example words (static/letters.json, made by space_test/make_letters.py)"""
+    try: return JSONResponse(json.loads(static_text('letters.json')), headers={'Cache-Control': 'no-store'})
+    except Exception as e: return JSONResponse({'err': 'letters: ' + str(e)[:200]}, status_code=500)
+
+LETTERS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'letters')
+
+@app.get('/letters/audio/{fname}')
+def letters_audio(fname: str):
+    """one of Rabbi Alouf's example words (a second-long mp3); GitHub's copy when the file is not in this build"""
+    if not re.fullmatch(r'[a-z0-9-]+\.mp3', fname): return JSONResponse({'err': 'no such file'}, status_code=404)
+    p = os.path.join(LETTERS_DIR, fname)
+    if os.path.exists(p): return FileResponse(p, media_type='audio/mpeg', headers={'Cache-Control': 'public, max-age=86400'})
+    return RedirectResponse('https://raw.githubusercontent.com/davidsitt810-ops/dikduk-space/main/static/letters/' + fname)
+
+@app.post('/letter')
+async def letter(request: Request, c: str = Query(...), want: str = None, strict: int = 0):
+    """one short take that opens with the letter c (ע ח א ק ט צ ר ב כ פ ש ת; want = the variant for ב כ פ ש):
+       the verdict on its opening sound, what was heard, and the ears' numbers (letters.py)"""
+    c = he_letters(c)[:1]
+    if c not in LT.BY_C: return JSONResponse({'err': 'not a letter I check'}, status_code=400)
+    data = await request.body()
+    if len(data) < 500: return JSONResponse({'err': 'no audio'}, status_code=400)
+    try: x = await run_in_threadpool(decode_audio, data)
+    except Exception as e: return JSONResponse({'err': 'decode: ' + str(e)[:200]}, status_code=400)
+    if x.shape[0] > SR * 6: x = x[:SR * 6]
+    P = await run_in_threadpool(letter_probe, x, c)
+    V = LT.verdict(c, want, P, bool(strict))
+    P.update(V); P['c'] = c; P['want'] = want
+    return P
 
 @app.get('/embed.js')
 def embed_js():
