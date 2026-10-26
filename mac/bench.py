@@ -30,7 +30,7 @@ h = requests.get(BASE + '/health', timeout=120).json(); print('server', BASE, 'v
 A = bench(BASE); print(json.dumps(A, ensure_ascii=False))
 print(f"\nCPU: a pasuk check {min(A['check_s'])}–{max(A['check_s'])} s (first one includes the hazzan's line) · a letter {min(A['letter_s'])}–{max(A['letter_s'])} s")
 if '--mps' in sys.argv:
-    env = dict(os.environ); env.update({k: v for k, v in (l.strip().split('=', 1) for l in open(os.path.join(DIR, 'env')) if '=' in l and not l.startswith('#'))}); env['DK_DEVICE'] = 'mps'; env['DK_NO_WARM'] = '1'
+    env = dict(os.environ); env.update({k: v for k, v in (l.strip().split('=', 1) for l in open(os.path.join(DIR, 'env')) if '=' in l and not l.startswith('#'))}); env['DK_DEVICE'] = 'mps'; env['DK_NO_WARM'] = '1'; env['DK_SIDE'] = '1'   # a second server on the same folders: leaves the booth's takes to the real one
     p = subprocess.Popen([os.path.join(DIR, 'venv', 'bin', 'uvicorn'), 'app:app', '--host', '127.0.0.1', '--port', '7870'], cwd=APP, env=env, stdout=open(os.path.join(DIR, 'logs', 'bench_mps.log'), 'w'), stderr=subprocess.STDOUT)
     try:
         for i in range(120):

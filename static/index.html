@@ -447,7 +447,7 @@ $('#clearSc').onclick=()=>{SC=[];ls('dk.sc','[]');drawSc();};
 const DRILL=['עמי','עשה','עזבי','שמע','נעימה','עולם','חביבה','נחמה','רחמן','שבח','חסד','אחי'];
 let DW=null,DSTYLE=null;
 $('#drillWords').innerHTML=DRILL.map(w=>`<button class="btn" data-w="${w}" lang="he" type="button" style="font-family:var(--he);font-size:18px">${w}</button>`).join('');
-$('#drillWords').querySelectorAll('button').forEach(b=>b.onclick=()=>{DW=b.dataset.w;$('#drillWords').querySelectorAll('button').forEach(x=>x.classList.toggle('gold',x===b));$('#drillPick').textContent=DW;$('#drillThroat').disabled=!canRec;$('#drillPlain').disabled=!canRec;const done=SC.filter(s=>s.kind==='drill'&&s.word===DW).map(s=>s.style);$('#drillSay').textContent=done.length?'saved so far: '+done.join(', '):'';});
+$('#drillWords').querySelectorAll('button').forEach(b=>b.onclick=()=>{DW=b.dataset.w;$('#drillWords').querySelectorAll('button').forEach(x=>x.classList.toggle('gold',x===b));$('#drillPick').textContent=DW;$('#drillThroat').disabled=!canRec;$('#drillPlain').disabled=!canRec;const done=SC.filter(s=>s.kind==='drill'&&s.word===DW&&s.onServer).map(s=>s.style);$('#drillSay').textContent=done.length?'saved so far: '+done.join(', '):'';});
 if(!canRec)$('#drillSay').textContent='No microphone here: record the word with Voice Memos, pick the word, then Upload (it asks throat or plain).';
 let DMR=null,DCH=[],DTK=null;
 async function drillRec(style){if(!DW)return;if(DMR&&DMR.state==='recording'){DMR.stop();return;}DSTYLE=style;

@@ -5,8 +5,6 @@
 set -euo pipefail
 DIR="$HOME/dikduk"; APP="$DIR/app"
 git -C "$APP" pull --ff-only
-# settings added since the first install (the booth's recordings are kept on this Mac's disk)
-grep -q '^DK_DURABLE=' "$DIR/env" 2>/dev/null || printf '# recordings stay on this Mac'"'"'s disk (DK_CACHE)\nDK_DURABLE=1\n' >> "$DIR/env"
 sudo launchctl kickstart -k system/com.pizmonim.dikduk
 echo "restarting (the models take a minute to load) …"
 for i in $(seq 1 60); do

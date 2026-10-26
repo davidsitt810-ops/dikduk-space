@@ -54,7 +54,7 @@ Endpoints (JSON, CORS open):  GET /health   GET /info   GET /lyrics (the site's 
   GET  /tehillim/audio/<file>                                  a Rabbi Alouf recording
 Nothing here deploys or changes the site.
 """
-import os, re, sys, json, time, hashlib, subprocess, tempfile, threading, queue, uuid
+import os, re, sys, json, time, hashlib, subprocess, tempfile, threading, queue, uuid, shutil
 import numpy as np
 import torch
 import requests
@@ -111,11 +111,18 @@ def data_writable():
 # (a Space's /tmp, Colab) is gone at the next rebuild, restart or sleep, and the booth says so before anyone records.
 DATA_OK = data_writable()
 KEEP_DIR = '/data' if DATA_OK else CACHE_DIR
-DURABLE_DISK = DATA_OK or os.environ.get('DK_DURABLE') == '1'
+# On a Mac the default is "kept" unless DK_CACHE is in a temporary folder (installs made before v4.8 have no DK_DURABLE)
+_MAC_KEPT = sys.platform == 'darwin' and not os.path.realpath(CACHE_DIR).startswith(('/tmp', '/private/tmp', '/var/folders', '/private/var/folders'))
+DURABLE_DISK = DATA_OK or os.environ.get('DK_DURABLE', '1' if _MAC_KEPT else '') == '1'
 LYRICS_URL = os.environ.get('DK_LYRICS', 'https://holiday.thepizmonim.pages.dev/app/lyrics.json')
 EMB_LAYER = int(os.environ.get('DK_EMB_LAYER', '16'))   # an extra hidden layer kept in drill features (of 24)
 
-app = FastAPI(title='dikduk fit-score')
+from contextlib import asynccontextmanager
+@asynccontextmanager
+async def lifespan(_app):
+    housekeeping()   # defined below; runs when uvicorn starts serving, not when a tool imports this file
+    yield
+app = FastAPI(title='dikduk fit-score', lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*'])
 
 # ---------------------------------------------------------------- the model (loaded once)
@@ -314,12 +321,13 @@ def skeleton(w):
     return out
 
 # ---------------------------------------------------------------- audio in
-def decode_audio(data: bytes) -> np.ndarray:
-    """any container ffmpeg reads -> float32 mono 16 kHz"""
+def decode_audio(data: bytes, max_s=None) -> np.ndarray:
+    """any container ffmpeg reads -> float32 mono 16 kHz; max_s: decode no more than that many seconds (a small upload
+       can hold hours of silence, which would decode to gigabytes)"""
     with tempfile.NamedTemporaryFile(suffix='.bin', delete=False) as f:
         f.write(data); src = f.name
     try:
-        out = subprocess.run(['ffmpeg', '-v', 'error', '-i', src, '-ac', '1', '-ar', str(SR), '-f', 'f32le', '-'],
+        out = subprocess.run(['ffmpeg', '-v', 'error', '-i', src] + (['-t', str(max_s)] if max_s else []) + ['-ac', '1', '-ar', str(SR), '-f', 'f32le', '-'],
                              capture_output=True, timeout=120)
         if out.returncode != 0:
             raise ValueError('ffmpeg: ' + out.stderr.decode(errors='replace')[:300])
@@ -885,10 +893,12 @@ def lyrics():
             r.raise_for_status()
             _LYR['data'] = r.json(); _LYR['t'] = time.time()
         except Exception as e:
-            _LYR['t'] = time.time() - 3600 + 300   # try the site again in five minutes, not on every request (each try can wait a minute)
+            # try the site again in five minutes, not on every request (each try can wait a minute) — in half a minute
+            # while there are no pizmonim at all yet (only the Tehillim fallback below)
+            _LYR['t'] = time.time() - 3600 + (30 if _LYR['data'] is None or _LYR['data'].get('_fallback') else 300)
             if _LYR['data'] is None:
                 if not TEHILLIM_LYR: return JSONResponse({'err': 'lyrics: ' + str(e)[:200]}, status_code=502)
-                _LYR['data'] = {'v': 1, 's': {}}
+                _LYR['data'] = {'v': 1, 's': {}, '_fallback': True}
     if TEHILLIM_LYR and not _LYR['data'].get('_th'):
         _LYR['data'] = {**_LYR['data'], 's': {**_LYR['data'].get('s', {}), **TEHILLIM_LYR}, '_th': True}
     return _LYR['data']
@@ -917,9 +927,15 @@ def write_wav(path, x):
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR); w.writeframes((np.clip(x, -1, 1) * 32767).astype('<i2').tobytes())
 
 def build_commit():
-    """the GitHub commit this code came from: DK_COMMIT; else the git checkout (the Mac, Colab); else the commit feed
-       the Space's Dockerfile fetched while building (/tmp/github_main.atom, newest commit on main first) -> (sha, from)"""
+    """the GitHub commit this code came from: DK_COMMIT; else BUILD_COMMIT beside this file (the Dockerfile writes it
+       from the tarball it copied the code from); else the git checkout (the Mac, Colab); else the commit feed the
+       Dockerfile fetched while building (/tmp/github_main.atom, newest first: readable only when the Dockerfile makes it
+       so) -> (sha, where it came from)"""
     if os.environ.get('DK_COMMIT'): return os.environ['DK_COMMIT'], 'DK_COMMIT'
+    try:
+        c = open(os.path.join(HERE_DIR, 'BUILD_COMMIT'), encoding='utf-8').read().strip()
+        if re.fullmatch(r'[0-9a-f]{40}', c): return c, 'build'
+    except Exception: pass
     try:
         r = subprocess.run(['git', '-C', HERE_DIR, 'rev-parse', 'HEAD'], capture_output=True, text=True, timeout=10)
         if r.returncode == 0 and re.fullmatch(r'[0-9a-f]{40}', r.stdout.strip()):
@@ -940,6 +956,7 @@ for k, p in _FILES.items():
     try: FILES[k] = file_sha(p if os.path.isabs(p) else os.path.join(HERE_DIR, p))
     except Exception: FILES[k] = None
 COMMIT, COMMIT_FROM = build_commit()
+if not COMMIT: print('build: the commit is not known here (see build_commit); the file fingerprints in /health still say what runs', flush=True)
 MODEL_REV = {'phone': getattr(MODEL.config, '_commit_hash', None), 'arabic': getattr(AR_MODEL.config, '_commit_hash', None)}
 RULE_HASH = FILES['rule.py']
 # The hazzan-line cache key: everything an analysis of his line depends on (the analysis code, the heads, the
@@ -951,11 +968,13 @@ REF_DIR = os.path.join(CACHE_DIR, 'ref', REF_TAG); os.makedirs(REF_DIR, exist_ok
 STAMP = {'version': VERSION, 'commit': COMMIT, 'rule': RULE_HASH, 'ref_tag': REF_TAG}   # kept with every take and drill item
 
 def drop_old_refs():
-    """the hazzan analyses made by another build are never read again: remove them (and the flat ref_*.json of before v4.8)"""
+    """the hazzan analyses made by another build are never read again: remove them (and the flat ref_*.json of before
+       v4.8) — a folder only when nothing was written in it for a day, since another server on the same cache (the
+       Mac's bench on the GPU, a test) can be using it right now"""
     n = 0
     try:
         for d in os.listdir(os.path.join(CACHE_DIR, 'ref')):
-            if d != REF_TAG and os.path.isdir(os.path.join(CACHE_DIR, 'ref', d)):
+            if d != REF_TAG and os.path.isdir(os.path.join(CACHE_DIR, 'ref', d)) and time.time() - os.path.getmtime(os.path.join(CACHE_DIR, 'ref', d)) > 86400:
                 for fn in os.listdir(os.path.join(CACHE_DIR, 'ref', d)): os.unlink(os.path.join(CACHE_DIR, 'ref', d, fn)); n += 1
                 os.rmdir(os.path.join(CACHE_DIR, 'ref', d))
         for fn in os.listdir(CACHE_DIR):
@@ -963,7 +982,6 @@ def drop_old_refs():
     except Exception as e:
         print('old hazzan analyses not removed:', e, flush=True)
     if n: print('removed', n, 'hazzan analyses made by another build', flush=True)
-drop_old_refs()
 print('build:', COMMIT and COMMIT[:12], COMMIT_FROM, '· ref tag', REF_TAG, '· rule', RULE_HASH, flush=True)
 
 REF_MAX = 60   # seconds of the hazzan's recording analysed at most (a line is 3-20 s; t1=0 used to mean the whole file)
@@ -982,6 +1000,7 @@ def ref_line(f: str, t0: float, t1: float, words, want_emb=False):
     # the hazzan against himself: the ceiling each word can reach
     self_fit = fit_against(lp, spf, res['words'])
     for w, s in zip(res['words'], self_fit): w['selffit'] = s.get('fit')
+    os.makedirs(os.path.dirname(key), exist_ok=True)   # another server on the same cache may have removed it (drop_old_refs)
     write_json(key, res)
     return res
 
@@ -1024,7 +1043,12 @@ def drill_export(key: str = None):
 JOBS = {}; JOB_Q = queue.Queue(); JOB_LOCK = threading.Lock()
 JOB_MAX = int(os.environ.get('DK_JOB_MAX', '40'))   # checks waiting at most: one visitor (or a script) cannot queue the server for hours
 
-def queued(): return sum(1 for v in list(JOBS.values()) if v['state'] == 'queued')
+GRADE_MAX = int(os.environ.get('DK_GRADE_MAX', '200'))   # booth takes waiting to be graded at most (beyond that /submit asks to try again)
+
+def queued(bg=False):
+    """jobs waiting: the visitors' checks (bg=False) or the booth's grading (bg=True), counted apart, so a backlog of
+       booth takes never makes the lab page or the embed say "busy" (and the other way round)"""
+    return sum(1 for v in list(JOBS.values()) if v['state'] == 'queued' and bool(v.get('bg')) == bg)
 
 # The largest upload each route reads (bytes): a phone take of a line is well under 1 MB, a booth perek (8 min) under
 # 20 MB. Bigger is refused before it is read into memory.
@@ -1042,10 +1066,10 @@ async def read_body(request, cap):
 
 def too_big(cap): return JSONResponse({'err': f'the recording is too large (at most {cap >> 20} MB)'}, status_code=413)
 
-def new_job(fn):
+def new_job(fn, bg=False):
     jid = uuid.uuid4().hex[:12]
     with JOB_LOCK:
-        JOBS[jid] = {'state': 'queued', 'stage': 'waiting for the server', 't': time.time()}
+        JOBS[jid] = {'state': 'queued', 'stage': 'waiting for the server', 't': time.time(), 'bg': bg}
     JOB_Q.put((jid, fn))
     return jid
 
@@ -1069,7 +1093,7 @@ def job_status(jid: str):
     J = JOBS.get(jid)
     if J is None:
         return JSONResponse({'err': 'no such job (the server may have restarted); check again', 'state': 'gone'}, status_code=404)
-    out = {'state': J['state'], 'stage': J.get('stage'), 'queued': queued()}
+    out = {'state': J['state'], 'stage': J.get('stage'), 'queued': queued() + queued(True)}
     if J['state'] == 'done': out['result'] = J['result']
     if J['state'] == 'error': out['err'] = J.get('err')
     return out
@@ -1091,13 +1115,13 @@ async def check(request: Request, words: str = Query(...), ref: str = None, t0: 
     if len(data) < 1000:
         return JSONResponse({'err': 'no audio'}, status_code=400)
     try:
-        x = await run_in_threadpool(decode_audio, data)
+        x = await run_in_threadpool(decode_audio, data, 41)
     except Exception as e:
         return JSONResponse({'err': 'decode: ' + str(e)[:200]}, status_code=400)
     if x.shape[0] < SR * 0.5:
         return JSONResponse({'err': 'too short'}, status_code=400)
     if x.shape[0] > SR * 40:
-        x = x[:SR * 40]
+        x = x[:SR * 40].copy()
     def work(progress):
         out = run_check(x, W, ref, t0, t1, emb, drill, nikud, progress, ALT)
         if drill_err: out['drill_err'] = drill_err
@@ -1163,9 +1187,13 @@ TAKES_DIR = os.path.join(KEEP_DIR, 'takes')
 os.makedirs(TAKES_DIR, exist_ok=True)
 GH_TOKEN = os.environ.get('GH_TOKEN', '') if os.environ.get('DK_MIRROR', 'github' if os.environ.get('SPACE_ID') else '') == 'github' else ''
 
+MIRROR_ERR = None   # the mirror's last failure, until a pass goes through: then the copies are not being made
+
 def storage():
     """where this server keeps recordings, and whether they outlive a restart (the booth warns when they do not)"""
-    return {'takes': 'persistent' if DURABLE_DISK else 'temporary', 'mirror': bool(GH_TOKEN), 'durable': DURABLE_DISK or bool(GH_TOKEN)}
+    out = {'takes': 'persistent' if DURABLE_DISK else 'temporary', 'mirror': bool(GH_TOKEN), 'durable': DURABLE_DISK or (bool(GH_TOKEN) and not MIRROR_ERR)}
+    if MIRROR_ERR: out['mirror_err'] = MIRROR_ERR
+    return out
 GH_REPO = os.environ.get('GH_REPO', 'davidsitt810-ops/dikduk-recordings')
 # Other people's recordings and names are not public: listing them, fetching their audio and the all-hands scoreboard
 # need the key David sets as the Space secret DK_KEY. A person sees their own scoreboard with the token their phone
@@ -1274,7 +1302,7 @@ async def letter(request: Request, c: str = Query(...), want: str = None, strict
     data = await read_body(request, MAX_BODY['letter'])
     if data is None: return too_big(MAX_BODY['letter'])
     if len(data) < 500: return JSONResponse({'err': 'no audio'}, status_code=400)
-    try: x = await run_in_threadpool(decode_audio, data)
+    try: x = await run_in_threadpool(decode_audio, data, 7)
     except Exception as e: return JSONResponse({'err': 'decode: ' + str(e)[:200]}, status_code=400)
     if x.shape[0] > SR * 6: x = x[:SR * 6]
     P = await run_in_threadpool(letter_probe, x, c)
@@ -1323,6 +1351,7 @@ def mirror_pending():
     """push every take and drill file not pushed since it last changed. A take's JSON goes up at once (with its labels)
        and again when its verdicts land, so a restart before the grading cannot lose what the person said they did.
        The .pushed marker holds the file's modification time as it was pushed."""
+    global MIRROR_ERR
     if not GH_TOKEN: return 0
     n = 0
     for base, prefix in ((TAKES_DIR, 'takes/'), (DRILL_DIR, 'drill/')):
@@ -1342,7 +1371,9 @@ def mirror_pending():
                 try:
                     gh_put(prefix + rel, open(full, 'rb').read(), prefix.rstrip('/') + ' ' + rel); open(mark, 'w').write(repr(mt)); n += 1
                 except Exception as e:
+                    MIRROR_ERR = f'{time.strftime("%Y-%m-%d %H:%M")}: ' + str(getattr(getattr(e, 'response', None), 'status_code', '') or type(e).__name__)   # no paths: /health is public and they hold names
                     print('mirror failed:', rel, str(e)[:120], flush=True); return n
+    MIRROR_ERR = None
     return n
 
 def mirror_ok():
@@ -1381,6 +1412,11 @@ async def submit(request: Request, meta: str = Query(...)):
         M = json.loads(meta)
     except Exception:
         return JSONResponse({'err': 'bad meta'}, status_code=400)
+    if M.get('check', True) and queued(True) >= GRADE_MAX:
+        return JSONResponse({'err': 'the server has many recordings to check — try again in a few minutes'}, status_code=503)
+    try:
+        if shutil.disk_usage(TAKES_DIR).free < (1 << 30): return JSONResponse({'err': 'the server is out of room for recordings'}, status_code=507)
+    except Exception: pass
     data = await read_body(request, MAX_BODY['submit'])
     if data is None: return too_big(MAX_BODY['submit'])
     if len(data) < 1000:
@@ -1398,16 +1434,17 @@ async def submit(request: Request, meta: str = Query(...)):
            'graded': False, 'result': None, 'server': STAMP}
     if not rec['check']: rec['graded'] = True
     write_json(full + '.json', rec)
-    if rec['check']: new_job(grade_job(full, ext))
+    if rec['check']: new_job(grade_job(full, ext), bg=True)
     return JSONResponse({'id': tid, 'saved': True, 'durable': storage()['durable']}, status_code=202)
 
 def grade_job(full, ext):
     """the job that checks one saved take (full = its path without the extension) and writes the verdicts into its JSON"""
     def grade(progress):
         rec = json.load(open(full + '.json', encoding='utf-8'))
+        rec['tries'] = rec.get('tries', 0) + 1; write_json(full + '.json', rec)   # before the work: a take that stops the server is not tried for ever
         try:
-            R = resolve_text(rec.get('text', ''))
-            x = decode_audio(open(full + ext, 'rb').read())
+            R = resolve_text(rec.get('text') or '')
+            x = decode_audio(open(full + ext, 'rb').read(), 41)
             if x.shape[0] > SR * 40: x = x[:SR * 40]
             if x.shape[0] < SR * 0.5: raise ValueError('too short')
             out = run_check(x, he_words(R['words']), R['ref'], R['t0'] or 0, R['t1'] or 0, 0, None, R['nikud'], progress, other_lines(R.get('pid'), he_words(R['words'])))
@@ -1421,19 +1458,27 @@ def grade_job(full, ext):
     return grade
 
 def regrade_waiting():
-    """after a restart: the takes that were saved but not yet checked (the queue lives in memory) go back in the queue"""
+    """after a restart: the takes that were saved but not yet checked (the queue lives in memory) go back in the queue
+       — twice at most: a take whose checking stopped the server twice is marked failed instead"""
     n = 0
     for root, _, files in os.walk(TAKES_DIR):
         for fn in files:
             if not fn.endswith('.json'): continue
-            try: J = json.load(open(os.path.join(root, fn), encoding='utf-8'))
+            jp = os.path.join(root, fn)
+            try: J = json.load(open(jp, encoding='utf-8'))
             except Exception: continue
             if J.get('graded', True) or not J.get('check', True): continue
-            _, ap = take_paths(os.path.relpath(os.path.join(root, fn), TAKES_DIR)[:-5])
-            if ap: new_job(grade_job(ap.rsplit('.', 1)[0], '.' + ap.rsplit('.', 1)[1])); n += 1
+            if J.get('tries', 0) >= 2:
+                J['graded'] = True; J['error'] = 'not checked: the server stopped while checking it, twice'; write_json(jp, J); continue
+            _, ap = take_paths(os.path.relpath(jp, TAKES_DIR)[:-5])
+            if ap: new_job(grade_job(ap.rsplit('.', 1)[0], '.' + ap.rsplit('.', 1)[1]), bg=True); n += 1
     if n: print('re-queued', n, 'takes saved before the restart and not checked yet', flush=True)
-threading.Thread(target=regrade_waiting, daemon=True).start()
 
+def housekeeping():
+    """when the server starts serving: remove other builds' hazzan analyses, and put the takes that were waiting back in
+       the queue. DK_SIDE=1 (a second server on the same folders: the Mac's bench, a test) leaves the takes alone."""
+    drop_old_refs()
+    if not os.environ.get('DK_SIDE'): threading.Thread(target=regrade_waiting, daemon=True).start()
 
 def list_takes(set_=None, name=None, who=None):
     items = []

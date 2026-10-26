@@ -103,17 +103,23 @@ safe to measure. The word rule lives in `rule.py` (numpy only), which the server
 page's and the embed's JavaScript copies are checked against it on every push (`.github/workflows/checks.yml`: the
 pages' scripts parse, `tools/t_parity.py` on 1,737 exam lines, `tools/review/fuzz3.py`, and `tools/rule_baseline.py`,
 which replays every committed exam row and fails when any tally moves; `--update` when a change is meant). The tools
-run from this repo (no `../space`). `/health` says what is running (`build`: the commit, a fingerprint of every code
+run from this repo (no `../space`). `/health` says what is running (`build`: the commit — from `BUILD_COMMIT`, which
+the Dockerfile writes from the tarball, or git —, a fingerprint of every code
 file, head and classifier, the two models' revisions, the rule's hash) and whether recordings are kept (`storage`);
 every check, booth take and drill item carries the same stamp. The hazzan cache key is that fingerprint (it was
 `v4.1` since v4.1), so a new head re-analyses his lines; old analyses are removed at start. The booth: Skip while
 recording no longer files the half-take under the next task's labels; an ע/ח task needs its yes/no; a server that
-does not keep recordings says so before anyone records (kept = `/data` that this process can write, `DK_DURABLE=1` on
-the Mac, or the GitHub mirror); a take's labels are mirrored at once, not after the grading, and a take saved but not
-checked before a restart is checked after it. The drill keeps the take's audio as well as its features, beside the
+does not keep recordings says so before anyone records (kept = `/data` that this process can write, `DK_DURABLE=1` —
+the default on a Mac unless the cache is in a temporary folder —, or a GitHub mirror that is working); one recording
+at a time, and moving on stops it; a take's labels are mirrored at once, not after the grading, and a take saved but
+not checked before a restart is checked after it (twice at most). The drill keeps the take's audio as well as its features, beside the
 takes (`/data/drill` when there is `/data`), and only with the key (`/check?…&drill=…&key=`; the lab page keeps the key
 from `/?key=…`); `/drill` and `/drill/export` need it too. Limits: uploads over 20 MB (`/check`), 5 MB (`/letter`),
-40 MB (`/submit`) get 413; more than 40 waiting checks get 503 (`DK_JOB_MAX`); `/ref` analyses at most 60 s. The
+40 MB (`/submit`) get 413, and an upload decodes to 41 s (7 s for a letter) at most; more than 40 waiting checks get
+503 (`DK_JOB_MAX`), counted apart from the booth's grading (`DK_GRADE_MAX`, 200), so a booth backlog never makes the
+page say "busy"; `/submit` refuses with under 1 GB free; `/ref` analyses at most 60 s. Start-up housekeeping (old
+analyses, waiting takes) runs only in the served process, not in a tool that imports `app`; `DK_SIDE=1` (the Mac's
+bench) leaves the takes alone. The
 lyrics fetch no longer runs on the event loop or retries on every request after a failure. Colab gets a random
 `DK_KEY` and `DK_PUBLIC=1`.
 

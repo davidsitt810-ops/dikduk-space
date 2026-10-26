@@ -4,16 +4,19 @@ so a syntax error there breaks the live pages before anyone rebuilds anything. u
 import os, re, sys, json, glob, subprocess, tempfile
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.join(HERE, '..')
 TMP = tempfile.mkdtemp(prefix='dk_static_'); fails = []
-def node_check(code, name):
+def node_check(code, name, line0=0):
+    """node --check on one script; on a failure, node's error and the line in the file it came from"""
     p = os.path.join(TMP, re.sub(r'\W+', '_', name) + '.js'); open(p, 'w', encoding='utf-8').write(code)
     r = subprocess.run(['node', '--check', p], capture_output=True, text=True)
-    if r.returncode: fails.append(f'{name}: ' + (r.stderr.strip().splitlines() or ['?'])[-1])
+    if r.returncode:
+        L = r.stderr.strip().splitlines() or ['?']; m = re.search(r':(\d+)$', L[0])
+        fails.append(f"{name}{f' (line {line0 + int(m.group(1))})' if m else ''}: " + next((l for l in L if 'Error' in l), L[-1]))
     return not r.returncode
 n = 0
 for f in sorted(glob.glob(os.path.join(ROOT, 'static', '*.html'))):
     src = open(f, encoding='utf-8').read()
     for i, m in enumerate(re.finditer(r'<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>', src, re.S)):
-        node_check(m.group(1), f'{os.path.basename(f)} script {i + 1}'); n += 1
+        node_check(m.group(1), f'{os.path.basename(f)} script {i + 1}', src[:m.start(1)].count('\n')); n += 1
 node_check(open(os.path.join(ROOT, 'static', 'embed.js'), encoding='utf-8').read(), 'embed.js'); n += 1
 for f in [os.path.join(ROOT, 'static', 'scripts.json'), os.path.join(ROOT, 'static', 'letters.json'), os.path.join(ROOT, 'lyrics_tehillim.json'),
           os.path.join(ROOT, 'throat_models.json'), os.path.join(ROOT, 'throat_models_v2.json')]:

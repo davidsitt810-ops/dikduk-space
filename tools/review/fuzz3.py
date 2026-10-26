@@ -71,6 +71,7 @@ print('  coverage: cant_hear', sum(p['cant'] for p in ok), '| cant_hear with an 
 from collections import Counter
 print('  python exception kinds:', Counter((e[1], e[2][:60]) for e in py_err).most_common(8))
 
+failed = bool(py_err)
 for name, js in JS.items():
     prog = js + """
 const lines = JSON.parse(require('fs').readFileSync(process.argv[2], 'utf8')); const out = [];
@@ -92,9 +93,11 @@ process.stdout.write(JSON.stringify(out));"""
         for key in ('marks', 'why', 'lw', 'cant', 'clean', 'nosp'):
             if p[key] != j[key]: bad.append((i, key, p, j)); break
     print(f'{name}: {len(lines) - len(bad)}/{len(lines)} agree with the server;', Counter(b[1] for b in bad).most_common())
+    failed = failed or bool(bad) or bool(js_err)
     shown = set()
     for i, key, p, j in bad:
         if key in shown: continue
         shown.add(key)
         print('   ---', key, 'line', i); print('   TW =', json.dumps(lines[i]['TW'], ensure_ascii=False)); print('   F =', lines[i]['F'], 'gap =', lines[i]['gap'], 'phones =', lines[i]['phones'], 'dur =', lines[i]['dur'])
         print('   server:', p); print('   ', name + ':', j)
+sys.exit(1 if failed else 0)   # CI runs this: any disagreement or exception fails the push

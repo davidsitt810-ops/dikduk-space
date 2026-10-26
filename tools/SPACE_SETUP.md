@@ -28,9 +28,12 @@ throat drill live unless the Space has storage. In this order:
 3. Space → Settings → Secrets: `DK_KEY` (any long random string: it opens `/takes`, `/drill`, the scoreboard, and lets
    the lab page keep drill takes — open the lab page once as `/?key=<it>`), and `GH_TOKEN` for a second copy in the
    private `dikduk-recordings` repo (fine-grained token, Contents: read and write, that one repo).
-4. Factory rebuild. Then `/health`: `version` 4.8, `build.commit` = the commit on GitHub main, `storage.durable` true.
-   If `storage.takes` says `temporary` with storage attached, the mount is not writable for the app: the booth warns
-   people before they record.
+4. Optional, once: replace the Space's own `Dockerfile` with the repo's (a text file: the web uploader takes it). Only
+   the new one writes `BUILD_COMMIT`, so `/health` can name the commit; without it `build.commit` is null and the
+   `build.files` fingerprints still say exactly which code and heads run.
+5. Factory rebuild. Then `/health`: `version` 4.8, `build.commit` = the commit on GitHub main (with step 4),
+   `storage.durable` true. If `storage.takes` says `temporary` with storage attached, the mount is not writable for
+   the app: the booth warns people before they record.
 
 ## Updating the server
 

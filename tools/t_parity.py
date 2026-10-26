@@ -18,8 +18,11 @@ for f in files:
     for r in R: L[(r['case'], r.get('per', r.get('pid', r.get('f'))), r.get('ps', r.get('line', 0)), r.get('rec', ''))][r['k']] = r
     for key, d in L.items():
         TW = [d[k] for k in sorted(d)]; F = [{'fit': t.get('fit')} for t in TW] if any(t.get('fit') is not None for t in TW) else None
-        # a synthetic rival score on two lines in three (the recorded rows have none): the new branch must agree too
-        k = len(lines) % 3; lines.append({'TW': TW, 'F': F, 'gap': TW[0].get('gap'), 'rival': None if k == 0 else {'gain': (TW[0].get('gap') or 0) - 0.1 if k == 1 else -0.3, 'n': 5}})
+        # the rival line the exam recorded (gain and how well it was heard), else a synthetic one on two lines in three,
+        # so every branch of the wrong-line rule is compared
+        k = len(lines) % 3
+        rival = {'gain': TW[0]['rival'], 'head': TW[0].get('rival_head'), 'n': 5} if TW[0].get('rival') is not None else None if k == 0 else {'gain': (TW[0].get('gap') or 0) - 0.1 if k == 1 else -0.3, 'n': 5}
+        lines.append({'TW': TW, 'F': F, 'gap': TW[0].get('gap'), 'rival': rival})
 print(len(lines), 'lines')
 failed = False
 py = []
