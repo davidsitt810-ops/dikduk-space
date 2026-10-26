@@ -1,17 +1,14 @@
-"""Edge-case parity fuzz: the Python rule (exec'd out of app.py the way t_parity.py does) against the page and embed JS
+"""Edge-case parity fuzz: the Python rule (rule.py, as t_parity.py uses it) against the page and embed JS
 (cut out of index.html / embed.js, run in node). Compares marks, why, line_wrong, cant_hear, clean, and the noSpeech
 expression, on synthetic boundary inputs that recorded data never covers."""
 import json, os, sys, subprocess, random, itertools
 HERE = os.path.dirname(os.path.abspath(__file__))
-SPACE = os.path.join(HERE, '..', 'space')
+SPACE = os.path.join(HERE, '..', '..')
 html = open(os.path.join(SPACE, 'static', 'index.html'), encoding='utf-8').read(); emb = open(os.path.join(SPACE, 'static', 'embed.js'), encoding='utf-8').read()
 def grab(src, start, end): i = src.index(start); j = src.index(end, i); return src[i:j]
 JS = {'page': grab(html, "let CLEAN=false;", "/* a throat letter's verdict"), 'embed': grab(emb, " let CLEAN = false;", " const VCLS")}
-src = open(os.path.join(SPACE, 'app.py'), encoding='utf-8').read()
-def pyfn(name, stop):
-    i = src.index(f'def {name}('); j = src.index(stop, i); return src[i:j]
-code = 'import numpy as np\n' + src[src.index("RULE = {'drop'"):src.index('\ndef head_median')] + '\n' + pyfn('mark_of', '\nRULE = ') + pyfn('head_median', '\ndef no_speech_in') + pyfn('no_speech_in', '\ndef clean_of') + pyfn('clean_of', '\ndef marks_of') + pyfn('marks_of', '\ndef summarize') + pyfn('summarize', '\ndef list_takes')
-ns = {}; exec(code, ns)
+sys.path.insert(0, SPACE); import rule
+ns = vars(rule)
 
 random.seed(int(sys.argv[1]) if len(sys.argv) > 1 else 7)
 N_LINES = int(sys.argv[2]) if len(sys.argv) > 2 else 60000
@@ -64,7 +61,8 @@ for k, l in enumerate(lines):
         py.append({'marks': marks, 'why': why, 'lw': lw, 'cant': cant, 'clean': clean, 'nosp': nosp})
     except Exception as e:
         py.append({'err': type(e).__name__ + ': ' + str(e)}); py_err.append((k, type(e).__name__, str(e)))
-json.dump(lines, open(os.path.join(HERE, '_fz_lines.json'), 'w'))
+import tempfile; TMP = tempfile.mkdtemp(prefix='dk_fuzz_')
+json.dump(lines, open(os.path.join(TMP, '_fz_lines.json'), 'w'))
 print(len(lines), 'lines;', len(py_err), 'python exceptions')
 ok=[p for p in py if 'err' not in p]
 print('  coverage: cant_hear', sum(p['cant'] for p in ok), '| cant_hear with an off->unsure flip', sum(1 for p,l in zip(py,lines) if 'err' not in p and p['cant'] and any(ns['mark_of'](t, (l['F'][i] if l['F'] and i < len(l['F']) else None), p['clean'])=='off' for i,t in enumerate(l['TW']))),
@@ -82,8 +80,8 @@ for (const l of lines) { try { const HM = headMedian(l.TW); CLEAN = HM != null &
   out.push({marks: r.marks.map(m => m || ''), why: r.why, lw: r.lineWrong, cant: r.cantHear, clean: CLEAN, nosp: noSpeech}); }
   catch (e) { out.push({err: e.constructor.name + ': ' + e.message}); } }
 process.stdout.write(JSON.stringify(out));"""
-    fn = os.path.join(HERE, f'_fz_{name}.js'); open(fn, 'w').write(prog)
-    res = json.loads(subprocess.run(['node', fn, os.path.join(HERE, '_fz_lines.json')], capture_output=True, text=True, check=True).stdout)
+    fn = os.path.join(TMP, f'_fz_{name}.js'); open(fn, 'w').write(prog)
+    res = json.loads(subprocess.run(['node', fn, os.path.join(TMP, '_fz_lines.json')], capture_output=True, text=True, check=True).stdout)
     js_err = [(i, r['err']) for i, r in enumerate(res) if 'err' in r]
     print(f'{name}: {len(js_err)} JS exceptions;', Counter(e[1][:70] for e in js_err).most_common(5))
     bad = []

@@ -12,7 +12,7 @@ import sys, os, re, json, time, shlex, statistics, requests
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.join(HERE, '..')
 FOLDER = sys.argv[1]; SRV = (sys.argv[2] if len(sys.argv) > 2 else 'http://127.0.0.1:7861').rstrip('/')
 LYP = json.load(open(os.path.join(ROOT, 'lyrics_full.json'), encoding='utf-8'))['s']
-LYT = json.load(open(os.path.join(ROOT, 'space', 'lyrics_tehillim.json'), encoding='utf-8'))['s']
+LYT = json.load(open(os.path.join(ROOT, 'lyrics_tehillim.json'), encoding='utf-8'))['s']
 HEALTH = requests.get(SRV + '/health', timeout=120).json()
 HAVE = set(HEALTH.get('ears', {}).get('tehillim_perakim') or [1, 23, 117, 121, 130, 133, 134, 150])
 PHR = {"md cd08 15.mp3": [[0.35, 6.9, 0], [7.4, 14, 1], [20.75, 27.7, 2], [28.1, 34.35, 3], [41.4, 50.25, 4], [50.5, 55.25, 5], [55.7, 61.35, 6], [61.85, 66.5, 7]]}

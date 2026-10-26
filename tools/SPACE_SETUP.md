@@ -17,6 +17,21 @@ Space: **davidsitt/pizmonim-dikduk** (Docker, CPU basic, Public). Address: `http
 - The free CPU: new accounts since mid-2026 get **zero** free-CPU quota (`Quota exceeded for flavor cpu-basic …
   limit=0`, Space shows "Paused"). PRO (about $9/month) unlocked it immediately.
 
+## Before the next rebuild (v4.8): keep the recordings
+
+A rebuild, a restart or the 48-hour sleep empties the Space's `/tmp`, and that is where the booth's takes and the
+throat drill live unless the Space has storage. In this order:
+
+1. Save what is there now: open `/drill/export` (v4.6/v4.7 serve it without a key) and keep the file.
+2. Space → Settings: attach persistent storage (a private Storage Bucket mounted at `/data`, read-write). The server
+   tries a test file there at start and uses `/data/takes` and `/data/drill` only if it can write.
+3. Space → Settings → Secrets: `DK_KEY` (any long random string: it opens `/takes`, `/drill`, the scoreboard, and lets
+   the lab page keep drill takes — open the lab page once as `/?key=<it>`), and `GH_TOKEN` for a second copy in the
+   private `dikduk-recordings` repo (fine-grained token, Contents: read and write, that one repo).
+4. Factory rebuild. Then `/health`: `version` 4.8, `build.commit` = the commit on GitHub main, `storage.durable` true.
+   If `storage.takes` says `temporary` with storage attached, the mount is not writable for the app: the booth warns
+   people before they record.
+
 ## Updating the server
 
 (Oct 23: v4.3 — whole-line evidence, the booth, `/embed.js` — is on GitHub; the Space runs it after one **Factory reboot**.)

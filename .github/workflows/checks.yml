@@ -1,0 +1,28 @@
+# The checks that need no models (numpy and node only, under a minute), on every push and pull request:
+# the live pages' scripts parse, the three copies of the word rule agree, and the measured numbers did not move.
+name: checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pip install numpy
+      - name: python files compile
+        run: python -m compileall -q app.py rule.py order.py vowels.py nikud.py letters.py tools
+      - name: the pages' scripts and the JSON files parse
+        run: python -B tools/t_static.py
+      - name: the word rule agrees in rule.py, index.html and embed.js
+        run: python -B tools/t_parity.py tools/exam_rows.json tools/exam_archive_rows.json tools/exam2v7_rows.json tools/exam_israeli_all_rows.json
+      - name: the same on synthetic edge cases
+        run: python -B tools/review/fuzz3.py 7 20000
+      - name: the measured numbers did not move (tools/rule_baseline.json)
+        run: python -B tools/rule_baseline.py

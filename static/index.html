@@ -461,11 +461,14 @@ $('#drillThroat').onclick=()=>drillRec('throat');$('#drillPlain').onclick=()=>dr
 $('#drillFile').onchange=e=>{const f=e.target.files[0];if(!f||!DW){$('#drillSay').textContent='pick a word first';return;}
  $('#drillSay').innerHTML='Was this one from the throat or plain? <button class="btn" id="dfT" type="button">throat</button> <button class="btn" id="dfP" type="button">plain</button>';
  $('#dfT').onclick=()=>drillSend(f,'throat');$('#dfP').onclick=()=>drillSend(f,'plain');};
+/* the server keeps drill takes only with its key (the Space secret DK_KEY): open the page once as /?key=… and it is kept
+   on this phone (and taken out of the address bar) */
+const DKEY=(()=>{const q=new URLSearchParams(location.search),k=q.get('key');if(k){ls('dk.key',k);q.delete('key');try{history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash);}catch(e){}}return k||ls('dk.key')||'';})();
 async function drillSend(blob,style){$('#drillBusy').hidden=false;$('#drillSay').textContent='checking…';
- try{const r=await fetch(url('/check?'+new URLSearchParams({words:DW,drill:style})),{method:'POST',body:blob,headers:{'content-type':blob.type||'application/octet-stream'}});const j=await r.json();if(!r.ok||j.err)throw new Error(j.err||('server said '+r.status));
+ try{const r=await fetch(url('/check?'+new URLSearchParams(Object.assign({words:DW,drill:style},DKEY?{key:DKEY}:{}))),{method:'POST',body:blob,headers:{'content-type':blob.type||'application/octet-stream'}});const j=await r.json();if(!r.ok||j.err)throw new Error(j.err||('server said '+r.status));
   const t=j.take.words[0];const th=(t.throat||[])[0];if(!th)throw new Error('no ע or ח in this word');const say=thSay(th);
   SC.push({kind:'drill',t:Date.now(),word:DW,style,c:th.c,v:th.v,p:th.p,p2:th.p2,head:th.head,ar_heard:th.ar_heard,ar:th.ar,peak:th.peak,phones:t.phones.join(' '),win:[th.t0,th.t1],onServer:j.drill_saved||null});ls('dk.sc',JSON.stringify(SC));drawSc();
-  $('#drillSay').textContent=`saved (${j.drill_saved||'?'} on the server): ${DW} ${style}. Verdict: ${say.s}.`;}
+  $('#drillSay').textContent=j.drill_err?`${DW} ${style}: ${j.drill_err}. Verdict: ${say.s}.`:`saved (${j.drill_saved||'?'} on the server): ${DW} ${style}. Verdict: ${say.s}.`;}
  catch(e){$('#drillSay').textContent='drill failed: '+e.message;}
  $('#drillBusy').hidden=true;}
 health();

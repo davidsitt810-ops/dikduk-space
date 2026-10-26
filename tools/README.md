@@ -1,7 +1,7 @@
 # tools — how the checker is tested
 
-These scripts run from the dikduk chat's workspace (they need Rabbi Alouf's mp3s, the alignment index and the local
-server); they are here so the method is on record.
+These scripts run from this repo (the ones that listen need Rabbi Alouf's mp3s, the alignment index and a local server;
+the rule checks below need only numpy and node); they are here so the method is on record.
 
 - `exam_alouf.py` — the exam: held-out pesukim intact and tampered four ways (skip, swap, replaced word, wrong line)
   through `app.analyse`; writes `exam_rows.json` / `exam_lines.json`.
@@ -12,5 +12,9 @@ server); they are here so the method is on record.
 - `blind_test.py` — a folder of recordings + `manifest.txt` → the machine's claims per recording, as the page says them.
 - `t_live.py`, `t_rule.py`, `t_booth.py`, `t_space_check.py`, `shot.py` — the page, the rule, the booth and the API
   driven in a headless phone browser against a server URL.
+- `rule_baseline.py` (+ `rule_baseline.json`), `t_parity.py`, `t_static.py`, `review/fuzz3.py` — the checks that need no
+  models (numpy and node), run on every push by `.github/workflows/checks.yml`: the committed exam rows through today's
+  rules must give the recorded tallies, the three copies of the word rule must agree, the pages' scripts must parse.
+  After a rule change that is meant to move the numbers: `python3 tools/rule_baseline.py --update`, commit both.
 - `LAB_NOTES.md` — the whole history with numbers; `SPACE_SETUP.md` — how the Space is set up and updated;
   `SITE_HANDOFF.md` — what the site chat gets.

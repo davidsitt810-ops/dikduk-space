@@ -4,7 +4,7 @@ true one among the alternatives (WRONG LINE: the true one should win by a lot); 
 with five other sentences as alternatives. Also the free-path gap of each take, to see the two side by side.
 usage: calib_rival.py [alouf pesukim=70] [israeli sentences=80]"""
 import sys, os, json, glob, time, random, subprocess, collections
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'space'))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 os.environ.setdefault('DK_NO_WARM', '1')
 import numpy as np
 import app
