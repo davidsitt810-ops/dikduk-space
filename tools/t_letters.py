@@ -7,7 +7,7 @@ usage: t_letters.py [base url]"""
 import sys, os, json, glob, io, wave, struct, math, random
 import requests, numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__)); BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://127.0.0.1:7861'
-SPACE = os.path.join(HERE, '..', 'space')
+SPACE = os.path.join(HERE, '..')
 fails = []
 def post(data, c, want=None, strict=0):
     q = {'c': c}

@@ -3,10 +3,10 @@ Alouf's word-initial examples — short words from his Tehillim whose opening le
 (letters_rows.json from letters_study.py, through letters.verdict), cut from the original recordings as second-long
 mp3s. usage: make_letters.py [per variant=6]"""
 import sys, os, json, subprocess, collections, re
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'space'))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 import letters as LT
 HERE = os.path.dirname(os.path.abspath(__file__)); N = int(sys.argv[1]) if len(sys.argv) > 1 else 6
-SPACE = os.path.join(HERE, '..', 'space'); OUT_DIR = os.path.join(SPACE, 'static', 'letters'); os.makedirs(OUT_DIR, exist_ok=True)
+SPACE = os.path.join(HERE, '..'); OUT_DIR = os.path.join(SPACE, 'static', 'letters'); os.makedirs(OUT_DIR, exist_ok=True)
 MP3 = os.path.join(HERE, '..', 'alouf', 'mp3')
 rows = [r for r in json.load(open(os.path.join(HERE, 'letters_rows.json'), encoding='utf-8')) if r['src'] == 'al']
 FIN = {'ך': 'כ', 'ם': 'מ', 'ן': 'נ', 'ף': 'פ', 'ץ': 'צ'}

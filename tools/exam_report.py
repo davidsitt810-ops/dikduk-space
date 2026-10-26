@@ -1,16 +1,15 @@
 """One report for both exams — exam_rows.json (Rabbi Alouf's Tehillim: intact / skip / swap / wrongword / wrongline)
 and exam_archive_rows.json (the pizmonim archive: another hazzan's right take against the site's reference, plus
-skip / swap / wrongline). The rule is taken from app.py itself (mark_of, marks_of, clean_of: the server's copy, which
+skip / swap / wrongline). The rule is the server's own (rule.py: mark_of, marks_of, clean_of, which
 t_parity.py checks against the page's and the embed's JS), and the v4.3 rule is kept here for the before/after.
 usage: exam_report.py [rows.json ...]"""
 import sys, os, json, collections
 import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
-# ---- the live rule, out of app.py without loading the models
-src = open(os.path.join(HERE, '..', 'space', 'app.py'), encoding='utf-8').read()
-def pyfn(name, stop): i = src.index(f'def {name}('); j = src.index(stop, i); return src[i:j]
-code = 'import numpy as np\n' + src[src.index("RULE = {'drop'"):src.index('\ndef head_median')] + '\n' + pyfn('mark_of', '\nRULE = ') + pyfn('head_median', '\ndef clean_of') + pyfn('clean_of', '\ndef marks_of') + pyfn('marks_of', '\ndef summarize')
-LIVE = {}; exec(code, LIVE)
+# ---- the live rule (rule.py: numpy only, no models)
+sys.path.insert(0, os.path.join(HERE, '..'))
+import rule
+LIVE = vars(rule)
 def live_marks(TW):
     F = [{'fit': t.get('fit')} for t in TW] if any(t.get('fit') is not None for t in TW) else None
     rival = {'gain': TW[0]['rival'], 'head': TW[0].get('rival_head')} if TW and TW[0].get('rival') is not None else None   # rows from exams that scored the text's other lines carry it
@@ -87,4 +86,4 @@ if __name__ == '__main__':
                 print(f"   takes on recordings the letter head was trained on: {sum(1 for r in R if (str(r['pid']), r['rec']) in seen and r['k'] == 0)} of {sum(1 for r in R if r['k'] == 0)}")
             except Exception as e: print('   (manifest not read:', e, ')')
         run(R, v43_marks, 'v4.3 (Oct 23 morning)', show_fa=False)
-        run(R, live_marks, 'the rule in app.py now')
+        run(R, live_marks, 'the rule now (rule.py)')

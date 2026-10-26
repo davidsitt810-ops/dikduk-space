@@ -98,12 +98,38 @@ Apple-Silicon Mac as a boot-time service behind a Cloudflare Tunnel (`install.sh
 `bench.py`); `DK_DEVICE=mps` tries the Mac's GPU; `DK_PUBLIC=1` keeps the booth's recordings behind `DK_KEY` off the
 Space too.
 
+v4.8 (Oct 26) changes no verdict — the same takes give the same numbers, word for word — and makes what comes next
+safe to measure. The word rule lives in `rule.py` (numpy only), which the server, the exams and the tests import; the
+page's and the embed's JavaScript copies are checked against it on every push (`.github/workflows/checks.yml`: the
+pages' scripts parse, `tools/t_parity.py` on 1,737 exam lines, `tools/review/fuzz3.py`, and `tools/rule_baseline.py`,
+which replays every committed exam row and fails when any tally moves; `--update` when a change is meant). The tools
+run from this repo (no `../space`). `/health` says what is running (`build`: the commit — from `BUILD_COMMIT`, which
+the Dockerfile writes from the tarball, or git —, a fingerprint of every code
+file, head and classifier, the two models' revisions, the rule's hash) and whether recordings are kept (`storage`);
+every check, booth take and drill item carries the same stamp. The hazzan cache key is that fingerprint (it was
+`v4.1` since v4.1), so a new head re-analyses his lines; old analyses are removed at start. The booth: Skip while
+recording no longer files the half-take under the next task's labels; an ע/ח task needs its yes/no; a server that
+does not keep recordings says so before anyone records (kept = `/data` that this process can write, `DK_DURABLE=1` —
+the default on a Mac unless the cache is in a temporary folder —, or a GitHub mirror that is working); one recording
+at a time, and moving on stops it; a take's labels are mirrored at once, not after the grading, and a take saved but
+not checked before a restart is checked after it (twice at most). The drill keeps the take's audio as well as its features, beside the
+takes (`/data/drill` when there is `/data`), and only with the key (`/check?…&drill=…&key=`; the lab page keeps the key
+from `/?key=…`); `/drill` and `/drill/export` need it too. Limits: uploads over 20 MB (`/check`), 5 MB (`/letter`),
+40 MB (`/submit`) get 413, and an upload decodes to 41 s (7 s for a letter) at most; more than 40 waiting checks get
+503 (`DK_JOB_MAX`), counted apart from the booth's grading (`DK_GRADE_MAX`, 200), so a booth backlog never makes the
+page say "busy"; `/submit` refuses with under 1 GB free; `/ref` analyses at most 60 s. Start-up housekeeping (old
+analyses, waiting takes) runs only in the served process, not in a tool that imports `app`; `DK_SIDE=1` (the Mac's
+bench) leaves the takes alone. The
+lyrics fetch no longer runs on the event loop or retries on every request after a failure. Colab gets a random
+`DK_KEY` and `DK_PUBLIC=1`.
+
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
 - `GET /letters` — the letter checker; `POST /letter?c=<letter>[&want=…][&strict=1]` with a short take as the body; `GET /letters.json`, `GET /letters/audio/<name>.mp3` — Rabbi Alouf's example words.
 - `GET /health`, `GET /info`, `GET /lyrics` (the site's lyrics.json + the Tehillim perakim, with CORS).
 - `GET /ref?f=<archive mp3 | tehillim-NNN.mp3>&t0=&t1=&words=<line>` — the hazzan's line, analysed and cached.
-- `POST /check?words=<line>[&ref=<f>&t0=&t1=][&nikud=<pointed line>][&drill=throat|plain]` with the audio as the body — the take.
-- `GET /drill`, `GET /drill/export` — the throat-drill recordings kept here (features + labels) for the next classifier.
+- `POST /check?words=<line>[&ref=<f>&t0=&t1=][&nikud=<pointed line>][&pid=<text id>][&job=1][&drill=throat|plain&key=]` with the audio as the body — the take.
+- `GET /drill?key=`, `GET /drill/export?key=` — the throat-drill recordings kept here (features, audio, labels) for the next classifier.
+- `GET /record?set=<name>`, `POST /submit`, `GET /takes?key=`, `GET /score` — the recording booth and its scoreboard.
 - `GET /tehillim/audio/<file>` — a Rabbi Alouf recording (when present).
 
 Nothing here touches the site.

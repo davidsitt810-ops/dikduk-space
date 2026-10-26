@@ -53,6 +53,8 @@ DK_PAGE_BASE=https://raw.githubusercontent.com/davidsitt810-ops/dikduk-space/mai
 # this machine answers the public internet through the tunnel: the booth's recordings need the key below
 DK_PUBLIC=1
 DK_KEY=$KEY
+# recordings stay on this Mac's disk (DK_CACHE): the booth does not warn that they may be lost
+DK_DURABLE=1
 # cpu is the measured setting; mps (the Mac's GPU) is the experiment — bench.sh compares them
 DK_DEVICE=cpu
 # DK_THREADS=4

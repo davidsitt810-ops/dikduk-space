@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.DS_Store
+venv/
+.venv/
+# screenshots the browser tests write
+shots/
+# written by the Dockerfile in the image
+BUILD_COMMIT

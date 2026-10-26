@@ -54,7 +54,7 @@ Endpoints (JSON, CORS open):  GET /health   GET /info   GET /lyrics (the site's 
   GET  /tehillim/audio/<file>                                  a Rabbi Alouf recording
 Nothing here deploys or changes the site.
 """
-import os, re, sys, json, time, hashlib, subprocess, tempfile, threading, queue, uuid
+import os, re, sys, json, time, hashlib, subprocess, tempfile, threading, queue, uuid, shutil
 import numpy as np
 import torch
 import requests
@@ -95,10 +95,34 @@ ARCHIVE = 'https://www.pizmonim.org/MP3/'
 UA = {'User-Agent': 'Mozilla/5.0 (pizmonim dikduk checker)', 'Accept': '*/*'}
 CACHE_DIR = os.environ.get('DK_CACHE', '/tmp/dkcache')
 os.makedirs(CACHE_DIR, exist_ok=True)
+
+def data_writable():
+    """is /data (a Space's persistent storage) there AND writable by this process? Tried with a file, not os.access:
+       a mount can be there and still refuse the app's user, and then everything would quietly go to /tmp"""
+    if not os.path.isdir('/data'): return False
+    p = os.path.join('/data', f'.dk_write_test_{os.getpid()}')
+    try:
+        with open(p, 'w') as f: f.write('ok')
+        os.unlink(p); return True
+    except Exception as e:
+        print('/data is there but not writable:', e, flush=True); return False
+# Where recordings (booth takes, drill items) are kept: /data when it works, else under DK_CACHE. Kept means: on /data,
+# on a disk the owner says is kept (DK_DURABLE=1: the Mac), or mirrored to GitHub (GH_TOKEN, below). Anything else
+# (a Space's /tmp, Colab) is gone at the next rebuild, restart or sleep, and the booth says so before anyone records.
+DATA_OK = data_writable()
+KEEP_DIR = '/data' if DATA_OK else CACHE_DIR
+# On a Mac the default is "kept" unless DK_CACHE is in a temporary folder (installs made before v4.8 have no DK_DURABLE)
+_MAC_KEPT = sys.platform == 'darwin' and not os.path.realpath(CACHE_DIR).startswith(('/tmp', '/private/tmp', '/var/folders', '/private/var/folders'))
+DURABLE_DISK = DATA_OK or os.environ.get('DK_DURABLE', '1' if _MAC_KEPT else '') == '1'
 LYRICS_URL = os.environ.get('DK_LYRICS', 'https://holiday.thepizmonim.pages.dev/app/lyrics.json')
 EMB_LAYER = int(os.environ.get('DK_EMB_LAYER', '16'))   # an extra hidden layer kept in drill features (of 24)
 
-app = FastAPI(title='dikduk fit-score')
+from contextlib import asynccontextmanager
+@asynccontextmanager
+async def lifespan(_app):
+    housekeeping()   # defined below; runs when uvicorn starts serving, not when a tool imports this file
+    yield
+app = FastAPI(title='dikduk fit-score', lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*'])
 
 # ---------------------------------------------------------------- the model (loaded once)
@@ -186,6 +210,7 @@ except Exception as e:
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from vowels import vowel_place, compare_vowels, letters_kept, VOWEL_NAME, VOWELS
 from order import order_evidence, order_from_tokens, rival_evidence
+from rule import RULE, mark_of, head_median, no_speech_in, clean_of, marks_of, summarize   # the word rule (rule.py)
 FULL = None; FULL_SYM = []; FULL_LAYER = 12
 try:
     ck = torch.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'full_head.pt'), map_location='cpu')
@@ -296,12 +321,13 @@ def skeleton(w):
     return out
 
 # ---------------------------------------------------------------- audio in
-def decode_audio(data: bytes) -> np.ndarray:
-    """any container ffmpeg reads -> float32 mono 16 kHz"""
+def decode_audio(data: bytes, max_s=None) -> np.ndarray:
+    """any container ffmpeg reads -> float32 mono 16 kHz; max_s: decode no more than that many seconds (a small upload
+       can hold hours of silence, which would decode to gigabytes)"""
     with tempfile.NamedTemporaryFile(suffix='.bin', delete=False) as f:
         f.write(data); src = f.name
     try:
-        out = subprocess.run(['ffmpeg', '-v', 'error', '-i', src, '-ac', '1', '-ar', str(SR), '-f', 'f32le', '-'],
+        out = subprocess.run(['ffmpeg', '-v', 'error', '-i', src] + (['-t', str(max_s)] if max_s else []) + ['-ac', '1', '-ar', str(SR), '-f', 'f32le', '-'],
                              capture_output=True, timeout=120)
         if out.returncode != 0:
             raise ValueError('ffmpeg: ' + out.stderr.decode(errors='replace')[:300])
@@ -807,7 +833,8 @@ def try_page():
 
 @app.get('/health')
 def health():
-    return {'ok': True, 'version': 4.7, 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
+    return {'ok': True, 'version': VERSION, 'build': {'commit': COMMIT, 'commit_from': COMMIT_FROM, 'files': FILES, 'models': MODEL_REV, 'rule': RULE_HASH, 'ref_tag': REF_TAG},
+            'storage': storage(), 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
             'page_from': 'github' if (_PAGES.get('index.html') or {}).get('body') else 'local', 'jobs': {'queued': sum(1 for v in JOBS.values() if v['state'] == 'queued'), 'running': sum(1 for v in JOBS.values() if v['state'] == 'running')},
             'letters': sorted(LT.BY_C), 'ears': {'letter_head': HEAD is not None, 'vowel_head': FULL is not None, 'fine_tuned': FT is not None, 'classifier_v2': bool(CLF2), 'tehillim_lyrics': len(TEHILLIM_LYR), 'tehillim_audio': os.path.isdir(TEHILLIM_DIR) and len(os.listdir(TEHILLIM_DIR)) or (TEHILLIM_BASE or 0),
                      'tehillim_perakim': sorted(int(m.group(1)) for m in (re.match(r'tehillim-(\d{3})\.mp3$', f) for f in (os.listdir(TEHILLIM_DIR) if os.path.isdir(TEHILLIM_DIR) else [])) if m)}}
@@ -866,21 +893,106 @@ def lyrics():
             r.raise_for_status()
             _LYR['data'] = r.json(); _LYR['t'] = time.time()
         except Exception as e:
+            # try the site again in five minutes, not on every request (each try can wait a minute) — in half a minute
+            # while there are no pizmonim at all yet (only the Tehillim fallback below)
+            _LYR['t'] = time.time() - 3600 + (30 if _LYR['data'] is None or _LYR['data'].get('_fallback') else 300)
             if _LYR['data'] is None:
                 if not TEHILLIM_LYR: return JSONResponse({'err': 'lyrics: ' + str(e)[:200]}, status_code=502)
-                _LYR['data'] = {'v': 1, 's': {}}
+                _LYR['data'] = {'v': 1, 's': {}, '_fallback': True}
     if TEHILLIM_LYR and not _LYR['data'].get('_th'):
         _LYR['data'] = {**_LYR['data'], 's': {**_LYR['data'].get('s', {}), **TEHILLIM_LYR}, '_th': True}
     return _LYR['data']
 
-REF_TAG = 'v4.1'   # part of the reference cache key: a new server version re-analyses the hazzan's lines
+# ---- what this server is: the code, the heads and the models it runs, so every verdict can be traced to them
+VERSION = 4.8
+HERE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def file_sha(path, n=12):
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for b in iter(lambda: f.read(1 << 20), b''): h.update(b)
+    return h.hexdigest()[:n]
+
+def write_json(path, obj):
+    """the whole file or nothing: a crash or a full disk mid-write must not leave half a JSON file that every later read
+       fails on (written next to it, then renamed over it)"""
+    tmp = f'{path}.{uuid.uuid4().hex[:6]}.tmp'
+    with open(tmp, 'w', encoding='utf-8') as f: json.dump(obj, f, ensure_ascii=False)
+    os.replace(tmp, path)
+
+def write_wav(path, x):
+    """16 kHz mono float audio -> a 16-bit wav file"""
+    import wave
+    with wave.open(path, 'wb') as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR); w.writeframes((np.clip(x, -1, 1) * 32767).astype('<i2').tobytes())
+
+def build_commit():
+    """the GitHub commit this code came from: DK_COMMIT; else BUILD_COMMIT beside this file (the Dockerfile writes it
+       from the tarball it copied the code from); else the git checkout (the Mac, Colab); else the commit feed the
+       Dockerfile fetched while building (/tmp/github_main.atom, newest first: readable only when the Dockerfile makes it
+       so) -> (sha, where it came from)"""
+    if os.environ.get('DK_COMMIT'): return os.environ['DK_COMMIT'], 'DK_COMMIT'
+    try:
+        c = open(os.path.join(HERE_DIR, 'BUILD_COMMIT'), encoding='utf-8').read().strip()
+        if re.fullmatch(r'[0-9a-f]{40}', c): return c, 'build'
+    except Exception: pass
+    try:
+        r = subprocess.run(['git', '-C', HERE_DIR, 'rev-parse', 'HEAD'], capture_output=True, text=True, timeout=10)
+        if r.returncode == 0 and re.fullmatch(r'[0-9a-f]{40}', r.stdout.strip()):
+            d = subprocess.run(['git', '-C', HERE_DIR, 'status', '--porcelain', '--untracked-files=no'], capture_output=True, text=True, timeout=10)
+            return r.stdout.strip(), 'git, with local changes' if d.stdout.strip() else 'git'
+    except Exception: pass
+    try:
+        m = re.search(r'Grit::Commit/([0-9a-f]{40})', open('/tmp/github_main.atom', encoding='utf-8').read())
+        if m: return m.group(1), 'build feed'
+    except Exception: pass
+    return None, None
+
+_FILES = {'app.py': 'app.py', 'rule.py': 'rule.py', 'order.py': 'order.py', 'vowels.py': 'vowels.py', 'nikud.py': 'nikud.py', 'letters.py': 'letters.py',
+          'letter_head': os.environ.get('DK_LETTER_HEAD') or 'letter_head.pt', 'full_head': 'full_head.pt', 'throat_models.json': 'throat_models.json', 'throat_models_v2.json': 'throat_models_v2.json'}
+if FT is not None: _FILES['ft_heads'] = os.path.join(FT_PATH, 'heads.pt')
+FILES = {}
+for k, p in _FILES.items():
+    try: FILES[k] = file_sha(p if os.path.isabs(p) else os.path.join(HERE_DIR, p))
+    except Exception: FILES[k] = None
+COMMIT, COMMIT_FROM = build_commit()
+if not COMMIT: print('build: the commit is not known here (see build_commit); the file fingerprints in /health still say what runs', flush=True)
+MODEL_REV = {'phone': getattr(MODEL.config, '_commit_hash', None), 'arabic': getattr(AR_MODEL.config, '_commit_hash', None)}
+RULE_HASH = FILES['rule.py']
+# The hazzan-line cache key: everything an analysis of his line depends on (the analysis code, the heads, the
+# classifiers, the two models and the device), so a change to any of them re-analyses his lines instead of quietly
+# comparing students with an older reading of the hazzan. It was a hand-typed 'v4.1' until v4.8 and never moved.
+REF_TAG = hashlib.sha256(json.dumps([FILES.get(k) for k in ('app.py', 'order.py', 'vowels.py', 'letter_head', 'full_head', 'throat_models.json', 'throat_models_v2.json', 'ft_heads')]
+                                    + [PH_ID, AR_ID, MODEL_REV, DEV, FT_PATH if FT is not None else None]).encode()).hexdigest()[:12]
+REF_DIR = os.path.join(CACHE_DIR, 'ref', REF_TAG); os.makedirs(REF_DIR, exist_ok=True)
+STAMP = {'version': VERSION, 'commit': COMMIT, 'rule': RULE_HASH, 'ref_tag': REF_TAG}   # kept with every take and drill item
+
+def drop_old_refs():
+    """the hazzan analyses made by another build are never read again: remove them (and the flat ref_*.json of before
+       v4.8) — a folder only when nothing was written in it for a day, since another server on the same cache (the
+       Mac's bench on the GPU, a test) can be using it right now"""
+    n = 0
+    try:
+        for d in os.listdir(os.path.join(CACHE_DIR, 'ref')):
+            if d != REF_TAG and os.path.isdir(os.path.join(CACHE_DIR, 'ref', d)) and time.time() - os.path.getmtime(os.path.join(CACHE_DIR, 'ref', d)) > 86400:
+                for fn in os.listdir(os.path.join(CACHE_DIR, 'ref', d)): os.unlink(os.path.join(CACHE_DIR, 'ref', d, fn)); n += 1
+                os.rmdir(os.path.join(CACHE_DIR, 'ref', d))
+        for fn in os.listdir(CACHE_DIR):
+            if fn.startswith('ref_') and fn.endswith('.json'): os.unlink(os.path.join(CACHE_DIR, fn)); n += 1
+    except Exception as e:
+        print('old hazzan analyses not removed:', e, flush=True)
+    if n: print('removed', n, 'hazzan analyses made by another build', flush=True)
+print('build:', COMMIT and COMMIT[:12], COMMIT_FROM, '· ref tag', REF_TAG, '· rule', RULE_HASH, flush=True)
+
+REF_MAX = 60   # seconds of the hazzan's recording analysed at most (a line is 3-20 s; t1=0 used to mean the whole file)
 
 def ref_line(f: str, t0: float, t1: float, words, want_emb=False):
-    key = os.path.join(CACHE_DIR, 'ref_' + hashlib.sha1(f'{REF_TAG}|{f}|{t0}|{t1}|{" ".join(words)}|{int(want_emb)}'.encode()).hexdigest() + '.json')
+    key = os.path.join(REF_DIR, 'ref_' + hashlib.sha1(f'{f}|{t0}|{t1}|{" ".join(words)}|{int(want_emb)}'.encode()).hexdigest() + '.json')
     if os.path.exists(key):
         return json.load(open(key, encoding='utf-8'))
     x = decode_audio(fetch_archive(f))
-    seg = x[int(max(0, t0) * SR):int(t1 * SR)] if t1 > 0 else x
+    a = max(0.0, t0); end = min(t1, a + REF_MAX) if t1 > 0 else a + REF_MAX
+    seg = x[int(a * SR):int(end * SR)]
     if seg.shape[0] < SR * 0.3:
         raise ValueError('the line is empty at those times')
     res, lp, spf = analyse(seg, words, want_emb)
@@ -888,7 +1000,8 @@ def ref_line(f: str, t0: float, t1: float, words, want_emb=False):
     # the hazzan against himself: the ceiling each word can reach
     self_fit = fit_against(lp, spf, res['words'])
     for w, s in zip(res['words'], self_fit): w['selffit'] = s.get('fit')
-    json.dump(res, open(key, 'w', encoding='utf-8'), ensure_ascii=False)
+    os.makedirs(os.path.dirname(key), exist_ok=True)   # another server on the same cache may have removed it (drop_old_refs)
+    write_json(key, res)
     return res
 
 @app.get('/ref')
@@ -901,13 +1014,15 @@ def ref(f: str, words: str, t0: float = 0, t1: float = 0, emb: int = 0):
     except Exception as e:
         return JSONResponse({'err': str(e)[:300]}, status_code=502)
 
-DRILL_DIR = os.path.join(CACHE_DIR, 'drill'); os.makedirs(DRILL_DIR, exist_ok=True)
+DRILL_DIR = os.path.join(KEEP_DIR, 'drill'); os.makedirs(DRILL_DIR, exist_ok=True)   # beside the booth's takes (/data when the Space has it)
 
 @app.get('/drill')
-def drill_list():
-    """the drill recordings kept on this server (features + David's label), newest last"""
+def drill_list(key: str = None):
+    """the drill recordings kept on this server (features + David's label), newest last — with the key"""
+    d = need_key(key)
+    if d: return d
     items = []
-    for fn in sorted(os.listdir(DRILL_DIR)):
+    for fn in sorted(f for f in os.listdir(DRILL_DIR) if f.endswith('.json')):
         try:
             d = json.load(open(os.path.join(DRILL_DIR, fn), encoding='utf-8'))
             items.append({'id': fn[:-5], 'word': d['word'], 'style': d['style'], 'c': d['c'], 'v': d.get('v'), 'p': d.get('p'), 'ar_heard': d.get('ar_heard'), 't': d['t']})
@@ -915,8 +1030,10 @@ def drill_list():
     return {'n': len(items), 'items': items}
 
 @app.get('/drill/export')
-def drill_export():
-    """everything, features included (for training the next classifier)"""
+def drill_export(key: str = None):
+    """everything, features included (for training the next classifier) — with the key"""
+    d = need_key(key)
+    if d: return d
     return [json.load(open(os.path.join(DRILL_DIR, fn), encoding='utf-8')) for fn in sorted(os.listdir(DRILL_DIR)) if fn.endswith('.json')]
 
 # ---- jobs: a check can take longer than the reverse proxy in front of a Space allows one request (the first check of
@@ -924,11 +1041,35 @@ def drill_export():
 # returns at once with a job id, and the page polls /job/<id> every second or two until the result is there. One
 # worker thread runs the queue, so two visitors never run the models at the same time (which would slow both).
 JOBS = {}; JOB_Q = queue.Queue(); JOB_LOCK = threading.Lock()
+JOB_MAX = int(os.environ.get('DK_JOB_MAX', '40'))   # checks waiting at most: one visitor (or a script) cannot queue the server for hours
 
-def new_job(fn):
+GRADE_MAX = int(os.environ.get('DK_GRADE_MAX', '200'))   # booth takes waiting to be graded at most (beyond that /submit asks to try again)
+
+def queued(bg=False):
+    """jobs waiting: the visitors' checks (bg=False) or the booth's grading (bg=True), counted apart, so a backlog of
+       booth takes never makes the lab page or the embed say "busy" (and the other way round)"""
+    return sum(1 for v in list(JOBS.values()) if v['state'] == 'queued' and bool(v.get('bg')) == bg)
+
+# The largest upload each route reads (bytes): a phone take of a line is well under 1 MB, a booth perek (8 min) under
+# 20 MB. Bigger is refused before it is read into memory.
+MAX_BODY = {'check': 20 << 20, 'letter': 5 << 20, 'submit': 40 << 20}
+
+async def read_body(request, cap):
+    """the request's body, or None when it is larger than cap (read in pieces, so a huge upload is cut off early)"""
+    n = request.headers.get('content-length')
+    if n and n.isdigit() and int(n) > cap: return None
+    buf = bytearray()
+    async for chunk in request.stream():
+        buf += chunk
+        if len(buf) > cap: return None
+    return bytes(buf)
+
+def too_big(cap): return JSONResponse({'err': f'the recording is too large (at most {cap >> 20} MB)'}, status_code=413)
+
+def new_job(fn, bg=False):
     jid = uuid.uuid4().hex[:12]
     with JOB_LOCK:
-        JOBS[jid] = {'state': 'queued', 'stage': 'waiting for the server', 't': time.time()}
+        JOBS[jid] = {'state': 'queued', 'stage': 'waiting for the server', 't': time.time(), 'bg': bg}
     JOB_Q.put((jid, fn))
     return jid
 
@@ -952,49 +1093,66 @@ def job_status(jid: str):
     J = JOBS.get(jid)
     if J is None:
         return JSONResponse({'err': 'no such job (the server may have restarted); check again', 'state': 'gone'}, status_code=404)
-    out = {'state': J['state'], 'stage': J.get('stage'), 'queued': sum(1 for v in JOBS.values() if v['state'] == 'queued')}
+    out = {'state': J['state'], 'stage': J.get('stage'), 'queued': queued() + queued(True)}
     if J['state'] == 'done': out['result'] = J['result']
     if J['state'] == 'error': out['err'] = J.get('err')
     return out
 
 @app.post('/check')
-async def check(request: Request, words: str = Query(...), ref: str = None, t0: float = 0, t1: float = 0, emb: int = 0, drill: str = None, nikud: str = None, job: int = 0, pid: str = None, alts: str = None):
+async def check(request: Request, words: str = Query(...), ref: str = None, t0: float = 0, t1: float = 0, emb: int = 0, drill: str = None, nikud: str = None, job: int = 0, pid: str = None, alts: str = None, key: str = None):
     W = he_words(words)
+    # a drill take is kept for training: only with the key, so nobody else can add to (or poison) the training data
+    drill_err = None
+    if drill in ('throat', 'plain') and not key_ok(key):
+        drill, drill_err = None, 'not saved: the throat drill needs the key (open the lab page once as /?key=… with the Space secret DK_KEY)'
     ALT = [he_words(a) for a in alts.split('|') if he_words(a) and he_words(a) != W] if alts else pid   # a list of lines, or the text's id (its lines are looked up in the worker, off the event loop)
     if not W:
         return JSONResponse({'err': 'no words'}, status_code=400)
-    data = await request.body()
+    if job and queued() >= JOB_MAX:
+        return JSONResponse({'err': 'the server is busy — try again in a minute'}, status_code=503)
+    data = await read_body(request, MAX_BODY['check'])
+    if data is None: return too_big(MAX_BODY['check'])
     if len(data) < 1000:
         return JSONResponse({'err': 'no audio'}, status_code=400)
     try:
-        x = await run_in_threadpool(decode_audio, data)
+        x = await run_in_threadpool(decode_audio, data, 41)
     except Exception as e:
         return JSONResponse({'err': 'decode: ' + str(e)[:200]}, status_code=400)
     if x.shape[0] < SR * 0.5:
         return JSONResponse({'err': 'too short'}, status_code=400)
     if x.shape[0] > SR * 40:
-        x = x[:SR * 40]
+        x = x[:SR * 40].copy()
+    def work(progress):
+        out = run_check(x, W, ref, t0, t1, emb, drill, nikud, progress, ALT)
+        if drill_err: out['drill_err'] = drill_err
+        return out
     if job:
-        return JSONResponse({'job': new_job(lambda progress: run_check(x, W, ref, t0, t1, emb, drill, nikud, progress, ALT))}, status_code=202)
+        if queued() >= JOB_MAX:   # again: others were let in while this one was read and decoded (no await between here and new_job)
+            return JSONResponse({'err': 'the server is busy — try again in a minute'}, status_code=503)
+        return JSONResponse({'job': new_job(work)}, status_code=202)
     # the plain path (scripts, older pages): the same work in a thread, so /health and the polls keep answering
-    return await run_in_threadpool(run_check, x, W, ref, t0, t1, emb, drill, nikud, lambda s: None, ALT)
+    return await run_in_threadpool(work, lambda s: None)
 
 def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None, alts=None):
     if isinstance(alts, str): alts = other_lines(alts, W)   # the text's id -> its other lines (may fetch the site's lyrics: not on the event loop)
     progress('listening to your take')
     take, lp, spf = analyse(x, W, bool(emb) or bool(drill), alts)
-    out = {'words': W, 'take': take}
+    out = {'words': W, 'take': take, 'server': STAMP}
     for w in take['words']: w['pw'] = word_pw(w, None)
     if drill in ('throat', 'plain'):
-        # a drill recording: one word, said from the throat or plain; kept with its features for the next classifier
+        # a drill recording: one word, said from the throat or plain; kept with its features for the next classifier,
+        # and with its audio (16 kHz wav), so the next model can listen to it again instead of reusing today's features
+        wav = f"{int(time.time())}_{uuid.uuid4().hex[:6]}.wav"
+        try: write_wav(os.path.join(DRILL_DIR, wav), x)
+        except Exception as e: wav = None; print('drill audio not kept:', e, flush=True)
         for w in take['words']:
             for th in w['throat']:
                 rec = {'t': int(time.time()), 'word': w['w'], 'k': th['k'], 'c': th['c'], 'style': drill, 'v': th.get('v'), 'p': th.get('p'),
-                       'ar_heard': th.get('ar_heard'), 'ar': th.get('ar'), 'peak': th.get('peak'), 'feat': th.get('feat'), 'win': [th['t0'], th['t1']]}
+                       'ar_heard': th.get('ar_heard'), 'ar': th.get('ar'), 'peak': th.get('peak'), 'feat': th.get('feat'), 'win': [th['t0'], th['t1']], 'audio': wav, 'server': STAMP}
                 fn = f"{rec['t']}_{abs(hash((w['w'], th['k'], drill))) % 100000}.json"
-                json.dump(rec, open(os.path.join(DRILL_DIR, fn), 'w', encoding='utf-8'), ensure_ascii=False)
+                write_json(os.path.join(DRILL_DIR, fn), rec)
                 th.pop('feat', None)
-        out['drill_saved'] = len(os.listdir(DRILL_DIR))
+        out['drill_saved'] = sum(1 for f in os.listdir(DRILL_DIR) if f.endswith('.json'))
     if ref:
         try:
             progress("listening to the hazzan's line")
@@ -1021,13 +1179,21 @@ def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None, alt
 # this word said like alef; leave a word out and tap which — and keeps every recording with its label. Nothing is
 # judged on the page: the person records, the server checks each take in the background and keeps the verdicts
 # next to the audio, and the scoreboard (/score) compares the two. That is the training and testing data in one.
-# Recordings live in TAKES_DIR: /data/takes when the Space has persistent storage, else under DK_CACHE (gone on a
-# rebuild) — and every file is mirrored to a private GitHub repo when GH_TOKEN is set (a fine-grained token with
-# "Contents: read and write" on that one repo), so nothing is lost either way.
+# Recordings live in TAKES_DIR: /data/takes when the Space has persistent storage (and it is writable), else under
+# DK_CACHE (gone on a rebuild) — and every file is mirrored to a private GitHub repo when GH_TOKEN is set (a
+# fine-grained token with "Contents: read and write" on that one repo). /health and the booth say which it is.
 import base64, uuid as _uuid
-TAKES_DIR = os.path.join('/data', 'takes') if os.path.isdir('/data') and os.access('/data', os.W_OK) else os.path.join(CACHE_DIR, 'takes')
+TAKES_DIR = os.path.join(KEEP_DIR, 'takes')
 os.makedirs(TAKES_DIR, exist_ok=True)
 GH_TOKEN = os.environ.get('GH_TOKEN', '') if os.environ.get('DK_MIRROR', 'github' if os.environ.get('SPACE_ID') else '') == 'github' else ''
+
+MIRROR_ERR = None   # the mirror's last failure, until a pass goes through: then the copies are not being made
+
+def storage():
+    """where this server keeps recordings, and whether they outlive a restart (the booth warns when they do not)"""
+    out = {'takes': 'persistent' if DURABLE_DISK else 'temporary', 'mirror': bool(GH_TOKEN), 'durable': DURABLE_DISK or (bool(GH_TOKEN) and not MIRROR_ERR)}
+    if MIRROR_ERR: out['mirror_err'] = MIRROR_ERR
+    return out
 GH_REPO = os.environ.get('GH_REPO', 'davidsitt810-ops/dikduk-recordings')
 # Other people's recordings and names are not public: listing them, fetching their audio and the all-hands scoreboard
 # need the key David sets as the Space secret DK_KEY. A person sees their own scoreboard with the token their phone
@@ -1133,9 +1299,10 @@ async def letter(request: Request, c: str = Query(...), want: str = None, strict
        the verdict on its opening sound, what was heard, and the ears' numbers (letters.py)"""
     c = he_letters(c)[:1]
     if c not in LT.BY_C: return JSONResponse({'err': 'not a letter I check'}, status_code=400)
-    data = await request.body()
+    data = await read_body(request, MAX_BODY['letter'])
+    if data is None: return too_big(MAX_BODY['letter'])
     if len(data) < 500: return JSONResponse({'err': 'no audio'}, status_code=400)
-    try: x = await run_in_threadpool(decode_audio, data)
+    try: x = await run_in_threadpool(decode_audio, data, 7)
     except Exception as e: return JSONResponse({'err': 'decode: ' + str(e)[:200]}, status_code=400)
     if x.shape[0] > SR * 6: x = x[:SR * 6]
     P = await run_in_threadpool(letter_probe, x, c)
@@ -1169,7 +1336,7 @@ def safe_name(x, n=40):
     return re.sub(r'[^\w֐-׿-]+', '_', str(x or ''))[:n].strip('_') or 'anon'
 
 def gh_put(path, data: bytes, message: str):
-    """one file into the mirror repo (GitHub contents API; the path is new, so no sha is needed)"""
+    """one file into the mirror repo (GitHub contents API: a new path needs no sha; one already there is overwritten)"""
     r = requests.put(f'https://api.github.com/repos/{GH_REPO}/contents/{requests.utils.quote(path)}',
                      headers={'Authorization': 'Bearer ' + GH_TOKEN, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'},
                      json={'message': message, 'content': base64.b64encode(data).decode(), 'branch': 'main'}, timeout=60)
@@ -1181,23 +1348,32 @@ def gh_put(path, data: bytes, message: str):
     r.raise_for_status()
 
 def mirror_pending():
-    """push every take file that has no .pushed marker yet"""
+    """push every take and drill file not pushed since it last changed. A take's JSON goes up at once (with its labels)
+       and again when its verdicts land, so a restart before the grading cannot lose what the person said they did.
+       The .pushed marker holds the file's modification time as it was pushed."""
+    global MIRROR_ERR
     if not GH_TOKEN: return 0
     n = 0
-    for root, _, files in os.walk(TAKES_DIR):
-        for fn in sorted(files):
-            if fn.endswith('.pushed') or fn.endswith('.tmp'): continue
-            full = os.path.join(root, fn)
-            if os.path.exists(full + '.pushed'): continue
-            if fn.endswith('.json'):
+    for base, prefix in ((TAKES_DIR, 'takes/'), (DRILL_DIR, 'drill/')):
+        for root, _, files in os.walk(base):
+            for fn in sorted(files):
+                if fn.endswith('.pushed') or fn.endswith('.tmp'): continue
+                full = os.path.join(root, fn); mark = full + '.pushed'
+                try: mt = os.path.getmtime(full)
+                except OSError: continue
                 try:
-                    if not json.load(open(full, encoding='utf-8')).get('graded', True): continue   # wait for the verdicts
-                except Exception: continue
-            rel = os.path.relpath(full, TAKES_DIR).replace(os.sep, '/')
-            try:
-                gh_put('takes/' + rel, open(full, 'rb').read(), 'take ' + rel); open(full + '.pushed', 'w').write(str(int(time.time()))); n += 1
-            except Exception as e:
-                print('mirror failed:', rel, str(e)[:120], flush=True); return n
+                    if float(open(mark).read().strip() or 0) >= mt: continue
+                except (OSError, ValueError): pass
+                rel = os.path.relpath(full, base).replace(os.sep, '/')
+                if fn.endswith('.json'):
+                    try: json.load(open(full, encoding='utf-8'))   # a whole file only
+                    except Exception: continue
+                try:
+                    gh_put(prefix + rel, open(full, 'rb').read(), prefix.rstrip('/') + ' ' + rel); open(mark, 'w').write(repr(mt)); n += 1
+                except Exception as e:
+                    MIRROR_ERR = f'{time.strftime("%Y-%m-%d %H:%M")}: ' + str(getattr(getattr(e, 'response', None), 'status_code', '') or type(e).__name__)   # no paths: /health is public and they hold names
+                    print('mirror failed:', rel, str(e)[:120], flush=True); return n
+    MIRROR_ERR = None
     return n
 
 def mirror_ok():
@@ -1236,11 +1412,17 @@ async def submit(request: Request, meta: str = Query(...)):
         M = json.loads(meta)
     except Exception:
         return JSONResponse({'err': 'bad meta'}, status_code=400)
-    data = await request.body()
+    if M.get('check', True) and queued(True) >= GRADE_MAX:
+        return JSONResponse({'err': 'the server has many recordings to check — try again in a few minutes'}, status_code=503)
+    try:
+        if shutil.disk_usage(TAKES_DIR).free < (1 << 30): return JSONResponse({'err': 'the server is out of room for recordings'}, status_code=507)
+    except Exception: pass
+    data = await read_body(request, MAX_BODY['submit'])
+    if data is None: return too_big(MAX_BODY['submit'])
     if len(data) < 1000:
         return JSONResponse({'err': 'no audio'}, status_code=400)
     try:
-        R = resolve_text(M.get('text', ''))
+        R = await run_in_threadpool(resolve_text, M.get('text', ''))   # may fetch the site's lyrics: not on the event loop
     except Exception as e:
         return JSONResponse({'err': str(e)[:200]}, status_code=400)
     mime = str(M.get('mime') or ''); ext = '.m4a' if 'mp4' in mime or 'm4a' in mime else '.webm' if 'webm' in mime else '.wav' if 'wav' in mime else '.ogg' if 'ogg' in mime else '.bin'
@@ -1249,131 +1431,54 @@ async def submit(request: Request, meta: str = Query(...)):
     open(full + ext, 'wb').write(data)
     rec = {'id': tid, 't': int(time.time()), 'set': M.get('set'), 'task': M.get('task'), 'name': M.get('name'), 'who': str(M.get('who') or '')[:40], 'text': M.get('text'), 'label': R['label'], 'words': R['words'],
            'do': M.get('do'), 'labels': M.get('labels'), 'note': M.get('note'), 'mime': mime, 'bytes': len(data), 'device': str(M.get('device') or '')[:200], 'check': bool(M.get('check', True)),
-           'graded': False, 'result': None}
-    json.dump(rec, open(full + '.json', 'w', encoding='utf-8'), ensure_ascii=False)
-    if rec['check']:
-        def grade(progress):
-            try:
-                x = decode_audio(data)
-                if x.shape[0] > SR * 40: x = x[:SR * 40]
-                if x.shape[0] < SR * 0.5: raise ValueError('too short')
-                out = run_check(x, he_words(R['words']), R['ref'], R['t0'] or 0, R['t1'] or 0, 0, None, R['nikud'], progress, other_lines(R.get('pid'), he_words(R['words'])))
-                rec['summary'] = summarize(out)
-                out.pop('ref', None)   # the hazzan's analysis is big and lives in the reference cache anyway
-                rec['result'] = out
-            except Exception as e:
-                rec['error'] = str(e)[:200]
-            rec['graded'] = True; json.dump(rec, open(full + '.json', 'w', encoding='utf-8'), ensure_ascii=False)
-            return {'ok': True}
-        new_job(grade)
-    else:
-        rec['graded'] = True; json.dump(rec, open(full + '.json', 'w', encoding='utf-8'), ensure_ascii=False)
-    return JSONResponse({'id': tid, 'saved': True, 'durable': bool(GH_TOKEN) or TAKES_DIR.startswith('/data')}, status_code=202)
+           'graded': False, 'result': None, 'server': STAMP}
+    if not rec['check']: rec['graded'] = True
+    write_json(full + '.json', rec)
+    if rec['check']: new_job(grade_job(full, ext), bg=True)
+    return JSONResponse({'id': tid, 'saved': True, 'durable': storage()['durable']}, status_code=202)
 
-def mark_of(y, f, clean):
-    """the page's rule for one word (kept in step with static/index.html markOf and embed.js)"""
-    n = y.get('n') or 0; sk = y.get('skel'); ft = f.get('fit') if f else None
-    if not n or sk is None: return ''
-    kp = y.get('kept'); pw = y.get('pw'); hs = y.get('hskel')
-    sure = clean and kp is not None and kp >= .75 and hs is not None and hs >= .6 and (pw is None or pw < .8)
-    if n >= 2:
-        if sk < .2 and (ft is None or ft < .15):
-            if ft is None and clean and not (kp is not None and kp < .75): return 'unsure'   # no hazzan to confirm: red needs the head's agreement
-            if not clean and kp is not None and kp >= .5: return 'unsure'   # v4.4: a take the heads hear poorly: red needs the head to agree (under half the letters heard)
-            return 'off'
-        if clean and pw is not None and pw >= .95 and (ft is None or ft < .5): return 'off'   # v4.4: not when the hazzan's own sounds for the word were found
-        if sure: return 'ok'
-        if sk < .4 or (ft is not None and ft < .2) or (kp is not None and kp < .5) or (pw is not None and pw >= .8): return 'unsure'
-        return 'ok'
-    return 'unsure' if sk < .2 and not sure else 'ok'
+def grade_job(full, ext):
+    """the job that checks one saved take (full = its path without the extension) and writes the verdicts into its JSON"""
+    def grade(progress):
+        rec = json.load(open(full + '.json', encoding='utf-8'))
+        rec['tries'] = rec.get('tries', 0) + 1; write_json(full + '.json', rec)   # before the work: a take that stops the server is not tried for ever
+        try:
+            R = resolve_text(rec.get('text') or '')
+            x = decode_audio(open(full + ext, 'rb').read(), 41)
+            if x.shape[0] > SR * 40: x = x[:SR * 40]
+            if x.shape[0] < SR * 0.5: raise ValueError('too short')
+            out = run_check(x, he_words(R['words']), R['ref'], R['t0'] or 0, R['t1'] or 0, 0, None, R['nikud'], progress, other_lines(R.get('pid'), he_words(R['words'])))
+            rec['summary'] = summarize(out)
+            out.pop('ref', None)   # the hazzan's analysis is big and lives in the reference cache anyway
+            rec['result'] = out
+        except Exception as e:
+            rec['error'] = str(e)[:200]
+        rec['graded'] = True; rec['graded_by'] = STAMP; write_json(full + '.json', rec)
+        return {'ok': True}
+    return grade
 
-RULE = {'drop': 10, 'margin': 4, 'swap': 8, 'rival': 0.3, 'altFit': 0.4, 'hear': 0.3, 'share': 0.35, 'half': 0.5, 'swap2': 12}   # kept in step with static/index.html and embed.js
+def regrade_waiting():
+    """after a restart: the takes that were saved but not yet checked (the queue lives in memory) go back in the queue
+       — twice at most: a take whose checking stopped the server twice is marked failed instead"""
+    n = 0
+    for root, _, files in os.walk(TAKES_DIR):
+        for fn in files:
+            if not fn.endswith('.json'): continue
+            jp = os.path.join(root, fn)
+            try: J = json.load(open(jp, encoding='utf-8'))
+            except Exception: continue
+            if J.get('graded', True) or not J.get('check', True): continue
+            if J.get('tries', 0) >= 2:
+                J['graded'] = True; J['error'] = 'not checked: the server stopped while checking it, twice'; write_json(jp, J); continue
+            _, ap = take_paths(os.path.relpath(jp, TAKES_DIR)[:-5])
+            if ap: new_job(grade_job(ap.rsplit('.', 1)[0], '.' + ap.rsplit('.', 1)[1]), bg=True); n += 1
+    if n: print('re-queued', n, 'takes saved before the restart and not checked yet', flush=True)
 
-def head_median(TW):
-    """the letter head's score on the line's words (2+ consonants), the median — with the lowest word left out when
-       there are three or more, so that one wrong word does not make a good recording look poor (v4.4)"""
-    hs = sorted(t['hskel'] for t in TW if (t.get('n') or 0) >= 2 and t.get('hskel') is not None)
-    if not hs: return None
-    if len(hs) >= 3: hs = hs[1:]
-    return hs[(len(hs) - 1) // 2]   # the lower middle: one well-heard word does not make a short line clean
-
-def no_speech_in(take):
-    """fewer phones heard than any singing would give: under 3, or under one every two seconds (kept in step with the page)"""
-    n = len(take.get('phones') or []); dur = take.get('dur') or 0
-    return n < max(3, 0.5 * dur)
-
-def clean_of(TW):
-    """a clean take: the heads hear the line well enough for the finer signals (pw, the whole-line evidence)"""
-    m = head_median(TW); return m is not None and m >= .7
-
-def marks_of(TW, F, gap, clean, rival=None):
-    """the page's verdict per word (markOf + the whole-line evidence on a clean take; the line gap on every take;
-       a take the head barely hears gets no red) -> (marks, why, line_wrong, cant_hear)"""
-    marks = [mark_of(TW[i], F[i] if F and i < len(F) else None, clean) for i in range(len(TW))]; why = [None] * len(TW); line_wrong = False; cant_hear = False
-    if clean and TW:
-        ds = [t['drop'] if t.get('drop') is not None else -1e9 for t in TW]; top = int(np.argmax(ds)); second = max([d for i, d in enumerate(ds) if i != top], default=-1e9)
-        dropped = (TW[top].get('n') or 0) >= 2 and ds[top] >= RULE['drop'] and ds[top] - second >= RULE['margin']
-        # a word whose consonants the phone recognizer found in place, with most letters kept, is not "not heard": doubtful at most
-        heard = (TW[top].get('skel') or 0) >= .8 and (TW[top].get('kept') or 0) >= .6
-        if dropped and not heard: marks[top] = 'off'; why[top] = 'dropped'
-        elif dropped and marks[top] == 'ok': marks[top] = 'unsure'
-        sw = [t['swap'] if t.get('swap') is not None else -1e9 for t in TW[:-1]]
-        if sw:
-            j = int(np.argmax(sw)); na, nb = TW[j].get('n') or 0, TW[j + 1].get('n') or 0
-            # a skipped word also "gains" a little from being swapped with its neighbour (8-14 nats against a drop of
-            # 27-72); a real swap gains at least 0.4 of the drop (0.8-3.3 on Rabbi Alouf, 52 of 52). Under that share the
-            # pair's dropped word is a skip, and the neighbour is left alone
-            pd = max(ds[j], ds[j + 1]); same = pd >= RULE['drop'] and sw[j] < RULE['share'] * pd   # (the pair's own largest drop: two skipped words in one line have no single winner)
-            if sw[j] >= RULE['swap'] and max(na, nb) >= 2 and min(na, nb) >= 1 and not same: marks[j] = marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'
-    elif TW:
-        # a take heard half-well (head median .5-.7): the drop evidence is not safe there (right words reach 40+ on the
-        # archive), the swap evidence is — right takes top out at 5.8, real swaps 12-62 — at a higher bar
-        m = head_median(TW); sw = [t['swap'] if t.get('swap') is not None else -1e9 for t in TW[:-1]]
-        if m is not None and m >= RULE['half'] and sw:
-            j = int(np.argmax(sw)); na, nb = TW[j].get('n') or 0, TW[j + 1].get('n') or 0
-            ds = [t['drop'] if t.get('drop') is not None else -1e9 for t in TW]; pd = max(ds[j], ds[j + 1]); same = pd >= RULE['drop'] and sw[j] < RULE['share'] * pd
-            if sw[j] >= RULE['swap2'] and max(na, nb) >= 2 and min(na, nb) >= 1 and not same: marks[j] = marks[j + 1] = 'off'; why[j] = why[j + 1] = 'swapped'
-    # not this line: another line of the same text beats the written one by 0.3 nats a frame AND fits the audio
-    # well itself (its own gap to the free path under 0.4). Measured: Rabbi Alouf's wrong pasuk 70/70, his right
-    # pasuk 0/70; 80 Israelis reading other sentences — voices the head reads poorly — 0/80 right ones called wrong
-    # (the free-path gap alone called 33 of those 80 wrong: a poorly read voice raises it just like a wrong text).
-    # Without the text's other lines (free words) there is no wrong-line verdict.
-    rg = rival.get('gain') if isinstance(rival, dict) else None; rh = rival.get('head') if isinstance(rival, dict) else None
-    # ... and the other line must itself be heard (its head median >= .3): on an unreadable take a short line can "win" by a hair
-    if TW and gap is not None and rg is not None and rg >= RULE['rival'] and (gap - rg) <= RULE['altFit'] and (rh is None or rh >= RULE['hear']):
-        line_wrong = True; marks = ['unsure' if m == 'ok' else m for m in marks]
-    # the head barely hears the words (instruments, a far microphone): nothing is red, the doubtful words are 'unsure'
-    if TW and not clean and not line_wrong:
-        m = head_median(TW)
-        if m is not None and m < RULE['hear']: cant_hear = True; marks = ['unsure' if x == 'off' else x for x in marks]; why = [None if w in ('dropped', 'swapped') else w for w in why]
-    return marks, why, line_wrong, cant_hear
-
-def summarize(out):
-    """the machine's claims about one take, in the page's words: marks per word, throat verdicts, vowel differences"""
-    W, TW, F = out['words'], out['take']['words'], (out.get('fit') or None)   # an empty fit list is no fit
-    clean = clean_of(TW)
-    marks, why, line_wrong, cant_hear = marks_of(TW, F, out['take'].get('gap'), clean, out['take'].get('rival'))
-    # no singing in the recording at all (silence, noise, a microphone that did not pick the person up): the phone
-    # recognizer hears nothing — reading gives ~4 phones a second, slow singing 1.5, noise and silence 0
-    no_speech = no_speech_in(out['take'])
-    if no_speech: marks = ['unsure' if m else m for m in marks]; why = [None] * len(why); line_wrong = False; cant_hear = False
-    RW = (out.get('ref') or {}).get('words')
-    def hv(i, k):
-        if not RW or i >= len(RW): return None
-        r = next((x for x in (RW[i].get('throat') or []) if x.get('k') == k), None); return r.get('v') if r else None
-    throat = [{'c': th['c'], 'w': W[i], 'k': th['k'], 'v': th.get('v'), 'hazzan': hv(i, th['k']), 'mark': marks[i]} for i, t in enumerate(TW) for th in (t.get('throat') or [])]
-    if not clean:   # a "plain" verdict on a poorly heard take is not a fault to show (another hazzan with instruments: 9 such of 144, all on non-clean takes); the raw verdict stays for the lab
-        for th in throat:
-            if th['v'] == 'plain': th['raw'] = 'plain'; th['v'] = 'unsure'
-    VN = out.get('vowel_names') or {}; nm = lambda k: (VN.get(k) or k).split(' ')[0]
-    vow = []
-    for src, against in (((out.get('vowels'), 'hazzan'), (out.get('vowels_nikud'), 'nikud')) if clean else ()):   # vowel notes only on a clean take (another voice with instruments gave one note per 4.5 right words)
-        for i, ds in (src or {}).items():
-            if marks[int(i)] == 'off': continue   # a word that was not there has no vowels to speak of
-            for d in ds: vow.append({'w': W[int(i)], 'k': d['k'], 'you': nm(d['you']), 'ref': nm(d['ref']), 'against': against})
-    miss = {W[i]: t['miss'] for i, t in enumerate(TW) if t.get('miss')}
-    if cant_hear or no_speech: throat, vow, miss = [], [], {}   # the words were not made out: no claims about the letters inside them
-    return {'marks': marks, 'why': why, 'line_wrong': line_wrong, 'cant_hear': cant_hear, 'no_speech': no_speech, 'rival': out['take'].get('rival'), 'gap': out['take'].get('gap'), 'throat': throat, 'vowels': vow, 'miss': miss, 'clean': clean, 'head': head_median(TW), 'hazzan': bool(F), 'dur': out['take'].get('dur')}
+def housekeeping():
+    """when the server starts serving: remove other builds' hazzan analyses, and put the takes that were waiting back in
+       the queue. DK_SIDE=1 (a second server on the same folders: the Mac's bench, a test) leaves the takes alone."""
+    drop_old_refs()
+    if not os.environ.get('DK_SIDE'): threading.Thread(target=regrade_waiting, daemon=True).start()
 
 def list_takes(set_=None, name=None, who=None):
     items = []

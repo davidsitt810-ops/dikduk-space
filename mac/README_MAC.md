@@ -19,7 +19,7 @@ Three scripts, run in Terminal on the Mac, in this order. Each one can be run ag
    `sudo launchctl kickstart -k system/com.pizmonim.dikduk`.
 
 Afterwards:
-- `bash ~/Downloads/dikduk-v4/mac/update.sh` — pulls the newest server code and restarts (the pages, the booth and
+- `bash ~/dikduk/app/mac/update.sh` — pulls the newest server code and restarts (the pages, the booth and
   embed.js update by themselves from GitHub, like the Space).
 - Log: `tail -f ~/dikduk/logs/server.log`. Tunnel log: `sudo tail -50 /Library/Logs/com.cloudflare.cloudflared.err.log`.
 - Stop / start: `sudo launchctl bootout system/com.pizmonim.dikduk` / `sudo launchctl bootstrap system /Library/LaunchDaemons/com.pizmonim.dikduk.plist`.

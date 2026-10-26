@@ -5,7 +5,7 @@ also checked as line j of the same pizmon (WRONG LINE), and, where B's take is c
 (SKIP, the word's span taken from the machine's own placement) and with two neighbours swapped (SWAP).
 Writes exam_archive_rows.json (one row per word) and prints the tallies. usage: exam_archive.py [max pizmonim] [max lines]"""
 import sys, os, json, time, random, hashlib, collections
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'space'))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 os.environ.setdefault('DK_NO_WARM', '1')
 import numpy as np
 import app
