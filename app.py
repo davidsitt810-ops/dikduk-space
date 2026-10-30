@@ -807,7 +807,7 @@ def try_page():
 
 @app.get('/health')
 def health():
-    return {'ok': True, 'version': 4.7, 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
+    return {'ok': True, 'version': 4.8, 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
             'page_from': 'github' if (_PAGES.get('index.html') or {}).get('body') else 'local', 'jobs': {'queued': sum(1 for v in JOBS.values() if v['state'] == 'queued'), 'running': sum(1 for v in JOBS.values() if v['state'] == 'running')},
             'letters': sorted(LT.BY_C), 'ears': {'letter_head': HEAD is not None, 'vowel_head': FULL is not None, 'fine_tuned': FT is not None, 'classifier_v2': bool(CLF2), 'tehillim_lyrics': len(TEHILLIM_LYR), 'tehillim_audio': os.path.isdir(TEHILLIM_DIR) and len(os.listdir(TEHILLIM_DIR)) or (TEHILLIM_BASE or 0),
                      'tehillim_perakim': sorted(int(m.group(1)) for m in (re.match(r'tehillim-(\d{3})\.mp3$', f) for f in (os.listdir(TEHILLIM_DIR) if os.path.isdir(TEHILLIM_DIR) else [])) if m)}}
@@ -1347,6 +1347,14 @@ def marks_of(TW, F, gap, clean, rival=None):
         m = head_median(TW)
         if m is not None and m < RULE['hear']: cant_hear = True; marks = ['unsure' if x == 'off' else x for x in marks]; why = [None if w in ('dropped', 'swapped') else w for w in why]
     return marks, why, line_wrong, cant_hear
+
+def strict_of(marks, why, clean, cant_hear):
+    """the strict check (the page's switch): on a clean take every 'not sure' word counts as not clearly right.
+       Rabbi Alouf's exam: wrong words caught 76% -> 89%, good words marked 0 -> 0.4%. On an unclear take nothing
+       changes — there it would mark a fifth of the good words — and the page asks for a clearer take instead.
+       -> (marks, why, on). Kept in step with strictOf in index.html and embed.js"""
+    if not clean or cant_hear: return marks, why, False
+    return ['off' if m == 'unsure' else m for m in marks], ['unclear' if marks[i] == 'unsure' and w is None else w for i, w in enumerate(why)], True
 
 def summarize(out):
     """the machine's claims about one take, in the page's words: marks per word, throat verdicts, vowel differences"""

@@ -56,6 +56,7 @@ select{padding-right:28px}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--gold);border-radius:50%;animation:sp .8s linear infinite;flex:none}
 @keyframes sp{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion: reduce){.spin{animation:none}}
+.strict{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--mute);margin:-4px 0 12px;cursor:pointer}.strict input{width:18px;height:18px;accent-color:var(--gold);margin:0}
 .say{font-size:17px;line-height:1.4;margin:0 0 12px}.say .he{font-size:20px}.say.ok{color:var(--good)}.say.bad{color:var(--bad)}.say.warn{color:var(--warn)}
 .words{display:flex;flex-wrap:wrap;gap:8px;direction:rtl;justify-content:flex-start}
 .w{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:68px;padding:8px 10px 6px;border-radius:12px;border:2px solid var(--line);background:transparent;color:var(--fg);cursor:pointer;font-family:var(--he);font-size:26px;line-height:1.15}
@@ -138,6 +139,7 @@ textarea{width:100%;min-height:80px;font:12px/1.4 ui-monospace,Menlo,monospace;c
   <div class="body">
    <h2><span class="n">4</span>How it went</h2>
    <p class="say" id="say"></p>
+   <label class="strict"><input type="checkbox" id="strict"><span>Strict check: only what is clearly right counts</span></label>
    <div class="words" id="res"></div>
    <p class="hint">Tap a word to hear the hazzan sing it, then you.</p>
    <ul class="notes" id="notes"></ul>
@@ -221,7 +223,7 @@ function kindHint(){const th=KIND==='th';$('#pid').placeholder=th?'Perek number,
 $('#kindPz').onclick=()=>{KIND='pz';$('#kindPz').classList.add('on');$('#kindTh').classList.remove('on');kindHint();$('#pid').focus();};
 $('#kindTh').onclick=()=>{KIND='th';$('#kindTh').classList.add('on');$('#kindPz').classList.remove('on');kindHint();$('#pid').focus();};
 /* ---------- lyrics ---------- */
-let LY=null,P=null,REC=null,LINE=null,TAKE=null,RESULT=null;
+let LY=null,P=null,REC=null,LINE=null,TAKE=null,RESULT=null;let STRICT=false;try{STRICT=localStorage.getItem('dk.strict')==='1';}catch(e){}
 const NIK=/[֑-ׇ]/g,FIN={'ך':'כ','ם':'מ','ן':'נ','ף':'פ','ץ':'צ'};
 const heL=w=>String(w||'').replace(NIK,'').replace(/[ךםןףץ]/g,c=>FIN[c]).replace(/[^א-ת]/g,'');
 const heWords=t=>String(t||'').replace(/[־\-]/g,' ').split(/[\s,.;:!?"'״׳()\[\]{}|/\\]+/).filter(w=>heL(w));
@@ -358,6 +360,9 @@ function marksOf(TW,F,gap,rival){const marks=TW.map((t,i)=>markOf(t,F&&F[i]));co
  if(TW.length&&gap!=null&&rg!=null&&rg>=RULE.rival&&(gap-rg)<=RULE.altFit&&(rh==null||rh>=RULE.hear)){lineWrong=true;for(let i=0;i<marks.length;i++)if(marks[i]==='ok')marks[i]='unsure';}
  if(TW.length&&!CLEAN&&!lineWrong){const m=headMedian(TW);if(m!=null&&m<RULE.hear){cantHear=true;for(let i=0;i<marks.length;i++)if(marks[i]==='off')marks[i]='unsure';}}
  return {marks,why,lineWrong,cantHear};}
+/* strict: on a clean take every 'not sure' word counts as not clearly right (Alouf exam: wrong words caught 76% -> 89%, good words ✕ 0 -> 0.4%);
+   on an unclear take nothing changes — there it would put ✕ on a fifth of good words — and the page asks for a clearer take. Server: app.strict_of */
+function strictOf(marks,why,clean,cantHear){if(!clean||cantHear)return {marks,why,on:false};return {marks:marks.map(m=>m==='unsure'?'off':m),why:why.map((w,i)=>marks[i]==='unsure'&&w==null?'unclear':w),on:true};}
 /* a throat letter's verdict in words: v = throat / plain / unsure; the ears (classifier, Arabic-letter ear, trained
    head) are for the lab */
 function thSay(t){if(!t||!t.v)return {v:'?',lead:'not found',ears:''};const f=x=>x==null?'–':(+x).toFixed(2);const ar=t.ar||{};
@@ -374,12 +379,14 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
  /* no singing in the recording at all: the phone recognizer hears nothing (reading ~4 phones a second, slow singing 1.5, noise and silence 0) */
  const noSpeech=(j.take.phones||[]).length<Math.max(3,0.5*(j.take.dur||0));if(noSpeech){marks=marks.map(m=>m?'unsure':m);why=why.map(()=>null);lineWrong=false;cantHear=false;}
  /* on a take the heads hear poorly, a "plain" ע/ח is not a fault to show (the raw verdict stays in the lab line), and the vowel ear is not trusted at all */
+ let SON=false;if(STRICT&&!noSpeech){const st=strictOf(marks,why,CLEAN,cantHear);marks=st.marks;why=st.why;SON=st.on;}
+ const strictUnclear=STRICT&&!CLEAN&&!noSpeech&&!cantHear&&!lineWrong;
  if(!CLEAN)TW.forEach(t=>(t.throat||[]).forEach(th=>{if(th.v==='plain'){th.raw='plain';th.v='unsure';}}));
- const LABEL={ok:'✓',unsure:'not sure',off:'not heard','':''};
+ const LABEL={ok:'✓',unsure:'not sure',off:'not heard','':''};const lab=i=>why[i]==='unclear'?'not clear':LABEL[marks[i]];
  /* the words: colour = was the word there; the ע/ח inside each word coloured by its own verdict */
  $('#res').innerHTML=W.map((w,i)=>{const t=TW[i];let n=0;const ths=(t.throat||[]);
-  const cls=c=>{const th=ths[n++];if(!th||marks[i]==='off'||cantHear||noSpeech)return '';if(th.v==='plain'){const r=RW&&RW[i]&&(RW[i].throat||[]).find(x=>x.k===th.k);if(r&&r.v==='plain')return '';}return VCLS[th.v]||'';};
-  return `<button class="w ${marks[i]}" data-i="${i}" type="button" lang="he"><b>${hiTh(w,cls)}</b><small>${LABEL[marks[i]]}</small></button>`;}).join('');
+  const cls=c=>{const th=ths[n++];if(!th||marks[i]==='off'||cantHear||noSpeech)return '';if(th.v==='plain'){const r=RW&&RW[i]&&(RW[i].throat||[]).find(x=>x.k===th.k);if(r&&r.v==='plain')return '';}if(SON&&th.v==='unsure')return 'bad';return VCLS[th.v]||'';};
+  return `<button class="w ${marks[i]}" data-i="${i}" type="button" lang="he"><b>${hiTh(w,cls)}</b><small>${lab(i)}</small></button>`;}).join('');
  $('#res').querySelectorAll('.w').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;$('#res').querySelectorAll('.w').forEach(x=>x.classList.toggle('sel',x===b));const r=RW&&RW[i],f=F&&F[i],t=TW[i];
   const mine=f&&f.t0!=null?[f.t0,f.t1]:t&&t.t0!=null?[t.t0,t.t1]:null;
   if(r&&LINE.t0!=null){playHim(LINE.t0+r.t0-.1,LINE.t0+r.t1+.1);const wait=(r.t1-r.t0+.4)*1000;setTimeout(()=>{if(mine)playYou(Math.max(0,mine[0]-.15),mine[1]+.15);},wait+150);}
@@ -389,10 +396,11 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
  const lines=[];
  W.forEach((w,i)=>{const t=TW[i];const parts=[];if(cantHear||noSpeech)return;   /* the words were not made out: no claims about the letters inside them */
   if(why[i]==='swapped'){if(i+1<W.length&&why[i+1]==='swapped'&&TW[i].swap!=null&&TW[i].swap>=RULE.swap)parts.push(`${he(w)} and ${he(W[i+1])} seem swapped`);}
-  else if(marks[i]==='off')parts.push('not heard where it belongs');else if(marks[i]==='unsure')parts.push('not sure it was there');
+  else if(why[i]==='unclear')parts.push('not clearly right');else if(marks[i]==='off')parts.push('not heard where it belongs');else if(marks[i]==='unsure')parts.push('not sure it was there');
   if(marks[i]&&marks[i]!=='ok'&&t.miss&&t.miss.length&&t.miss.length<(t.n||9))parts.push(`${he(t.miss.join(' '))} not heard`);
   if(marks[i]!=='off')(t.throat||[]).forEach(th=>{if(th.v!=='plain')return;const r=RW&&RW[i]&&(RW[i].throat||[]).find(x=>x.k===th.k);if(r&&r.v==='plain')return;   /* the hazzan says it plain there too: not a fault */
    parts.push(th.c==='ע'?'the ע was said like alef':'the ח was not from the throat');});
+  if(SON&&marks[i]!=='off')(t.throat||[]).forEach(th=>{if(th.v==='unsure')parts.push(th.c==='ע'?'the ע was not clearly from the throat':'the ח was not clearly from the throat');});
   (t.notes||[]).forEach(n=>{if(n.say==='sav')parts.push('the ת sounded like a samekh');});
   const vd=(marks[i]==='off'||!CLEAN)?[]:((j.vowels&&j.vowels[i])||[]),vn=(marks[i]==='off'||!CLEAN)?[]:((j.vowels_nikud&&j.vowels_nikud[i])||[]);
   vd.forEach(d=>parts.push(`you sang ${vname(d.you)} where the hazzan sings ${vname(d.ref)}`));
@@ -402,16 +410,17 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
  if(noSpeech){say.className='say warn';say.textContent='I did not hear any singing in this recording. Check that the microphone picked you up (hold the phone closer), then record again.';}
  else if(lineWrong){say.className='say bad';say.textContent='This does not sound like this line. Check that you picked the right line, then try again.';}
  else if(cantHear){say.className='say warn';say.textContent='I could not make out the words of this line in the recording. Check that it is the right line, then try again a little closer to the phone, without music in the background.';}
+ else if(strictUnclear){say.className='say warn';say.textContent='This take is not clear enough for a strict check. Record again in a quiet room, phone close to your mouth — or turn the strict check off.';}
  else if(!F&&j.ref_err&&!/Tehillim/.test(j.ref_err)){say.className='say warn';say.textContent='No hazzan recording to compare with, so only your own consonants were checked.';}
  else if(!lines.length){say.className='say ok';say.textContent=F?'Every word came through as the hazzan sings it.':'Every word came through.';}
- else if(off){const ow=W.filter((w,i)=>marks[i]==='off'),uw=W.filter((w,i)=>marks[i]==='unsure');say.className='say bad';say.innerHTML=(W.length-off)+' of '+W.length+' words came through. Not heard: '+ow.map(he).join(', ')+(uw.length?'. Not sure: '+uw.map(he).join(', '):'')+'.';}
+ else if(off){const ow=W.filter((w,i)=>marks[i]==='off'),uw=W.filter((w,i)=>marks[i]==='unsure');say.className='say bad';say.innerHTML=(W.length-off)+' of '+W.length+(SON?' words came through clearly. Not clearly right: ':' words came through. Not heard: ')+ow.map(he).join(', ')+(uw.length?'. Not sure: '+uw.map(he).join(', '):'')+'.';}
  else if(uns){const uw=W.filter((w,i)=>marks[i]==='unsure');say.className='say warn';say.innerHTML='The words are there; not sure about '+uw.map(he).join(', ')+'.';}
  else{say.className='say warn';say.textContent='The words are there, with a few things to hear.';}
  $('#notes').innerHTML=lines.join('');
  /* throat letters: the verdict per ע / ח, you and the hazzan */
  const rows=[];TW.forEach((t,i)=>{if(marks[i]==='off'||cantHear||noSpeech)return;(t.throat||[]).forEach(th=>{const r=RW&&RW[i]&&(RW[i].throat||[]).find(x=>x.k===th.k);rows.push({w:W[i],c:th.c,you:th,him:r});});});
  if(rows.length){$('#th').innerHTML=rows.map(x=>{const a=thSay(x.you),b=thSay(x.him);
-   return `<div class="tr"><div class="hd"><span class="lt">${esc(x.c)}</span><span>in ${he(x.w)}</span></div><div><span class="k">you</span><span class="v ${VCLS[a.v]||''}">${esc(a.lead)}</span><span class="ears hint" style="margin:0"> · ${esc(a.ears)}</span></div><div><span class="k">the hazzan</span><span class="v">${x.him?esc(b.lead):'–'}</span>${x.him?`<span class="ears hint" style="margin:0"> · ${esc(b.ears)}</span>`:''}</div></div>`;}).join('');
+   return `<div class="tr"><div class="hd"><span class="lt">${esc(x.c)}</span><span>in ${he(x.w)}</span></div><div><span class="k">you</span><span class="v ${SON&&a.v==='unsure'?'bad':VCLS[a.v]||''}">${esc(SON&&a.v==='unsure'?'not clearly from the throat ✕':a.lead)}</span><span class="ears hint" style="margin:0"> · ${esc(a.ears)}</span></div><div><span class="k">the hazzan</span><span class="v">${x.him?esc(b.lead):'–'}</span>${x.him?`<span class="ears hint" style="margin:0"> · ${esc(b.ears)}</span>`:''}</div></div>`;}).join('');
   $('#thP').hidden=false;}else $('#thP').hidden=true;
  /* lab details: the numbers per word, the vowel comparison, every sound heard */
  const f2=x=>x==null?'–':(+x).toFixed(2);
@@ -427,6 +436,7 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
  $('#vnote').value='';$('#vdP').hidden=false;
  foldStep('s3');$('#s4').hidden=false;$('#s4').querySelector('.body').hidden=false;$('#s4').scrollIntoView({behavior:'smooth',block:'start'});}
 $('#detP').addEventListener('toggle',()=>document.body.classList.toggle('showEars',$('#detP').open));
+$('#strict').checked=STRICT;$('#strict').onchange=()=>{STRICT=$('#strict').checked;try{localStorage.setItem('dk.strict',STRICT?'1':'0');}catch(e){}if(RESULT)render(RESULT);};
 $('#againLine').onclick=()=>{resetTake();openStep('s3');$('#s3').scrollIntoView({behavior:'smooth',block:'start'});};
 $('#otherLine').onclick=()=>{openStep('s2');$('#s2').scrollIntoView({behavior:'smooth',block:'start'});};
 /* ---------- scorecard (lab): kept on this phone; "Copy" gives the text to paste into the chat ---------- */

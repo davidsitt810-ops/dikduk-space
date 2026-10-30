@@ -41,8 +41,7 @@ ingress:
       noTLSVerify: true
   - service: http_status:404
 EOF
-sudo cloudflared service uninstall >/dev/null 2>&1 || true
-sudo cloudflared service install
+exec bash "$(dirname "$0")/fix_tunnel.sh" "$HOST"   # cloudflared's own "service install" starts it without "tunnel run" on macOS (error 1033)
 
 say "5. checking https://$HOST/health"
 for i in $(seq 1 30); do

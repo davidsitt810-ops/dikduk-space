@@ -26,6 +26,9 @@ say "ffmpeg, cloudflared, python 3.12 (Homebrew)"
 brew list --versions ffmpeg >/dev/null 2>&1 || brew install ffmpeg
 brew list --versions cloudflared >/dev/null 2>&1 || brew install cloudflared
 brew list --versions python@3.12 >/dev/null 2>&1 || brew install python@3.12
+# Homebrew's python 3.12 is built against a newer expat than macOS ships; use Homebrew's copy (fixes "Broken Python installation").
+brew list --versions expat >/dev/null 2>&1 || brew install expat
+export DYLD_LIBRARY_PATH="$(brew --prefix expat)/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
 PY="$(brew --prefix python@3.12)/bin/python3.12"
 "$PY" --version
 
@@ -34,9 +37,15 @@ mkdir -p "$DIR" "$LOGS"
 if [ -d "$APP/.git" ]; then git -C "$APP" pull --ff-only; else git clone --depth 1 "$REPO" "$APP"; fi
 
 say "python packages (the same versions as the Space)"
-[ -x "$VENV/bin/python" ] || "$PY" -m venv "$VENV"
-"$VENV/bin/pip" install --quiet --upgrade pip
-"$VENV/bin/pip" install --quiet "torch==2.4.1" "transformers==4.44.2" "huggingface_hub>=0.24,<1.0" fastapi uvicorn numpy requests
+# (pip needs the expat fix above; uv timed out behind a content filter, so pip it is)
+if ! "$VENV/bin/python" -c "import torch, transformers, fastapi, uvicorn, requests" >/dev/null 2>&1; then
+  rm -rf "$VENV"
+  "$PY" -m venv "$VENV"
+  "$VENV/bin/python" -m pip install --quiet --upgrade pip
+  "$VENV/bin/python" -m pip install --default-timeout 120 --retries 8 "torch==2.4.1" "transformers==4.44.2" "huggingface_hub>=0.24,<1.0" fastapi uvicorn numpy requests
+else
+  echo "packages already installed"
+fi
 "$VENV/bin/python" -c "import torch, transformers; print('torch', torch.__version__, '· transformers', transformers.__version__, '· mps available:', torch.backends.mps.is_available())"
 
 say "settings: $ENVF"
@@ -53,16 +62,24 @@ DK_PAGE_BASE=https://raw.githubusercontent.com/davidsitt810-ops/dikduk-space/mai
 # this machine answers the public internet through the tunnel: the booth's recordings need the key below
 DK_PUBLIC=1
 DK_KEY=$KEY
-# cpu is the measured setting; mps (the Mac's GPU) is the experiment — bench.sh compares them
-DK_DEVICE=cpu
+# mps (the Mac's GPU): measured on the M4 mini 0.4 s a pasuk vs 8–14 s on cpu, same verdicts (bench.py); cpu is the fallback
+DK_DEVICE=mps
 # DK_THREADS=4
 PORT=7860
+DYLD_LIBRARY_PATH=$(brew --prefix expat)/lib
 EOF
   chmod 600 "$ENVF"
   echo "wrote $ENVF (the booth key is in it — keep the file to yourself)"
 else
   echo "keeping the existing $ENVF"
 fi
+
+say "certificates (a content filter that re-signs secure connections: python must trust what macOS trusts)"
+CA="$DIR/ca.pem"
+security find-certificate -a -p /System/Library/Keychains/SystemRootCertificates.keychain /Library/Keychains/System.keychain "$HOME/Library/Keychains/login.keychain-db" > "$CA" 2>/dev/null || true
+echo "$(grep -c 'BEGIN CERTIFICATE' "$CA") certificates in $CA"
+# HF_HUB_DISABLE_XET: Hugging Face's fast downloader could not get through the filter; the plain one can
+for kv in "SSL_CERT_FILE=$CA" "REQUESTS_CA_BUNDLE=$CA" "HF_HUB_DISABLE_XET=1"; do grep -q "^${kv%%=*}=" "$ENVF" || echo "$kv" >> "$ENVF"; done
 
 say "the two models (about 2.6 GB, once)"
 set -a; . "$ENVF"; set +a

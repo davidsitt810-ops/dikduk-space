@@ -98,6 +98,16 @@ Apple-Silicon Mac as a boot-time service behind a Cloudflare Tunnel (`install.sh
 `bench.py`); `DK_DEVICE=mps` tries the Mac's GPU; `DK_PUBLIC=1` keeps the booth's recordings behind `DK_KEY` off the
 Space too.
 
+v4.8 (Oct 30) adds the **strict check** — a switch under the result in the embed and on the lab page (`data-strict="1"`
+or `strict: true` starts it on; the person's last choice is remembered). On a clean take every "not sure" word counts
+as "not clearly right" (✕), and a "not sure" ע/ח counts as "not clearly from the throat". Rabbi Alouf's exam: wrong
+words caught 76% → 89%, good words marked 0 → 0.4%. On an unclear take nothing is marked differently — there the
+strict rule would mark about a fifth of good words (the archive's clean-but-other-singer takes: 18 of 86) — and the
+page asks for a clearer take instead. Same rule in three places, checked word for word: `strict_of` (app.py),
+`strictOf` (index.html, embed.js) — `space_test/t_parity.py` 547/547; the browser test `t_strict_ui.py`.
+The home Mac's server runs on its GPU (`DK_DEVICE=mps`: 0.4 s a pasuk instead of 8–14 s, the same verdicts), and
+`.github/workflows/watch.yml` opens a GitHub issue when it stops answering.
+
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
 - `GET /letters` — the letter checker; `POST /letter?c=<letter>[&want=…][&strict=1]` with a short take as the body; `GET /letters.json`, `GET /letters/audio/<name>.mp3` — Rabbi Alouf's example words.
 - `GET /health`, `GET /info`, `GET /lyrics` (the site's lyrics.json + the Tehillim perakim, with CORS).

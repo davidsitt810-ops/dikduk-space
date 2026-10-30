@@ -6,10 +6,11 @@
    Options: api (the checker server — or several, an array or a space-separated string: the first one whose /health
    answers is used, so a fast home server can come first and the Space second as the fallback; if a check cannot reach
    the chosen one, the others are asked once more), pz | th (pizmon id | Tehillim perek), line (1-based), rec (hazzan recording file),
-   lyrics (the site's lyrics object or a URL — saves a fetch), archive (base URL of the archive mp3s), onResult(result).
+   lyrics (the site's lyrics object or a URL — saves a fetch), archive (base URL of the archive mp3s), strict (1/true: start with the
+   strict check on — data-strict="1"; the person can switch it under the result), onResult(result, {pid, line, rec, strict}).
    Styling: everything is under .dk; colours and fonts are CSS variables on the container (--dk-bg, --dk-panel, --dk-line,
    --dk-fg, --dk-mute, --dk-accent, --dk-good, --dk-warn, --dk-bad, --dk-ink, --dk-he, --dk-ui); the site's own fonts are
-   inherited unless --dk-he / --dk-ui are set. No browser storage is used. The same checker as the Space's /try page. */
+   inherited unless --dk-he / --dk-ui are set. Browser storage: only the strict switch's last setting (dk.strict). The same checker as the Space's /try page. */
 (function () {
 'use strict';
 const CSS = `
@@ -71,6 +72,7 @@ const CSS = `
 .dk .dk-tr>div{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline}.dk .dk-tr .dk-lt{font-family:var(--he);font-size:24px;color:var(--gold)}
 .dk .dk-tr .dk-k{color:var(--mute);flex:none;min-width:84px}.dk .dk-tr .good{color:var(--good)}.dk .dk-tr .bad{color:var(--bad)}.dk .dk-tr .warn{color:var(--warn)}
 .dk .dk-sub{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}
+.dk .dk-strict{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--mute,inherit);margin:-4px 0 12px;cursor:pointer}.dk .dk-strict input{width:18px;height:18px;accent-color:var(--gold);margin:0}
 .dk .dk-after{display:flex;gap:8px;margin-top:14px}.dk .dk-after .dk-btn{flex:1;margin-top:0}
 `;
 const T = {   /* every piece of text, so a site can translate or reword (Dikduk.strings) */
@@ -98,6 +100,9 @@ const T = {   /* every piece of text, so a site can translate or reword (Dikduk.
  lineN: 'Line {k}', pizmonN: 'Pizmon {id}', tehillimN: 'Tehillim {n}', swapped: '{a} and {b} seem swapped',
  wrongLine: 'This does not sound like this line. Check that you picked the right line, then try again.',
  cantHear: 'I could not make out the words of this line in the recording. Check that it is the right line, then try again a little closer to the phone, without music in the background.',
+ strictL: 'Strict check: only what is clearly right counts', labelUnclear: 'not clear', wUnclear: 'not clearly right',
+ someOffStrict: '{n} of {N} words came through clearly. Not clearly right: {off}', ayinUnclear: 'the ע was not clearly from the throat', hetUnclear: 'the ח was not clearly from the throat', thUnclear: 'not clearly ✕',
+ strictUnclear: 'This take is not clear enough for a strict check. Record again in a quiet room, phone close to your mouth — or turn the strict check off.',
  noSpeech: 'I did not hear any singing in this recording. Check that the microphone picked you up (hold the phone closer), then record again.'};
 const fmt = (s, o) => s.replace(/\{(\w+)\}/g, (m, k) => o[k] != null ? o[k] : m);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
@@ -154,6 +159,7 @@ const HTML = `
  <div class="dk-body">
   <h3><span class="dk-n">4</span><span data-t="s4"></span></h3>
   <p class="dk-say" data-r="say"></p>
+  <label class="dk-strict"><input type="checkbox" data-r="strict"><span data-t="strictL"></span></label>
   <div class="dk-words" data-r="res"></div>
   <p class="dk-hint" data-t="tap"></p>
   <ul class="dk-notes" data-r="notes"></ul>
@@ -179,6 +185,7 @@ function mount(root, opts) {
  $('againLine').textContent = S.singAgain; $('otherLine').textContent = S.otherLine;
  const fid = 'dkf' + Math.random().toString(36).slice(2, 8); $('file').id = fid; $('fileLab').htmlFor = fid;
  const err = t => { $('err').textContent = t || ''; };
+ let STRICT = opts.strict != null ? !!(+opts.strict || opts.strict === true) : (() => { try { return localStorage.getItem('dk.strict') === '1'; } catch (e) { return false; } })();
  let SRV = null, LY = null, P = null, REC = opts.rec || null, LINE = null, TAKE = null, RESULT = null, KIND = opts.th ? 'th' : 'pz', TAKE_URL = null;
  /* ----- steps ----- */
  const STEPS = ['s1', 's2', 's3', 's4'];
@@ -270,7 +277,7 @@ function mount(root, opts) {
    const post = () => fetch(url('/check?' + q), {method: 'POST', body: TAKE.blob, headers: {'content-type': TAKE.blob.type || 'application/octet-stream'}});
    let r; try { r = await post(); } catch (e) { if (APIS.length <= 1) throw e; SRV = await pickApi(); r = await post(); }   // the chosen server went away: ask the others once
    let j = await r.json(); if (!r.ok || j.err) throw new Error(j.err || ('server said ' + r.status));
-   if (j.job) j = await waitJob(j.job); RESULT = j; render(j); if (typeof opts.onResult === 'function') { try { opts.onResult(j, {pid: P.id, line: LINE.k, rec: REC}); } catch (e) {} } }
+   if (j.job) j = await waitJob(j.job); RESULT = j; render(j); if (typeof opts.onResult === 'function') { try { opts.onResult(j, {pid: P.id, line: LINE.k, rec: REC, strict: STRICT}); } catch (e) {} } }
   catch (e) { err(S.failed + e.message); }
   $('busy').hidden = true; $('check').disabled = false; };
  /* ----- the verdicts (the same rule as the Space's page) ----- */
@@ -293,15 +300,21 @@ function mount(root, opts) {
   if (TW.length && gap != null && rg != null && rg >= RULE.rival && (gap - rg) <= RULE.altFit && (rh == null || rh >= RULE.hear)) { lineWrong = true; for (let i = 0; i < marks.length; i++) if (marks[i] === 'ok') marks[i] = 'unsure'; }
   if (TW.length && !CLEAN && !lineWrong) { const m = headMedian(TW); if (m != null && m < RULE.hear) { cantHear = true; for (let i = 0; i < marks.length; i++) if (marks[i] === 'off') marks[i] = 'unsure'; } }
   return {marks, why, lineWrong, cantHear}; }
+ /* strict: on a clean take every 'not sure' word counts as not clearly right. Alouf exam: wrong words caught 76% -> 89%,
+    good words ✕ 0 -> 0.4%. On an unclear take nothing changes (there it would put ✕ on a fifth of good words): the page asks for a clearer take. Server: app.strict_of */
+ function strictOf(marks, why, clean, cantHear) { if (!clean || cantHear) return {marks, why, on: false}; return {marks: marks.map(m => m === 'unsure' ? 'off' : m), why: why.map((w, i) => marks[i] === 'unsure' && w == null ? 'unclear' : w), on: true}; }
  const VCLS = {throat: 'good', plain: 'bad', unsure: 'warn'};
  const thLead = t => !t || !t.v ? '–' : t.v === 'throat' ? S.thThroat : t.v === 'plain' ? (t.c === 'ע' ? S.thAlef : S.thPlain) : S.thUnsure;
  function render(j) { const W = j.words, TW = j.take.words, RW = j.ref ? j.ref.words : null, F = (j.fit && j.fit.length) ? j.fit : null;
   const HM = headMedian(TW); CLEAN = HM != null && HM >= .7;
   let {marks, why, lineWrong, cantHear} = marksOf(TW, F, j.take.gap, j.take.rival);
   const noSpeech = (j.take.phones || []).length < Math.max(3, 0.5 * (j.take.dur || 0)); if (noSpeech) { marks = marks.map(m => m ? 'unsure' : m); why = why.map(() => null); lineWrong = false; cantHear = false; }
+  let SON = false; if (STRICT && !noSpeech) { const st = strictOf(marks, why, CLEAN, cantHear); marks = st.marks; why = st.why; SON = st.on; }
+  const strictUnclear = STRICT && !CLEAN && !noSpeech && !cantHear && !lineWrong;
   if (!CLEAN) TW.forEach(t => (t.throat || []).forEach(th => { if (th.v === 'plain') { th.raw = 'plain'; th.v = 'unsure'; } })); const LABEL = {ok: S.labelOk, unsure: S.labelUnsure, off: S.labelOff, '': ''};
-  $('res').innerHTML = W.map((w, i) => { const t = TW[i]; let n = 0; const ths = (t.throat || []); const cls = () => { const th = ths[n++]; if (!th || marks[i] === 'off' || cantHear || noSpeech) return ''; if (th.v === 'plain') { const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return ''; } return VCLS[th.v] || ''; };
-   return `<button class="dk-w ${marks[i]}" type="button" data-i="${i}" lang="he"><b>${hiTh(w, cls)}</b><small>${LABEL[marks[i]]}</small></button>`; }).join('');
+  const lab = i => why[i] === 'unclear' ? S.labelUnclear : LABEL[marks[i]];
+  $('res').innerHTML = W.map((w, i) => { const t = TW[i]; let n = 0; const ths = (t.throat || []); const cls = () => { const th = ths[n++]; if (!th || marks[i] === 'off' || cantHear || noSpeech) return ''; if (th.v === 'plain') { const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return ''; } if (SON && th.v === 'unsure') return 'bad'; return VCLS[th.v] || ''; };
+   return `<button class="dk-w ${marks[i]}" type="button" data-i="${i}" lang="he"><b>${hiTh(w, cls)}</b><small>${lab(i)}</small></button>`; }).join('');
   $('res').querySelectorAll('.dk-w').forEach(b => b.onclick = () => { const i = +b.dataset.i; $('res').querySelectorAll('.dk-w').forEach(x => x.classList.toggle('sel', x === b)); const r = RW && RW[i], f = F && F[i], t = TW[i];
    const mine = f && f.t0 != null ? [f.t0, f.t1] : t && t.t0 != null ? [t.t0, t.t1] : null;
    if (r && LINE.t0 != null) { playHim(LINE.t0 + r.t0 - .1, LINE.t0 + r.t1 + .1); const wait = (r.t1 - r.t0 + .4) * 1000; setTimeout(() => { if (mine) playYou(Math.max(0, mine[0] - .15), mine[1] + .15); }, wait + 150); }
@@ -309,9 +322,10 @@ function mount(root, opts) {
   const VN = j.vowel_names || {}; const vname = k => esc((VN[k] || k).split(' ')[0]); const lines = [];
   W.forEach((w, i) => { const t = TW[i]; const parts = []; if (cantHear || noSpeech) return;
    if (why[i] === 'swapped') { if (i + 1 < W.length && why[i + 1] === 'swapped' && TW[i].swap != null && TW[i].swap >= RULE.swap) parts.push(fmt(S.swapped, {a: he(w), b: he(W[i + 1])})); }
-   else if (marks[i] === 'off') parts.push(S.wOff); else if (marks[i] === 'unsure') parts.push(S.wUnsure);
+   else if (why[i] === 'unclear') parts.push(S.wUnclear); else if (marks[i] === 'off') parts.push(S.wOff); else if (marks[i] === 'unsure') parts.push(S.wUnsure);
    if (marks[i] && marks[i] !== 'ok' && t.miss && t.miss.length && t.miss.length < (t.n || 9)) parts.push(he(t.miss.join(' ')) + S.notHeard);
    if (marks[i] !== 'off') (t.throat || []).forEach(th => { if (th.v !== 'plain') return; const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return; parts.push(th.c === 'ע' ? S.ayinAlef : S.hetPlain); });
+   if (SON && marks[i] !== 'off') (t.throat || []).forEach(th => { if (th.v === 'unsure') parts.push(th.c === 'ע' ? S.ayinUnclear : S.hetUnclear); });
    (t.notes || []).forEach(nn => { if (nn.say === 'sav') parts.push(S.tavSamekh); });
    const vd = (marks[i] === 'off' || !CLEAN) ? [] : ((j.vowels && j.vowels[i]) || []), vn = (marks[i] === 'off' || !CLEAN) ? [] : ((j.vowels_nikud && j.vowels_nikud[i]) || []);
    vd.forEach(d => parts.push(fmt(S.vowHaz, {you: vname(d.you), ref: vname(d.ref)}))); vn.forEach(d => { if (!vd.some(x => x.k === d.k)) parts.push(fmt(S.vowNik, {you: vname(d.you), ref: vname(d.ref)})); });
@@ -320,21 +334,23 @@ function mount(root, opts) {
   if (noSpeech) { say.className = 'dk-say warn'; say.textContent = S.noSpeech; }
   else if (lineWrong) { say.className = 'dk-say bad'; say.textContent = S.wrongLine; }
   else if (cantHear) { say.className = 'dk-say warn'; say.textContent = S.cantHear; }
+  else if (strictUnclear) { say.className = 'dk-say warn'; say.textContent = S.strictUnclear; }
   else if (!F && j.ref_err && !/Tehillim/.test(j.ref_err)) { say.className = 'dk-say warn'; say.textContent = S.noRef; }
   else if (!lines.length) { say.className = 'dk-say ok'; say.textContent = F ? S.allOkRef : S.allOk; }
-  else if (offW.length) { say.className = 'dk-say bad'; say.innerHTML = fmt(S.someOff, {n: W.length - offW.length, N: W.length, off: offW.map(he).join(', ')}) + (unsW.length ? fmt(S.notSure, {uns: unsW.map(he).join(', ')}) : '') + '.'; }
+  else if (offW.length) { say.className = 'dk-say bad'; say.innerHTML = fmt(SON ? S.someOffStrict : S.someOff, {n: W.length - offW.length, N: W.length, off: offW.map(he).join(', ')}) + (unsW.length ? fmt(S.notSure, {uns: unsW.map(he).join(', ')}) : '') + '.'; }
   else if (unsW.length) { say.className = 'dk-say warn'; say.innerHTML = fmt(S.unsureOnly, {uns: unsW.map(he).join(', ')}); }
   else { say.className = 'dk-say warn'; say.textContent = S.few; }
   $('notes').innerHTML = lines.join('');
   const rows = []; TW.forEach((t, i) => { if (marks[i] === 'off' || cantHear || noSpeech) return; (t.throat || []).forEach(th => { const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); rows.push({w: W[i], c: th.c, you: th, him: r}); }); });
-  if (rows.length) { $('th').innerHTML = rows.map(x => `<div class="dk-tr"><div><span class="dk-lt">${esc(x.c)}</span><span>${he(x.w)}</span></div><div><span class="dk-k">${esc(S.you)}</span><span class="${VCLS[x.you.v] || ''}">${esc(thLead(x.you))}</span></div><div><span class="dk-k">${esc(S.hazzan)}</span><span>${esc(thLead(x.him))}</span></div></div>`).join(''); $('thP').hidden = false; } else $('thP').hidden = true;
+  if (rows.length) { $('th').innerHTML = rows.map(x => `<div class="dk-tr"><div><span class="dk-lt">${esc(x.c)}</span><span>${he(x.w)}</span></div><div><span class="dk-k">${esc(S.you)}</span><span class="${SON && x.you.v === 'unsure' ? 'bad' : VCLS[x.you.v] || ''}">${esc(SON && x.you.v === 'unsure' ? S.thUnclear : thLead(x.you))}</span></div><div><span class="dk-k">${esc(S.hazzan)}</span><span>${esc(thLead(x.him))}</span></div></div>`).join(''); $('thP').hidden = false; } else $('thP').hidden = true;
   fold('s3'); $('s4').hidden = false; $('s4').querySelector('.dk-body').hidden = false; scrollTo('s4'); }
+ const sb = $('strict'); sb.checked = STRICT; sb.onchange = () => { STRICT = sb.checked; try { localStorage.setItem('dk.strict', STRICT ? '1' : '0'); } catch (e) {} if (RESULT) render(RESULT); };
  $('againLine').onclick = () => { resetTake(); openStep('s3'); scrollTo('s3'); };
  $('otherLine').onclick = () => { openStep('s2'); scrollTo('s2'); };
  health();
  return {open: id => { LY ? openP(id) : null; }, get result() { return RESULT; }};
 }
-window.Dikduk = Object.assign(window.Dikduk || {}, {mount, strings: (window.Dikduk && window.Dikduk.strings) || {}, version: '4.7'});
-function auto() { document.querySelectorAll('[data-dikduk]').forEach(el => { if (el.dataset.dkMounted) return; el.dataset.dkMounted = '1'; mount(el, {api: el.dataset.api, pz: el.dataset.pz, th: el.dataset.th, line: el.dataset.line, rec: el.dataset.rec, archive: el.dataset.archive}); }); }   // data-api may hold several servers, space-separated
+window.Dikduk = Object.assign(window.Dikduk || {}, {mount, strings: (window.Dikduk && window.Dikduk.strings) || {}, version: '4.8'});
+function auto() { document.querySelectorAll('[data-dikduk]').forEach(el => { if (el.dataset.dkMounted) return; el.dataset.dkMounted = '1'; mount(el, {api: el.dataset.api, pz: el.dataset.pz, th: el.dataset.th, line: el.dataset.line, rec: el.dataset.rec, archive: el.dataset.archive, strict: el.dataset.strict}); }); }   // data-api may hold several servers, space-separated
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', auto); else auto();
 })();

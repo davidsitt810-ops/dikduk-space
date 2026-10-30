@@ -1,0 +1,46 @@
+# Down alert: every 15 minutes, ask the home Mac's checker (and the Space) whether it is up.
+# If the Mac does not answer three times in a row, open ONE issue titled "Mac checker is down" — GitHub then emails
+# you and pushes to the GitHub app. When it answers again, the issue gets a comment and is closed (another email).
+# Nothing here can change the server; it only reads /health. (Run it by hand: Actions → watch → Run workflow.)
+name: watch
+on:
+  schedule: [{cron: '7,22,37,52 * * * *'}]
+  workflow_dispatch:
+permissions: {issues: write, contents: read}
+concurrency: {group: watch, cancel-in-progress: false}
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      MAC: https://dikduk.thepizmonim.com/health
+      SPACE: https://davidsitt-pizmonim-dikduk.hf.space/health
+      TITLE: Mac checker is down
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: ask the Mac (3 tries, 30 s apart)
+        id: mac
+        run: |
+          for i in 1 2 3; do
+            if body="$(curl -fsS -m 20 "$MAC")" && echo "$body" | grep -q '"ok":true'; then
+              echo "up=1" >> "$GITHUB_OUTPUT"; echo "up: $(echo "$body" | head -c 120)"; exit 0
+            fi
+            echo "try $i: no answer"; sleep 30
+          done
+          echo "up=0" >> "$GITHUB_OUTPUT"
+      - name: ask the Space (for the record; it is the fallback)
+        run: curl -fsS -m 60 "$SPACE" | head -c 120 || echo "the Space did not answer (it may be asleep or rebuilding)"
+      - name: open or close the alert
+        run: |
+          open="$(gh issue list --state open --search "in:title \"$TITLE\"" --json number --jq '.[0].number // empty')"
+          if [ "${{ steps.mac.outputs.up }}" = 1 ]; then
+            if [ -n "$open" ]; then gh issue comment "$open" --body "Back up at $(date -u '+%Y-%m-%d %H:%M UTC')."; gh issue close "$open"; fi
+          elif [ -z "$open" ]; then
+            gh issue create --title "$TITLE" --body "$(printf '%s\n\n%s\n%s\n%s\n%s' \
+              "https://dikduk.thepizmonim.com did not answer at $(date -u '+%Y-%m-%d %H:%M UTC'). The site falls back to the Space meanwhile." \
+              "What to check on the Mac mini:" \
+              "1. Is it on and online? (power cut, Wi-Fi, Canopy)" \
+              "2. Terminal: curl http://127.0.0.1:7860/health — if that answers, the tunnel is the problem: sudo tail -30 /Library/Logs/dikduk-tunnel.log" \
+              "3. If it does not: tail -30 ~/dikduk/logs/server.log")"
+          else echo "still down; alert #$open already open"; fi
