@@ -1,0 +1,9 @@
+# The server's packages, as the Space's Dockerfile and mac/install.sh install them (torch from the CPU index on Linux:
+# pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu). ffmpeg is needed too.
+torch==2.4.1
+transformers==4.44.2
+huggingface_hub>=0.24,<1.0
+fastapi
+uvicorn
+numpy
+requests

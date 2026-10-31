@@ -5,7 +5,7 @@ pasuk. The reference hazzan is his own intact pasuk, as on the Space. Every word
 exam_rows.json; throat verdicts and vowel notes of the intact pesukim to exam_lines.json.
 usage: exam_alouf.py [pesukim=70] [seed=5]"""
 import sys, os, json, time, random, subprocess
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'space'))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 import numpy as np
 import app
 from nikud import parse_verse

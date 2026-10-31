@@ -4,7 +4,7 @@ Israelis reading (FLEURS dev + fresh: ע said as alef, ח as khaf, ק as kaf, ט
 Writes letters_rows.json: one row per cut with every ear's numbers; letters_rules.py reads it.
 usage: letters_study.py [per-letter cap for Alouf=120] [fleurs sentences=199]      env: STUDY_OUT, SKIP_IL=1, SKIP_AL=1"""
 import sys, os, json, glob, time, random, subprocess, collections
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'space'))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 os.environ.setdefault('DK_NO_WARM', '1')
 import numpy as np
 import app

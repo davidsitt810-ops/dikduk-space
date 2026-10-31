@@ -1,0 +1,559 @@
+{
+ "exam2_rows.json": {
+  "intact": {
+   "cant_hear": 0,
+   "clean": 80,
+   "line_wrong": 0,
+   "right": {
+    "ok": 656
+   },
+   "takes": 80,
+   "wrong": {}
+  },
+  "skip": {
+   "cant_hear": 0,
+   "clean": 78,
+   "line_wrong": 0,
+   "right": {
+    "ok": 571,
+    "unsure": 5
+   },
+   "takes": 80,
+   "wrong": {
+    "off": 78,
+    "unsure": 2
+   }
+  },
+  "swap": {
+   "cant_hear": 0,
+   "clean": 70,
+   "line_wrong": 0,
+   "right": {
+    "ok": 482
+   },
+   "takes": 78,
+   "wrong": {
+    "off": 155,
+    "ok": 1
+   }
+  },
+  "wrongline": {
+   "cant_hear": 42,
+   "clean": 1,
+   "line_wrong": 0,
+   "right": {},
+   "takes": 79,
+   "wrong": {
+    "off": 29,
+    "ok": 71,
+    "unsure": 537
+   }
+  },
+  "wrongword": {
+   "cant_hear": 0,
+   "clean": 80,
+   "line_wrong": 0,
+   "right": {
+    "ok": 576
+   },
+   "takes": 80,
+   "wrong": {
+    "off": 56,
+    "ok": 3,
+    "unsure": 21
+   }
+  }
+ },
+ "exam2v7_rows.json": {
+  "intact": {
+   "cant_hear": 0,
+   "clean": 80,
+   "line_wrong": 0,
+   "right": {
+    "ok": 656
+   },
+   "takes": 80,
+   "wrong": {}
+  },
+  "skip": {
+   "cant_hear": 0,
+   "clean": 78,
+   "line_wrong": 0,
+   "right": {
+    "ok": 572,
+    "unsure": 4
+   },
+   "takes": 80,
+   "wrong": {
+    "off": 78,
+    "unsure": 2
+   }
+  },
+  "swap": {
+   "cant_hear": 0,
+   "clean": 71,
+   "line_wrong": 0,
+   "right": {
+    "ok": 481,
+    "unsure": 1
+   },
+   "takes": 78,
+   "wrong": {
+    "off": 154,
+    "ok": 1,
+    "unsure": 1
+   }
+  },
+  "wrongline": {
+   "cant_hear": 0,
+   "clean": 1,
+   "line_wrong": 79,
+   "right": {},
+   "takes": 79,
+   "wrong": {
+    "off": 76,
+    "unsure": 561
+   }
+  },
+  "wrongword": {
+   "cant_hear": 0,
+   "clean": 80,
+   "line_wrong": 0,
+   "right": {
+    "ok": 576
+   },
+   "takes": 80,
+   "wrong": {
+    "off": 57,
+    "ok": 3,
+    "unsure": 20
+   }
+  }
+ },
+ "exam_archive_rows.json": {
+  "right": {
+   "cant_hear": 30,
+   "clean": 16,
+   "line_wrong": 1,
+   "right": {
+    "off": 9,
+    "ok": 234,
+    "unsure": 275
+   },
+   "takes": 98,
+   "wrong": {}
+  },
+  "skip": {
+   "cant_hear": 2,
+   "clean": 1,
+   "line_wrong": 0,
+   "right": {
+    "off": 1,
+    "ok": 36,
+    "unsure": 27
+   },
+   "takes": 15,
+   "wrong": {
+    "off": 4,
+    "unsure": 11
+   }
+  },
+  "swap": {
+   "cant_hear": 1,
+   "clean": 4,
+   "line_wrong": 0,
+   "right": {
+    "ok": 30,
+    "unsure": 19
+   },
+   "takes": 15,
+   "wrong": {
+    "off": 15,
+    "ok": 2,
+    "unsure": 13
+   }
+  },
+  "wrongline": {
+   "cant_hear": 51,
+   "clean": 0,
+   "line_wrong": 9,
+   "right": {},
+   "takes": 72,
+   "wrong": {
+    "off": 16,
+    "ok": 34,
+    "unsure": 330
+   }
+  }
+ },
+ "exam_israeli_all_rows.json": {
+  "right": {
+   "cant_hear": 6,
+   "clean": 36,
+   "line_wrong": 0,
+   "right": {
+    "off": 64,
+    "ok": 2437,
+    "unsure": 702
+   },
+   "takes": 199,
+   "wrong": {}
+  },
+  "skip": {
+   "cant_hear": 7,
+   "clean": 16,
+   "line_wrong": 0,
+   "right": {
+    "off": 56,
+    "ok": 2166,
+    "unsure": 782
+   },
+   "takes": 199,
+   "wrong": {
+    "off": 92,
+    "unsure": 107
+   }
+  },
+  "swap": {
+   "cant_hear": 8,
+   "clean": 22,
+   "line_wrong": 0,
+   "right": {
+    "off": 30,
+    "ok": 2089,
+    "unsure": 660
+   },
+   "takes": 196,
+   "wrong": {
+    "off": 276,
+    "ok": 19,
+    "unsure": 97
+   }
+  },
+  "wrongline": {
+   "cant_hear": 42,
+   "clean": 0,
+   "line_wrong": 153,
+   "right": {},
+   "takes": 199,
+   "wrong": {
+    "off": 426,
+    "ok": 82,
+    "unsure": 2726
+   }
+  }
+ },
+ "exam_israeli_rows.json": {
+  "right": {
+   "cant_hear": 10,
+   "clean": 2,
+   "line_wrong": 0,
+   "right": {
+    "off": 8,
+    "ok": 851,
+    "unsure": 412
+   },
+   "takes": 80,
+   "wrong": {}
+  },
+  "skip": {
+   "cant_hear": 16,
+   "clean": 1,
+   "line_wrong": 0,
+   "right": {
+    "off": 4,
+    "ok": 734,
+    "unsure": 453
+   },
+   "takes": 80,
+   "wrong": {
+    "off": 27,
+    "unsure": 53
+   }
+  },
+  "swap": {
+   "cant_hear": 13,
+   "clean": 1,
+   "line_wrong": 0,
+   "right": {
+    "off": 6,
+    "ok": 730,
+    "unsure": 368
+   },
+   "takes": 79,
+   "wrong": {
+    "off": 59,
+    "ok": 9,
+    "unsure": 90
+   }
+  },
+  "wrongline": {
+   "cant_hear": 48,
+   "clean": 0,
+   "line_wrong": 23,
+   "right": {},
+   "takes": 78,
+   "wrong": {
+    "off": 81,
+    "ok": 75,
+    "unsure": 1059
+   }
+  }
+ },
+ "exam_israeli_v7_rows.json": {
+  "right": {
+   "cant_hear": 2,
+   "clean": 15,
+   "line_wrong": 0,
+   "right": {
+    "off": 16,
+    "ok": 991,
+    "unsure": 264
+   },
+   "takes": 80,
+   "wrong": {}
+  },
+  "skip": {
+   "cant_hear": 2,
+   "clean": 7,
+   "line_wrong": 0,
+   "right": {
+    "off": 16,
+    "ok": 866,
+    "unsure": 309
+   },
+   "takes": 80,
+   "wrong": {
+    "off": 37,
+    "unsure": 43
+   }
+  },
+  "swap": {
+   "cant_hear": 3,
+   "clean": 10,
+   "line_wrong": 0,
+   "right": {
+    "off": 12,
+    "ok": 853,
+    "unsure": 239
+   },
+   "takes": 79,
+   "wrong": {
+    "off": 118,
+    "ok": 4,
+    "unsure": 36
+   }
+  },
+  "wrongline": {
+   "cant_hear": 15,
+   "clean": 0,
+   "line_wrong": 60,
+   "right": {},
+   "takes": 78,
+   "wrong": {
+    "off": 153,
+    "ok": 46,
+    "unsure": 1016
+   }
+  }
+ },
+ "exam_rows.json": {
+  "intact": {
+   "cant_hear": 0,
+   "clean": 70,
+   "line_wrong": 0,
+   "right": {
+    "ok": 535,
+    "unsure": 2
+   },
+   "takes": 70,
+   "wrong": {}
+  },
+  "skip": {
+   "cant_hear": 0,
+   "clean": 66,
+   "line_wrong": 0,
+   "right": {
+    "ok": 453,
+    "unsure": 7
+   },
+   "takes": 69,
+   "wrong": {
+    "off": 67,
+    "unsure": 2
+   }
+  },
+  "swap": {
+   "cant_hear": 0,
+   "clean": 62,
+   "line_wrong": 0,
+   "right": {
+    "ok": 382,
+    "unsure": 4
+   },
+   "takes": 68,
+   "wrong": {
+    "off": 130,
+    "ok": 1,
+    "unsure": 5
+   }
+  },
+  "wrongline": {
+   "cant_hear": 0,
+   "clean": 0,
+   "line_wrong": 70,
+   "right": {},
+   "takes": 70,
+   "wrong": {
+    "off": 65,
+    "unsure": 474
+   }
+  },
+  "wrongword": {
+   "cant_hear": 1,
+   "clean": 67,
+   "line_wrong": 0,
+   "right": {
+    "ok": 464,
+    "unsure": 3
+   },
+   "takes": 70,
+   "wrong": {
+    "off": 53,
+    "ok": 5,
+    "unsure": 12
+   }
+  }
+ },
+ "letters_rows.json": {
+  "al א": {
+   "right": 98,
+   "unsure": 22
+  },
+  "al ב b": {
+   "right": 107,
+   "unsure": 10,
+   "wrong": 3
+  },
+  "al ב v": {
+   "right": 2,
+   "unsure": 13,
+   "wrong": 105
+  },
+  "al ח": {
+   "right": 102,
+   "unsure": 17,
+   "wrong": 1
+  },
+  "al ט": {
+   "right": 30,
+   "unsure": 7,
+   "wrong": 2
+  },
+  "al כ k": {
+   "right": 115,
+   "unsure": 5
+  },
+  "al כ kh": {
+   "right": 70,
+   "unsure": 7,
+   "wrong": 2
+  },
+  "al ע": {
+   "right": 87,
+   "unsure": 26,
+   "wrong": 7
+  },
+  "al פ f": {
+   "right": 45,
+   "unsure": 4
+  },
+  "al פ p": {
+   "right": 108,
+   "unsure": 12
+  },
+  "al צ": {
+   "right": 88,
+   "unsure": 11,
+   "wrong": 21
+  },
+  "al ק": {
+   "right": 84,
+   "unsure": 16,
+   "wrong": 20
+  },
+  "al ר": {
+   "right": 105,
+   "unsure": 12,
+   "wrong": 3
+  },
+  "al ש s": {
+   "right": 104,
+   "unsure": 3,
+   "wrong": 1
+  },
+  "al ש sh": {
+   "right": 120
+  },
+  "al ת": {
+   "right": 202,
+   "unsure": 36,
+   "wrong": 2
+  },
+  "il א": {
+   "right": 102,
+   "unsure": 8
+  },
+  "il ב": {
+   "right": 241,
+   "unsure": 50,
+   "wrong": 17
+  },
+  "il ח": {
+   "right": 2,
+   "unsure": 10,
+   "wrong": 42
+  },
+  "il ט": {
+   "unsure": 5,
+   "wrong": 9
+  },
+  "il כ": {
+   "right": 67,
+   "unsure": 13
+  },
+  "il ע": {
+   "unsure": 10,
+   "wrong": 29
+  },
+  "il פ": {
+   "right": 34,
+   "unsure": 4,
+   "wrong": 4
+  },
+  "il צ": {
+   "right": 1,
+   "unsure": 6,
+   "wrong": 12
+  },
+  "il ק": {
+   "right": 1,
+   "unsure": 6,
+   "wrong": 49
+  },
+  "il ר": {
+   "right": 6,
+   "unsure": 17,
+   "wrong": 10
+  },
+  "il ש": {
+   "right": 148,
+   "unsure": 10,
+   "wrong": 11
+  },
+  "il ת": {
+   "right": 42,
+   "unsure": 8
+  }
+ }
+}

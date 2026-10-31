@@ -3,7 +3,7 @@ of every training set) checked against their own transcript (RIGHT), with one wo
 swapped (SWAP) from the machine's own placement, and checked as another sentence's words (WRONG LINE). Through
 app.analyse + app.summarize in process. Writes exam_israeli_rows.json / exam_israeli_takes.json and prints tallies."""
 import sys, os, json, glob, time, random, collections
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'space'))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 os.environ.setdefault('DK_NO_WARM', '1')
 import numpy as np
 import app

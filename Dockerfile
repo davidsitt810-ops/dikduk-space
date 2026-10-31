@@ -16,14 +16,15 @@ COPY . .
 # lab page, plus static/tehillim/ with Rabbi Alouf's mp3s) come from the public GitHub repo at build time, so the
 # Space never needs the web uploader for binary files. The ADD line fetches the branch's commit feed first: a new
 # commit on GitHub changes that file and invalidates the layers below on the next build ("Factory rebuild" on the
-# Space forces a fresh fetch either way).
+# Space forces a fresh fetch either way). BUILD_COMMIT is the commit of the tarball itself (its pax header), so
+# /health can say which commit runs.
 ADD https://github.com/davidsitt810-ops/dikduk-space/commits/main.atom /tmp/github_main.atom
 RUN python -c "import urllib.request, tarfile, io, os, shutil; \
 u = 'https://github.com/davidsitt810-ops/dikduk-space/archive/refs/heads/main.tar.gz'; \
 t = tarfile.open(fileobj=io.BytesIO(urllib.request.urlopen(u, timeout=120).read())); t.extractall('/tmp/src'); \
 r = os.path.join('/tmp/src', os.listdir('/tmp/src')[0]); skip = {'.git', '.github', 'Dockerfile', 'README.md', 'README_REPO.md', 'Dikduk.ipynb', 'tools'}; \
 [shutil.copytree(os.path.join(r, n), os.path.join('/app', n), dirs_exist_ok=True) if os.path.isdir(os.path.join(r, n)) else shutil.copy2(os.path.join(r, n), '/app') for n in os.listdir(r) if n not in skip]; \
-shutil.rmtree('/tmp/src'); print('from github:', sorted(n for n in os.listdir('/app') if n != 'hf'), 'tehillim mp3s:', len(os.listdir('/app/static/tehillim')))"
+open('/app/BUILD_COMMIT', 'w').write(t.pax_headers.get('comment', '')); shutil.rmtree('/tmp/src'); print('from github:', t.pax_headers.get('comment'), sorted(n for n in os.listdir('/app') if n != 'hf'), 'tehillim mp3s:', len(os.listdir('/app/static/tehillim')))"
 RUN mkdir -p /tmp/dkcache && chown -R user /app /tmp/dkcache
 USER user
 EXPOSE 7860

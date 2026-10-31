@@ -4,7 +4,7 @@ say them the Israeli way; א ת should be RIGHT) — plus the numbers behind the
 usage: letters_rules.py [rows.json] [--grid]"""
 import sys, os, json, collections
 import numpy as np
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'space'))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 import letters as LT
 HERE = os.path.dirname(os.path.abspath(__file__))
 f = next((a for a in sys.argv[1:] if a.endswith('.json')), os.path.join(HERE, 'letters_rows.json'))

@@ -5,7 +5,7 @@ short-vowel frame between that consonant and the next sound. If the ears can hea
 vowel far more often than the nah rules.
 usage: shva_study.py [perakim (comma list) | all] [out.json]"""
 import sys, os, json, time, subprocess
-HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, os.path.join(HERE, '..', 'space'))
+HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, os.path.join(HERE, '..'))
 os.environ.setdefault('DK_NO_WARM', '1')
 import numpy as np
 import app

@@ -51,9 +51,11 @@ input[type=text]{display:block;width:100%;font:inherit;font-size:17px;color:var(
 .sc{font-size:14px}.sc .r{border-top:1px solid var(--line);padding:10px 0}.sc .r b{font-family:var(--he);font-size:18px;font-weight:500}
 .sc .good{color:var(--good)}.sc .bad{color:var(--bad)}.sc .warn{color:var(--warn)}
 .tot{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 10px;font-size:15px}
+.keep{margin:0;padding:10px 12px;border:1px solid var(--warn);border-radius:10px;color:var(--warn);font-size:14px}
 </style>
 <div class="wrap">
  <header class="top"><h1 id="title">Recordings</h1><span class="pill wait" id="srv">Waking the server…</span></header>
+ <p class="keep" id="keep" hidden>This server is not set up to keep recordings yet: what you record here can be lost when it restarts. Ask David before you record a long list.</p>
 
  <section class="card" id="start">
   <p class="intro" id="intro"></p>
@@ -107,7 +109,8 @@ const heWords=t=>String(t||'').replace(/[־\-]/g,' ').split(/[\s,.;:!?"'״׳()\[
 let S=null,T=null,I=-1,TAKE=null,TAKE_URL=null,SECS=0,DONE=[];
 let NAME=ls('dk.rec.name')||'';$('#name').value=NAME;
 let WHO=ls('dk.rec.who');if(!WHO){WHO=Array.from(crypto.getRandomValues(new Uint8Array(8))).map(b=>b.toString(16).padStart(2,'0')).join('');ls('dk.rec.who',WHO);}
-async function health(){const el=$('#srv');try{const r=await fetch(url('/health'),{cache:'no-store'});await r.json();el.className='pill ok';el.textContent='Ready';}
+let HAS_STORAGE=false;   /* a server older than v4.8 has no way to say a disk is kept (the Mac's is): its flag is not believed */
+async function health(){const el=$('#srv');try{const r=await fetch(url('/health'),{cache:'no-store'});const j=await r.json();el.className='pill ok';el.textContent='Ready';HAS_STORAGE=!!j.storage;if(j.storage&&j.storage.durable===false)$('#keep').hidden=false;}
  catch(e){el.className='pill bad';el.textContent='Server not reachable';$('#err0').textContent='The server did not answer. It may be waking up — try again in a minute.';}}
 async function loadSet(){try{const J=await (await fetch(url('/scripts'),{cache:'no-store'})).json();S=J[SET];}catch(e){}
  if(!S){$('#intro').textContent='There is no recording list called "'+SET+'".';$('#begin').disabled=true;return;}
@@ -132,7 +135,7 @@ const ASK={right:'Read it the way you normally would.',
  shvana:w=>`Read it, but swallow the shva in ${he(w)}: no short “e” after its first letter — the fast, modern way. Everything else right.`,
  shvanah:w=>`Read it, but say the silent shva in ${he(w)} as a short “e” — one extra syllable. Everything else right.`,
  perek:'Read the whole perek at your natural pace, the way a student should hear it. Take your time — a few minutes is fine.'};
-function show(i){I=i;T=S.tasks[i];TAKE=null;$('#after').hidden=true;$('#err').textContent='';$('#q').innerHTML='';$('#note').textContent='';
+function show(i){stopRec();I=i;T=S.tasks[i];TAKE=null;$('#after').hidden=true;$('#err').textContent='';$('#q').innerHTML='';$('#note').textContent='';
  $('#task').hidden=false;$('#prog').textContent=`${DONE.length+1} of ${S.tasks.length}`;
  const a=ASK[T.do]||ASK.right;$('#ask').innerHTML=typeof a==='function'?a(T.word):a;$('#where').textContent=T.label||T.text;
  if(T.lines){$('#text').className='hero perek';$('#text').innerHTML=T.lines.map((l,k)=>`<span class="ps">${esc((T.nlines||[])[k]||l)}<small>${k+1}</small></span>`).join('');}
@@ -148,17 +151,25 @@ $('#hear').onclick=()=>{if(!T||!T.ref)return;const src=/^(tehillim-|extra-)/.tes
  HIM.pause();const t1=T.t1;const stop=()=>{if(HIM.currentTime>=t1-.02){HIM.pause();HIM.removeEventListener('timeupdate',stop);}};
  HIM.currentTime=Math.max(0,T.t0||0);HIM.addEventListener('timeupdate',stop);HIM.play().catch(()=>{});};
 /* ---------- recording ---------- */
-let MR=null,CH=[],T0=0,TK=null;
+let MR=null,BUSY=false;
 const canRec=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.MediaRecorder);
+/* A recording belongs to the task it was started for, and there is one at a time (BUSY from the tap until its stop has
+   been handled). Moving on — Skip, a Save that finishes, the end of the list — stops it and throws its audio away: it
+   must never be filed under the next task's labels. */
+function stopRec(){if(MR&&MR.state==='recording')MR.stop();}
 $('#rec').onclick=async()=>{if(MR&&MR.state==='recording'){MR.stop();return;}
+ if(BUSY)return;BUSY=true;const forT=T;
  try{const st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+  if(T!==forT){st.getTracks().forEach(t=>t.stop());BUSY=false;return;}
   const mt=['audio/mp4','audio/webm;codecs=opus','audio/webm',''].find(t=>!t||MediaRecorder.isTypeSupported(t));
-  MR=new MediaRecorder(st,mt?{mimeType:mt}:undefined);CH=[];MR.ondataavailable=e=>{if(e.data.size)CH.push(e.data);};
-  MR.onstop=()=>{st.getTracks().forEach(t=>t.stop());clearInterval(TK);$('#rec').textContent='● Record';SECS=(Date.now()-T0)/1000;setTake(new Blob(CH,{type:MR.mimeType||'audio/mp4'}));};
+  const mr=new MediaRecorder(st,mt?{mimeType:mt}:undefined),ch=[],t0=Date.now();let tk=null;MR=mr;mr.ondataavailable=e=>{if(e.data.size)ch.push(e.data);};
+  mr.onstop=()=>{BUSY=false;st.getTracks().forEach(t=>t.stop());clearInterval(tk);if(MR===mr)$('#rec').textContent='● Record';if(MR!==mr||T!==forT)return;
+   SECS=(Date.now()-t0)/1000;setTake(new Blob(ch,{type:mr.mimeType||'audio/mp4'}));};
   const max=T.do==='perek'?8*60*1000:45000;
-  MR.start(250);T0=Date.now();$('#after').hidden=true;$('#rec').textContent='■ Stop · 0.0 s';$('#note').textContent='Recording… tap Stop when you are done.';
-  TK=setInterval(()=>{$('#rec').textContent='■ Stop · '+((Date.now()-T0)/1000).toFixed(1)+' s';if(Date.now()-T0>max)MR.stop();},200);}
- catch(e){$('#err').textContent='The microphone could not be used: '+e.message;}};
+  mr.start(250);$('#after').hidden=true;$('#rec').textContent='■ Stop · 0.0 s';$('#note').textContent='Recording… tap Stop when you are done.';
+  tk=setInterval(()=>{if(T!==forT){clearInterval(tk);if(mr.state==='recording')mr.stop();return;}if(mr.state!=='recording'){clearInterval(tk);return;}
+   $('#rec').textContent='■ Stop · '+((Date.now()-t0)/1000).toFixed(1)+' s';if(Date.now()-t0>max)mr.stop();},200);}
+ catch(e){BUSY=false;$('#err').textContent='The microphone could not be used: '+e.message;}};
 function setTake(blob){TAKE=blob;if(TAKE_URL)URL.revokeObjectURL(TAKE_URL);TAKE_URL=URL.createObjectURL(blob);$('#note').textContent='';
  $('#took').textContent='Recorded · '+SECS.toFixed(1)+' s';$('#after').hidden=false;$('#rec').hidden=true;question();$('#after').scrollIntoView({behavior:'smooth',block:'start'});}
 let YOU=null;
@@ -186,22 +197,24 @@ function labels(){const W=heWords(T.words);const L={};const boxes=[...$('#q').qu
  if(T.do==='wrong')L.said=($('#said')&&$('#said').value.trim())||'';
  if(T.do==='vowel')L.vowel=boxes[1]?on(boxes[1])[0]||null:null;
  if(T.do==='free'){L.words=on(boxes[0]);L.note=($('#note2')&&$('#note2').value.trim())||'';}
- if(T.do==='ayin'||T.do==='het'||T.do==='shvana'||T.do==='shvanah'){L.word=T.word;const a=on(boxes[0])[0];L.done=a==null?true:a==='Yes';}
+ if(T.do==='ayin'||T.do==='het'||T.do==='shvana'||T.do==='shvanah'){L.word=T.word;const a=on(boxes[0])[0];L.done=a==null?null:a==='Yes';}
  return L;}
 function missing(L){if(T.do==='skip'||T.do==='wrong'||T.do==='vowel')return L.word?null:'Tap the word first.';
  if(T.do==='swap')return (L.pair||[]).length===2?null:'Tap the two words you swapped.';
- if(T.do==='free')return (L.words||[]).length||L.note?null:'Tap the word you changed, or write what you did.';return null;}
+ if(T.do==='free')return (L.words||[]).length||L.note?null:'Tap the word you changed, or write what you did.';
+ if(T.do==='ayin'||T.do==='het')return L.done==null?'Tap Yes or Not really first.':null;return null;}
 /* ---------- save ---------- */
-$('#save').onclick=async()=>{if(!TAKE)return;const L=labels();const m=missing(L);if(m){$('#err').textContent=m;return;}$('#err').textContent='';
+$('#save').onclick=async()=>{if(!TAKE)return;const L=labels();const m=missing(L);if(m){$('#err').textContent=m;return;}$('#err').textContent='';const forT=T;
  $('#save').disabled=true;$('#busy').hidden=false;$('#busy').innerHTML='<span class="spin"></span><span>Saving…</span>';
  const meta={set:SET,task:T.id,name:NAME,who:WHO,text:T.text,do:T.do,word:T.word||null,labels:L,note:L.note||null,mime:TAKE.type||'',secs:SECS,check:T.check!==false,device:navigator.userAgent.slice(0,120)};
  try{const r=await fetch(url('/submit?meta='+encodeURIComponent(JSON.stringify(meta))),{method:'POST',body:TAKE,headers:{'content-type':TAKE.type||'application/octet-stream'}});
-  const j=await r.json();if(!r.ok||j.err)throw new Error(j.err||('server said '+r.status));
-  DONE.push(T.id);ls('dk.rec.done.'+SET,JSON.stringify(DONE));$('#busy').innerHTML='<span>Saved ✓</span>';
-  setTimeout(()=>{$('#busy').hidden=true;$('#save').disabled=false;$('#rec').hidden=!canRec;next();},500);}
+  const j=await r.json();if(!r.ok||j.err)throw new Error(j.err||('server said '+r.status));if(HAS_STORAGE&&j.durable===false)$('#keep').hidden=false;
+  /* the task this take was for (Skip may have moved on while it was uploading) */
+  if(!DONE.includes(forT.id))DONE.push(forT.id);ls('dk.rec.done.'+SET,JSON.stringify(DONE));$('#busy').innerHTML='<span>Saved ✓</span>';
+  setTimeout(()=>{$('#busy').hidden=true;$('#save').disabled=false;if(T===forT){$('#rec').hidden=!canRec;next();}},500);}
  catch(e){$('#err').textContent='Could not save: '+e.message+' — tap Save again.';$('#busy').hidden=true;$('#save').disabled=false;}};
 $('#skipBtn').onclick=()=>{if(MR&&MR.state==='recording')MR.stop();DONE.push(T.id);ls('dk.rec.done.'+SET,JSON.stringify(DONE));$('#rec').hidden=!canRec;next();};
-function finish(){$('#task').hidden=true;$('#end').hidden=false;$('#endTxt').textContent=`${S.tasks.length} recordings in this list; filed under ${NAME}.`;
+function finish(){stopRec();T=null;$('#task').hidden=true;$('#end').hidden=false;$('#endTxt').textContent=`${S.tasks.length} recordings in this list; filed under ${NAME}.`;
  const hasChecks=S.tasks.some(t=>t.check!==false);$('#showScore').hidden=!(hasChecks&&(SET==='david'||Q.get('score')));}
 $('#again').onclick=()=>{DONE=[];ls('dk.rec.done.'+SET,'[]');I=-1;$('#end').hidden=true;$('#scoreP').hidden=true;$('#start').hidden=false;loadSet();};
 /* ---------- the scoreboard (David's own sets, or ?score=1): the server scores each take against its label ---------- */

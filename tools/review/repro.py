@@ -1,13 +1,13 @@
-"""Concrete reproducers for the server-side (Python) findings, run against the functions exec'd out of app.py."""
+"""Concrete reproducers for the server-side (Python) findings, run against rule.py and the functions exec'd out of app.py."""
 import json, os, re
-HERE = os.path.dirname(os.path.abspath(__file__)); SPACE = os.path.join(HERE, '..', 'space')
+HERE = os.path.dirname(os.path.abspath(__file__)); SPACE = os.path.join(HERE, '..', '..')
 src = open(os.path.join(SPACE, 'app.py'), encoding='utf-8').read()
 def pyfn(name, stop):
     i = src.index(f'def {name}('); j = src.index(stop, i); return src[i:j]
-code = ('import numpy as np, re\n' + src[src.index("NIK = re.compile"):src.index('\ndef he_read')] + '\n' + pyfn('he_words', '\ndef skeleton') +
-        src[src.index("RULE = {'drop'"):src.index('\ndef head_median')] + '\n' + pyfn('mark_of', '\nRULE = ') + pyfn('head_median', '\ndef no_speech_in') +
-        pyfn('no_speech_in', '\ndef clean_of') + pyfn('clean_of', '\ndef marks_of') + pyfn('marks_of', '\ndef summarize') + pyfn('summarize', '\ndef list_takes') + pyfn('score_take', "\n@app.get('/score')"))
-ns = {}; exec(code, ns)
+# the rule from rule.py; the Hebrew word helpers and score_take cut out of app.py (it loads the models on import)
+import sys; sys.path.insert(0, SPACE); import rule
+code = ('import numpy as np, re\n' + src[src.index("NIK = re.compile"):src.index('\ndef he_read')] + '\n' + pyfn('he_words', '\ndef skeleton') + pyfn('score_take', "\n@app.get('/score')"))
+ns = dict(vars(rule)); exec(code, ns)
 hm, summarize, score_take, marks_of, clean_of = ns['head_median'], ns['summarize'], ns['score_take'], ns['marks_of'], ns['clean_of']
 
 print('== 1. head_median on short lines (n>=2 words only count)')

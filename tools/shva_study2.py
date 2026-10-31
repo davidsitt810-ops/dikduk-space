@@ -2,7 +2,7 @@
 vowel — a shva na before a guttural or a yod takes the next vowel's colour). Rows: one per sheva, both readings.
 usage: shva_study2.py [perakim | all] [out.json]"""
 import sys, os, json, time, subprocess
-HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, os.path.join(HERE, '..', 'space'))
+HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, os.path.join(HERE, '..'))
 os.environ.setdefault('DK_NO_WARM', '1')
 import numpy as np
 import app, shva as SH

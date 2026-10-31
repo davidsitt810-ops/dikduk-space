@@ -2,10 +2,7 @@
 exam rows (Alouf + archive takes, with known truth): false alarms on intact lines vs. catches on broken ones."""
 import json, os, sys, collections
 HERE = os.path.dirname(os.path.abspath(__file__))
-src = open(os.path.join(HERE, '..', 'space', 'app.py'), encoding='utf-8').read()
-def pyfn(name, stop): i = src.index(f'def {name}('); j = src.index(stop, i); return src[i:j]
-code = 'import numpy as np\n' + src[src.index("RULE = {'drop'"):src.index('\ndef head_median')] + '\n' + pyfn('mark_of', '\nRULE = ') + pyfn('head_median', '\ndef clean_of') + pyfn('clean_of', '\ndef marks_of') + pyfn('marks_of', '\ndef summarize')
-ns = {}; exec(code, ns)
+sys.path.insert(0, os.path.join(HERE, '..')); import rule; ns = vars(rule)   # the word rule (rule.py, numpy only)
 for f in sys.argv[1:] or ['exam_rows.json', 'exam_archive_rows.json']:
     R = json.load(open(os.path.join(HERE, f), encoding='utf-8')); L = collections.defaultdict(dict)
     for r in R: L[(r['case'], r.get('per', r.get('pid', r.get('f'))), r.get('ps', r.get('line', 0)), r.get('rec', ''))][r['k']] = r

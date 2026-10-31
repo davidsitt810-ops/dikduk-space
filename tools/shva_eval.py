@@ -7,7 +7,7 @@ Both tampered takes are checked twice: by the rules alone, and against the hazza
 Space). Collateral = notes that appear elsewhere in the tampered pasuk.
 usage: shva_eval.py [perakim] [max pesukim]"""
 import sys, os, json, time, random, subprocess, collections
-HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, os.path.join(HERE, '..', 'space'))
+HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, os.path.join(HERE, '..'))
 os.environ.setdefault('DK_NO_WARM', '1')
 import numpy as np
 import app, shva as SH

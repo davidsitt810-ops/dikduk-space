@@ -5,7 +5,7 @@ na's vowel cut out / a short vowel put into a silent shva).
   none  = B slot not used (or used with B mass < m0) and B's strongest frame between the consonants < tn
 usage: shva_tune.py"""
 import json, os, sys, itertools, collections
-HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, os.path.join(HERE, '..', 'space'))
+HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, os.path.join(HERE, '..'))
 import shva as SH
 R = json.load(open(os.path.join(HERE, 'shva_rows2.json'), encoding='utf-8'))
 E = json.load(open(os.path.join(HERE, 'shva_eval.json'), encoding='utf-8'))['feats']
