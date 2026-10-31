@@ -55,6 +55,7 @@ const CSS = `
 .dk .dk-hear:disabled{opacity:.3}
 .dk .dk-ptitle{margin:0 0 10px;font-size:14px;color:var(--mute)}.dk .dk-ptitle .dk-he{font-size:17px;color:var(--fg)}
 .dk .dk-hero{margin:4px 0 12px;font-family:var(--he);font-size:30px;line-height:1.35;direction:rtl;text-align:right;font-weight:500}
+.dk .dk-sv{color:var(--warn);text-decoration:underline dotted;text-underline-offset:5px}
 .dk .dk-th{color:var(--gold)}.dk .dk-th.good{color:var(--good)}.dk .dk-th.bad{color:var(--bad)}.dk .dk-th.warn{color:var(--warn)}
 .dk .dk-took{font-size:14px;color:var(--mute);margin:12px 0 8px}
 .dk .dk-busy{margin:10px 0 0;font-size:14px;color:var(--mute);display:flex;align-items:center;gap:8px}
@@ -243,6 +244,8 @@ function mount(root, opts) {
  const PREF = new Set();
  function prefetchRef(l) { if (!REC || l.t0 == null) return; const nk = P && P.s.ln && P.s.ln[l.k]; const k = REC + '|' + l.t0 + '|' + l.t1 + '|' + l.text + '|' + (nk || ''); if (PREF.has(k)) return; PREF.add(k); const q = new URLSearchParams({f: REC, words: l.text, t0: l.t0, t1: l.t1}); if (nk) q.set('nikud', nk); fetch(url('/ref?' + q), {cache: 'no-store'}).catch(() => PREF.delete(k)); }
  const hiTh = (w, cls) => esc(w).replace(/[עח]/g, c => `<span class="dk-th${cls ? ' ' + cls(c) : ''}">${c}</span>`);
+ /* the throat letters as above, and the letters a shva note is about (sv: their letter indices) underlined */
+ const hiW = (w, cls, sv) => { if (!sv || !sv.size) return hiTh(w, cls); let k = -1; return [...String(w)].map(c => { if (/[א-ת]/.test(c)) k++; if (/[א-ת]/.test(c) && sv.has(k)) return `<span class="dk-sv">${esc(c)}</span>`; return /[עח]/.test(c) ? `<span class="dk-th${cls ? ' ' + cls(c) : ''}">${c}</span>` : esc(c); }).join(''); };
  function pickLine(l) { LINE = l; TAKE = null; RESULT = null; prefetchRef(l); $('lines').querySelectorAll('.dk-ln').forEach(b => b.classList.toggle('on', +b.dataset.k === l.k));
   fold('s2', esc(fmt(S.lineN, {k: l.k + 1})) + ' · ' + he(l.text)); $('lineWords').innerHTML = hiTh(l.text); $('hearLine').disabled = l.t0 == null; $('takeRow').hidden = true; if (canRec) $('recBtn').hidden = false;
   $('recNote').textContent = l.t0 == null ? S.noTime : S.recNote; openStep('s3'); scrollTo('s3'); }
@@ -321,7 +324,7 @@ function mount(root, opts) {
   if (!CLEAN) TW.forEach(t => (t.throat || []).forEach(th => { if (th.v === 'plain') { th.raw = 'plain'; th.v = 'unsure'; } })); const LABEL = {ok: S.labelOk, unsure: S.labelUnsure, off: S.labelOff, '': ''};
   const lab = i => why[i] === 'unclear' ? S.labelUnclear : LABEL[marks[i]];
   $('res').innerHTML = W.map((w, i) => { const t = TW[i]; let n = 0; const ths = (t.throat || []); const cls = () => { const th = ths[n++]; if (!th || marks[i] === 'off' || cantHear || noSpeech) return ''; if (th.v === 'plain') { const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return ''; } if (SON && th.v === 'unsure') return 'bad'; return VCLS[th.v] || ''; };
-   return `<button class="dk-w ${marks[i]}" type="button" data-i="${i}" lang="he"><b>${hiTh(w, cls)}</b><small>${lab(i)}</small></button>`; }).join('');
+   return `<button class="dk-w ${marks[i]}" type="button" data-i="${i}" lang="he"><b>${hiW(w, cls, new Set(((CLEAN && marks[i] !== 'off' && !cantHear && !noSpeech) ? ((j.shva && j.shva[i]) || []) : []).map(d => d.k)))}</b><small>${lab(i)}</small></button>`; }).join('');
   $('res').querySelectorAll('.dk-w').forEach(b => b.onclick = () => { const i = +b.dataset.i; $('res').querySelectorAll('.dk-w').forEach(x => x.classList.toggle('sel', x === b)); const r = RW && RW[i], f = F && F[i], t = TW[i];
    const mine = f && f.t0 != null ? [f.t0, f.t1] : t && t.t0 != null ? [t.t0, t.t1] : null;
    if (r && LINE.t0 != null) { playHim(LINE.t0 + r.t0 - .1, LINE.t0 + r.t1 + .1); const wait = (r.t1 - r.t0 + .4) * 1000; setTimeout(() => { if (mine) playYou(Math.max(0, mine[0] - .15), mine[1] + .15); }, wait + 150); }

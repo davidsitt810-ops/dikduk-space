@@ -135,6 +135,12 @@ Base: `https://davidsitt-pizmonim-dikduk.hf.space`. All JSON, CORS `*`. No keys.
   key `dk.strict`, the embed's only storage). On a clear take, "not sure" words become ✕ "not clear"; on an unclear take
   the marks stay and the summary asks for a clearer recording. `onResult(result, {pid, line, rec, strict})` says which
   mode was on. Nothing to do on the site unless you want it on by default somewhere (a teacher's page, say).
+- **v4.9 (on the repo's `next` branch until David merges it)**: for Tehillim lines (pointed text) the result can now
+  say "say a short “e” after the ב (shva na)" or "no vowel after the ר — its shva is silent (shva nah)", each with the
+  rule in a few words. ע / ח / ת notes end with a "practice ע ›" link to the letter checker; by default it opens the
+  checker server's `/letters?c=ע` in a new tab — `data-letters="https://…your letters page…"` (or `letters:` in
+  `mount`) sends it to the site's own letters page instead (it gets `?c=ע`), and `data-letters="false"` hides it.
+  Nothing else changes for the site; an older server simply sends no shva notes.
 - **Letter checker** (v4.7): `GET /letters` is a ready page (one letter at a time: hear Rabbi Alouf, say it, ✓/✕/not
   sure); for a site-written version, `GET /letters.json` lists the letters, their variants and his example words
   (audio at `GET /letters/audio/<name>.mp3`, ~5 KB each), and `POST /letter?c=<letter>[&want=b|v|k|kh|p|f|sh|s]

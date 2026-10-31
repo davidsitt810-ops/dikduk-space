@@ -735,3 +735,20 @@ a fake microphone in Chromium (`flow_letters.py`): record → post → ✓ with 
   Live at https://dikduk.thepizmonim.com since Oct 29 (uptime 80 h before the mps restart). Install lessons in
   mac/README_MAC.md: Homebrew python's pyexpat vs the system expat, Canopy re-signing HTTPS (python gets the Mac's
   certificates; uv and Xet stayed blocked), cloudflared's service install without "tunnel run" (error 1033).
+
+## 29. Shva na / nah (Shabbat, Oct 30–31; v4.9 on branch `next`)
+- Rules (shva.py) checked against what Rabbi Alouf does, all 144 perakim, 9,286 shvas (A = e-like slot, B = any vowel;
+  "said" = A mass ≥ .5, "silent" = no B frame ≥ .15 between the consonants). Perakim 41–150 (rules set on 1–40):
+  start said 78% / silent 1%; dagesh 73/0; second 70/0; twin 81/1; long (Sephardic rule) 60/14 — mixed; meteg 15/62 —
+  the rule fails for him; short silent 91% / said 1%; final 91/1; first 97/0; וּ+shva ("uvderekh") silent 91%;
+  diphthong (לַיְלָה) silent 51% / said 5%. Trusted for notes without the hazzan: start, second, twin, dagesh, short,
+  first, final.
+- First try with an e-like slot only: a shva na before a guttural or a yod is coloured by the next vowel (בְּיִרְאָה
+  "bi-yir'a"), so "silent" read 7% of his word-initial shvas; with "silent" = no vowel of ANY kind it is 1%.
+- The phone ear's slot is a CTC spike inside the vowel: cutting just the spike frames leaves the vowel (21 of 22 still
+  "said"); the drop test cuts the whole stretch between the consonants (keeping 20 ms each side).
+- Held-out tampering (243 pesukim): own reading 8/818 trusted shvas noted (1%), 3% of pesukim; a vowel cut out caught
+  36% (tn .05) / 45% (tn .15); a vowel put in caught 69%; collateral notes 2/250.
+- Vowel notes vs the nikud are now dropped where the hazzan's own vowel (same slot) is heard as the take's: the vowel
+  ear's kubutz/holam confusion on his reading (exam2v7: 7 of 12 nikud notes were U↔O) no longer reaches a student who
+  sings it as he does.
