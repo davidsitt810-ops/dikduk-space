@@ -1,4 +1,21 @@
 # Shabbat work log (Oct 30–31, 2026) — the dikduk checker
+
+## Read this first (Motza'ei Shabbat)
+Nothing live changed: main, the Mac and the Space are exactly as you left them. Everything is on two GitHub branches:
+- **`next`** = v4.9 — shva na / nah notes for Tehillim, practice links ("practice ע ›"), the letters page opens a
+  letter from a link, a booth list "shva" (8 short recordings) with scoring, and one vowel false alarm removed.
+  All tests pass.
+- **`next-merged`** = `next` + a branch I found in your repo from another chat (Oct 26, `claude/gracious-bardeen-ekr2df`,
+  "the foundations": the word rule in one file, checks on every push, a build stamp in /health, and fixes from an
+  independent review — the important one: **a tiny upload could decode to gigabytes and crash the server**, which
+  matters now that your Mac is public). It was never merged into main, and it also calls itself v4.8. I merged it
+  with my work and resolved the 10 conflicts; the model-free checks pass (word rule 1,737/1,737 lines, 20,000 fuzz
+  cases, measured numbers unchanged), and the server tests pass on it too (shva end to end, letters, strict switch,
+  shva note in the embed, letters links, the booth with a shva take scored "caught ✓").
+**Your decision:** merge `next-merged` into main (recommended), or `next` alone, or neither. Merging into main makes the
+pages live at once (the Mac and the Space read them from GitHub); the Mac's server code needs
+`bash ~/dikduk/app/mac/update.sh`; the Space needs a Factory rebuild.
+
 Rules kept: nothing live changes (work on the GitHub branch `next`; main, the Mac and the Space untouched),
 no site, no holiday preview, no passwords/tokens.
 
