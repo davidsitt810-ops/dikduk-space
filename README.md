@@ -108,6 +108,22 @@ page asks for a clearer take instead. Same rule in three places, checked word fo
 The home Mac's server runs on its GPU (`DK_DEVICE=mps`: 0.4 s a pasuk instead of 8–14 s, the same verdicts), and
 `.github/workflows/watch.yml` opens a GitHub issue when it stops answering.
 
+v4.9 (branch `next`, Shabbat Oct 30–31) adds **shva na / nah** for pointed lines (Tehillim). `shva.py` marks every
+sheva the Sephardic way (start of a word, second of two, under the first of two identical letters, under a doubling
+dagesh → said; after a short vowel, first of two, end of a word → silent; after a long vowel, after a meteg, after
+the conjunction וּ, in a diphthong → left to the hazzan) and hears it on the phone ear: the pasuk's sounds aligned with
+an optional short-vowel slot after each sheva consonant — "said" when an e-like vowel fills the slot (mass ≥ .5),
+"silent" when no vowel at all reaches .15 between the two consonants. On Rabbi Alouf, perakim 41–150 (6,714 shvas;
+the rules were set on perakim 1–40): a word-initial shva is heard said 78%, silent 1%; a shva after a short vowel
+silent 91%, said 1%. A note ("say a short “e” after the ב (shva na) — a shva at the start of a word is said" / "no
+vowel after the ר — its shva is silent") appears on a clean take where the take clearly differs from the rule and the
+hazzan does not contradict it, or from the hazzan's own clear reading under the other rules. Tested on 243 held-out
+pesukim (`tools/shva_eval.py`): 1% of his own correct shvas get a note (3% of pesukim), a short vowel put into a
+silent shva is caught 69%, a shva na with its vowel cut out 36–45% (a crude stand-in for a real swallowed shva).
+Also: a nikud vowel note is dropped where the hazzan is heard singing the vowel the same way (the vowel ear hears some
+of his kubutz/holam as each other: 23:2's מְנֻחוֹת no longer gets "oh for oo"); ע/ח/ת notes end with "practice ע ›"
+(`/letters?c=ע`, the embed's `letters` option); the booth has a list `shva` (8 short recordings) scored by `/score`.
+
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
 - `GET /letters` — the letter checker; `POST /letter?c=<letter>[&want=…][&strict=1]` with a short take as the body; `GET /letters.json`, `GET /letters/audio/<name>.mp3` — Rabbi Alouf's example words.
 - `GET /health`, `GET /info`, `GET /lyrics` (the site's lyrics.json + the Tehillim perakim, with CORS).
