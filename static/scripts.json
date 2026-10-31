@@ -68,5 +68,19 @@
    {"id": "p104", "text": "t104", "do": "perek", "check": false},
    {"id": "p089", "text": "t89", "do": "perek", "check": false}
   ]
+ },
+ "shva": {
+  "title": "Shva na / nah — 8 short recordings",
+  "intro": "Tehillim 23, read right and with one shva changed on purpose: a shva na swallowed (no short “e”), or a silent shva said as an “e”. Each one is a few seconds; about four minutes in all.",
+  "tasks": [
+   {"id": "s01", "text": "t23:2", "do": "right"},
+   {"id": "s02", "text": "t23:2", "do": "shvana", "word": "מנחות"},
+   {"id": "s03", "text": "t23:2", "do": "shvanah", "word": "ירביצני"},
+   {"id": "s04", "text": "t23:2", "do": "shvana", "word": "ינהלני"},
+   {"id": "s05", "text": "t23:3", "do": "right"},
+   {"id": "s06", "text": "t23:3", "do": "shvanah", "word": "נפשי"},
+   {"id": "s07", "text": "t23:3", "do": "shvana", "word": "ישובב"},
+   {"id": "s08", "text": "t23:3", "do": "shvana", "word": "למען"}
+  ]
  }
 }

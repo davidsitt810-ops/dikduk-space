@@ -7,7 +7,8 @@
    answers is used, so a fast home server can come first and the Space second as the fallback; if a check cannot reach
    the chosen one, the others are asked once more), pz | th (pizmon id | Tehillim perek), line (1-based), rec (hazzan recording file),
    lyrics (the site's lyrics object or a URL — saves a fetch), archive (base URL of the archive mp3s), strict (1/true: start with the
-   strict check on — data-strict="1"; the person can switch it under the result), onResult(result, {pid, line, rec, strict}).
+   strict check on — data-strict="1"; the person can switch it under the result), letters (where the "practice ע ›" links
+   go: a URL — default the server's /letters page — or false for no links; data-letters), onResult(result, {pid, line, rec, strict}).
    Styling: everything is under .dk; colours and fonts are CSS variables on the container (--dk-bg, --dk-panel, --dk-line,
    --dk-fg, --dk-mute, --dk-accent, --dk-good, --dk-warn, --dk-bad, --dk-ink, --dk-he, --dk-ui); the site's own fonts are
    inherited unless --dk-he / --dk-ui are set. Browser storage: only the strict switch's last setting (dk.strict). The same checker as the Space's /try page. */
@@ -72,6 +73,7 @@ const CSS = `
 .dk .dk-tr>div{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline}.dk .dk-tr .dk-lt{font-family:var(--he);font-size:24px;color:var(--gold)}
 .dk .dk-tr .dk-k{color:var(--mute);flex:none;min-width:84px}.dk .dk-tr .good{color:var(--good)}.dk .dk-tr .bad{color:var(--bad)}.dk .dk-tr .warn{color:var(--warn)}
 .dk .dk-sub{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}
+.dk .dk-prac{color:var(--gold);font-size:14px;white-space:nowrap;text-decoration:none;border-bottom:1px solid currentColor}
 .dk .dk-strict{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--mute,inherit);margin:-4px 0 12px;cursor:pointer}.dk .dk-strict input{width:18px;height:18px;accent-color:var(--gold);margin:0}
 .dk .dk-after{display:flex;gap:8px;margin-top:14px}.dk .dk-after .dk-btn{flex:1;margin-top:0}
 `;
@@ -103,6 +105,10 @@ const T = {   /* every piece of text, so a site can translate or reword (Dikduk.
  strictL: 'Strict check: only what is clearly right counts', labelUnclear: 'not clear', wUnclear: 'not clearly right',
  someOffStrict: '{n} of {N} words came through clearly. Not clearly right: {off}', ayinUnclear: 'the ע was not clearly from the throat', hetUnclear: 'the ח was not clearly from the throat', thUnclear: 'not clearly ✕',
  strictUnclear: 'This take is not clear enough for a strict check. Record again in a quiet room, phone close to your mouth — or turn the strict check off.',
+ practice: 'practice {c} ›', shvaNa: 'say a short “e” after the {c} (shva na)', shvaNah: 'no vowel after the {c} — its shva is silent (shva nah)',
+ shvaWhy: {start: 'a shva at the start of a word is said', second: 'the second of two shvas in a row is said', twin: 'a shva under the first of two identical letters is said',
+  dagesh: 'a shva under a doubled letter (dagesh) is said', short: 'after a short vowel the shva closes the syllable', first: 'the first of two shvas in a row is silent',
+  final: 'a shva at the end of a word is silent', hazzan: 'listen to the hazzan here'},
  noSpeech: 'I did not hear any singing in this recording. Check that the microphone picked you up (hold the phone closer), then record again.'};
 const fmt = (s, o) => s.replace(/\{(\w+)\}/g, (m, k) => o[k] != null ? o[k] : m);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
@@ -173,6 +179,7 @@ function mount(root, opts) {
  const APIS = [].concat(opts.api || []).join(' ').split(/[\s,]+/).filter(Boolean).map(a => a.replace(/\/$/, '')); let API = APIS[0] || ''; const ARCHIVE = opts.archive || 'https://www.pizmonim.org/MP3/';
  root.classList.add('dk'); root.innerHTML = HTML;
  const $ = s => root.querySelector(`[data-r="${s}"]`); const url = p => API + p;
+ const practice = (c, want) => { if (opts.letters === false || opts.letters === 'false') return ''; const base = (typeof opts.letters === 'string' && opts.letters) ? opts.letters : url('/letters'); const q = new URLSearchParams({c}); if (want) q.set('want', want); return ` <a class="dk-prac" href="${esc(base + (base.includes('?') ? '&' : '?') + q)}" target="_blank" rel="noopener">${esc(fmt(S.practice, {c}))}</a>`; };
  /* several servers: whichever answers /health first (and says ok) is the one; a dead tunnel fails fast, a sleeping Space answers late */
  function pickApi() { if (APIS.length <= 1) return fetch(url('/health'), {cache: 'no-store'}).then(r => r.json());
   return new Promise((res, rej) => { let left = APIS.length, done = false; APIS.forEach(async a => { try { const r = await fetch(a + '/health', {cache: 'no-store'}); if (!r.ok) throw new Error(String(r.status)); const j = await r.json(); if (!j || !j.ok) throw new Error('not ok'); if (!done) { done = true; API = a; res(j); } }
@@ -234,7 +241,7 @@ function mount(root, opts) {
   const k = parseInt(opts.line || '', 10); if (k >= 1) { const b = $('lines').querySelector(`.dk-ln[data-k="${k - 1}"]`); if (b) b.click(); } }
  /* ----- step 2 → 3 ----- */
  const PREF = new Set();
- function prefetchRef(l) { if (!REC || l.t0 == null) return; const k = REC + '|' + l.t0 + '|' + l.t1 + '|' + l.text; if (PREF.has(k)) return; PREF.add(k); fetch(url('/ref?' + new URLSearchParams({f: REC, words: l.text, t0: l.t0, t1: l.t1})), {cache: 'no-store'}).catch(() => PREF.delete(k)); }
+ function prefetchRef(l) { if (!REC || l.t0 == null) return; const nk = P && P.s.ln && P.s.ln[l.k]; const k = REC + '|' + l.t0 + '|' + l.t1 + '|' + l.text + '|' + (nk || ''); if (PREF.has(k)) return; PREF.add(k); const q = new URLSearchParams({f: REC, words: l.text, t0: l.t0, t1: l.t1}); if (nk) q.set('nikud', nk); fetch(url('/ref?' + q), {cache: 'no-store'}).catch(() => PREF.delete(k)); }
  const hiTh = (w, cls) => esc(w).replace(/[עח]/g, c => `<span class="dk-th${cls ? ' ' + cls(c) : ''}">${c}</span>`);
  function pickLine(l) { LINE = l; TAKE = null; RESULT = null; prefetchRef(l); $('lines').querySelectorAll('.dk-ln').forEach(b => b.classList.toggle('on', +b.dataset.k === l.k));
   fold('s2', esc(fmt(S.lineN, {k: l.k + 1})) + ' · ' + he(l.text)); $('lineWords').innerHTML = hiTh(l.text); $('hearLine').disabled = l.t0 == null; $('takeRow').hidden = true; if (canRec) $('recBtn').hidden = false;
@@ -324,11 +331,12 @@ function mount(root, opts) {
    if (why[i] === 'swapped') { if (i + 1 < W.length && why[i + 1] === 'swapped' && TW[i].swap != null && TW[i].swap >= RULE.swap) parts.push(fmt(S.swapped, {a: he(w), b: he(W[i + 1])})); }
    else if (why[i] === 'unclear') parts.push(S.wUnclear); else if (marks[i] === 'off') parts.push(S.wOff); else if (marks[i] === 'unsure') parts.push(S.wUnsure);
    if (marks[i] && marks[i] !== 'ok' && t.miss && t.miss.length && t.miss.length < (t.n || 9)) parts.push(he(t.miss.join(' ')) + S.notHeard);
-   if (marks[i] !== 'off') (t.throat || []).forEach(th => { if (th.v !== 'plain') return; const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return; parts.push(th.c === 'ע' ? S.ayinAlef : S.hetPlain); });
-   if (SON && marks[i] !== 'off') (t.throat || []).forEach(th => { if (th.v === 'unsure') parts.push(th.c === 'ע' ? S.ayinUnclear : S.hetUnclear); });
-   (t.notes || []).forEach(nn => { if (nn.say === 'sav') parts.push(S.tavSamekh); });
+   if (marks[i] !== 'off') (t.throat || []).forEach(th => { if (th.v !== 'plain') return; const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return; parts.push((th.c === 'ע' ? S.ayinAlef : S.hetPlain) + practice(th.c)); });
+   if (SON && marks[i] !== 'off') (t.throat || []).forEach(th => { if (th.v === 'unsure') parts.push((th.c === 'ע' ? S.ayinUnclear : S.hetUnclear) + practice(th.c)); });
+   (t.notes || []).forEach(nn => { if (nn.say === 'sav') parts.push(S.tavSamekh + practice('ת')); });
    const vd = (marks[i] === 'off' || !CLEAN) ? [] : ((j.vowels && j.vowels[i]) || []), vn = (marks[i] === 'off' || !CLEAN) ? [] : ((j.vowels_nikud && j.vowels_nikud[i]) || []);
    vd.forEach(d => parts.push(fmt(S.vowHaz, {you: vname(d.you), ref: vname(d.ref)}))); vn.forEach(d => { if (!vd.some(x => x.k === d.k)) parts.push(fmt(S.vowNik, {you: vname(d.you), ref: vname(d.ref)})); });
+   const sv = (marks[i] === 'off' || !CLEAN) ? [] : ((j.shva && j.shva[i]) || []); sv.forEach(d => { const SW = S.shvaWhy || {}, why = SW[d.rule] || SW.hazzan; parts.push(fmt(d.want === 'vowel' ? S.shvaNa : S.shvaNah, {c: he(d.c)}) + (why ? ' — ' + esc(why) : '')); });   /* v4.9 servers */
    if (parts.length) lines.push(`<li>${he(w)}: ${parts.join('; ')}.</li>`); });
   const offW = W.filter((w, i) => marks[i] === 'off'), unsW = W.filter((w, i) => marks[i] === 'unsure'), say = $('say');
   if (noSpeech) { say.className = 'dk-say warn'; say.textContent = S.noSpeech; }
@@ -350,7 +358,7 @@ function mount(root, opts) {
  health();
  return {open: id => { LY ? openP(id) : null; }, get result() { return RESULT; }};
 }
-window.Dikduk = Object.assign(window.Dikduk || {}, {mount, strings: (window.Dikduk && window.Dikduk.strings) || {}, version: '4.8'});
-function auto() { document.querySelectorAll('[data-dikduk]').forEach(el => { if (el.dataset.dkMounted) return; el.dataset.dkMounted = '1'; mount(el, {api: el.dataset.api, pz: el.dataset.pz, th: el.dataset.th, line: el.dataset.line, rec: el.dataset.rec, archive: el.dataset.archive, strict: el.dataset.strict}); }); }   // data-api may hold several servers, space-separated
+window.Dikduk = Object.assign(window.Dikduk || {}, {mount, strings: (window.Dikduk && window.Dikduk.strings) || {}, version: '4.9'});
+function auto() { document.querySelectorAll('[data-dikduk]').forEach(el => { if (el.dataset.dkMounted) return; el.dataset.dkMounted = '1'; mount(el, {api: el.dataset.api, pz: el.dataset.pz, th: el.dataset.th, line: el.dataset.line, rec: el.dataset.rec, archive: el.dataset.archive, strict: el.dataset.strict, letters: el.dataset.letters}); }); }   // data-api may hold several servers, space-separated
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', auto); else auto();
 })();

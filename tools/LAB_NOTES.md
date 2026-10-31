@@ -725,3 +725,13 @@ sounds. Verdict per letter, Rabbi Alouf called right / wrong / not sure — Isra
 **End-to-end** (`tools/t_letters.py`): the 94 example snippets posted back → right or not sure, never wrong; Israeli
 cuts for ע ח ק never right; silence and a tone → "I did not hear anything"; bad inputs → 400; the page drives through
 a fake microphone in Chromium (`flow_letters.py`): record → post → ✓ with all three ears.
+
+## 28. The strict check, and the Mac going live (Oct 29–30)
+- Strict = on a clean take (head median ≥ .7) every "not sure" word is ✕ "not clear". Exam (Alouf): wrong words caught
+  76% → 89%, skips 97 → 97%, swaps 96 → 96%; good words ✕ 0/537 → 2/537. Applied to every take it would have marked
+  168/528 good archive words (32%); on clean archive takes of right lines 18/86 — so on an unclear take strict changes no
+  mark and asks for a clearer take. Parity 547/547 (marks and strict marks), browser test t_strict_ui.py all good.
+- The Mac mini (M4): mps = the same verdicts as cpu within .02, a pasuk 0.4 s (cpu 8–14 s), a letter 0.1–0.5 s.
+  Live at https://dikduk.thepizmonim.com since Oct 29 (uptime 80 h before the mps restart). Install lessons in
+  mac/README_MAC.md: Homebrew python's pyexpat vs the system expat, Canopy re-signing HTTPS (python gets the Mac's
+  certificates; uv and Xet stayed blocked), cloudflared's service install without "tunnel run" (error 1033).

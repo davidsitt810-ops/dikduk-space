@@ -26,15 +26,15 @@ for f in files:
 print(len(lines), 'lines')
 py = []
 for l in lines:
-    clean = ns['clean_of'](l['TW']); marks, why, lw, cant = ns['marks_of'](l['TW'], l['F'], l['gap'], clean, l['rival']); py.append({'marks': marks, 'lw': lw, 'cant': cant, 'clean': clean})
+    clean = ns['clean_of'](l['TW']); marks, why, lw, cant = ns['marks_of'](l['TW'], l['F'], l['gap'], clean, l['rival']); sm, sw, son = ns['strict_of'](marks, why, clean, cant); py.append({'marks': marks, 'lw': lw, 'cant': cant, 'clean': clean, 'strict': [m or '' for m in sm], 'swhy': [w or '' for w in sw]})
 json.dump(lines, open(os.path.join(HERE, '_parity_lines.json'), 'w'))
 for name, js in JS.items():
     prog = js + """
 const lines = JSON.parse(require('fs').readFileSync(process.argv[2], 'utf8')); const out = [];
-for (const l of lines) { const HM = headMedian(l.TW); CLEAN = HM != null && HM >= .7; const r = marksOf(l.TW, l.F, l.gap, l.rival); out.push({marks: r.marks.map(m => m || ''), lw: r.lineWrong, cant: r.cantHear, clean: CLEAN}); }
+for (const l of lines) { const HM = headMedian(l.TW); CLEAN = HM != null && HM >= .7; const r = marksOf(l.TW, l.F, l.gap, l.rival); const st = strictOf(r.marks, r.why, CLEAN, r.cantHear); out.push({marks: r.marks.map(m => m || ''), lw: r.lineWrong, cant: r.cantHear, clean: CLEAN, strict: st.marks.map(m => m || ''), swhy: st.why.map(w => w || '')}); }
 process.stdout.write(JSON.stringify(out));"""
     open(os.path.join(HERE, f'_parity_{name}.js'), 'w').write(prog)
     res = json.loads(subprocess.run(['node', os.path.join(HERE, f'_parity_{name}.js'), os.path.join(HERE, '_parity_lines.json')], capture_output=True, text=True, check=True).stdout)
-    bad = [(i, p, j) for i, (p, j) in enumerate(zip(py, res)) if p['marks'] != j['marks'] or p['lw'] != j['lw'] or p['cant'] != j['cant'] or p['clean'] != j['clean']]
+    bad = [(i, p, j) for i, (p, j) in enumerate(zip(py, res)) if p['marks'] != j['marks'] or p['lw'] != j['lw'] or p['cant'] != j['cant'] or p['clean'] != j['clean'] or p['strict'] != j['strict'] or p['swhy'] != j['swhy']]
     print(f'{name}: {len(lines) - len(bad)}/{len(lines)} lines agree with the server')
     for i, p, j in bad[:5]: print('   ', i, 'server', p, '\n       ', name, j, [ (t['w'], t.get('n'), t.get('skel'), t.get('fit'), t.get('kept'), t.get('pw')) for t in lines[i]['TW']])

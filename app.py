@@ -186,6 +186,7 @@ except Exception as e:
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from vowels import vowel_place, compare_vowels, letters_kept, VOWEL_NAME, VOWELS
 from order import order_evidence, order_from_tokens, rival_evidence
+import shva as SH
 FULL = None; FULL_SYM = []; FULL_LAYER = 12
 try:
     ck = torch.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'full_head.pt'), map_location='cpu')
@@ -807,7 +808,7 @@ def try_page():
 
 @app.get('/health')
 def health():
-    return {'ok': True, 'version': 4.8, 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
+    return {'ok': True, 'version': 4.9, 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
             'page_from': 'github' if (_PAGES.get('index.html') or {}).get('body') else 'local', 'jobs': {'queued': sum(1 for v in JOBS.values() if v['state'] == 'queued'), 'running': sum(1 for v in JOBS.values() if v['state'] == 'running')},
             'letters': sorted(LT.BY_C), 'ears': {'letter_head': HEAD is not None, 'vowel_head': FULL is not None, 'fine_tuned': FT is not None, 'classifier_v2': bool(CLF2), 'tehillim_lyrics': len(TEHILLIM_LYR), 'tehillim_audio': os.path.isdir(TEHILLIM_DIR) and len(os.listdir(TEHILLIM_DIR)) or (TEHILLIM_BASE or 0),
                      'tehillim_perakim': sorted(int(m.group(1)) for m in (re.match(r'tehillim-(\d{3})\.mp3$', f) for f in (os.listdir(TEHILLIM_DIR) if os.path.isdir(TEHILLIM_DIR) else [])) if m)}}
@@ -874,9 +875,17 @@ def lyrics():
     return _LYR['data']
 
 REF_TAG = 'v4.1'   # part of the reference cache key: a new server version re-analyses the hazzan's lines
+SH_TAG = 'sh1'     # ... and of a pointed line's (the hazzan's shvas): bump when shva.py changes how it hears
 
-def ref_line(f: str, t0: float, t1: float, words, want_emb=False):
-    key = os.path.join(CACHE_DIR, 'ref_' + hashlib.sha1(f'{REF_TAG}|{f}|{t0}|{t1}|{" ".join(words)}|{int(want_emb)}'.encode()).hexdigest() + '.json')
+def shva_heard(lp, nikud, nw):
+    """the shvas of a pointed line as heard on the phone ear (shva.probe) -> {word index (str): [slots]}, or None when
+       the pointed text does not split into the same words"""
+    res, n = SH.probe(lp, nikud, VOCAB, PAD)
+    return {str(i): v for i, v in res.items()} if n == nw else None
+
+def ref_line(f: str, t0: float, t1: float, words, want_emb=False, nikud=None):
+    # (a pointed line adds the hazzan's shvas; its own cache entry, so the plain one stays valid)
+    key = os.path.join(CACHE_DIR, 'ref_' + hashlib.sha1((f'{REF_TAG}|{f}|{t0}|{t1}|{" ".join(words)}|{int(want_emb)}' + (f'|{SH_TAG}|{nikud}' if nikud else '')).encode()).hexdigest() + '.json')
     if os.path.exists(key):
         return json.load(open(key, encoding='utf-8'))
     x = decode_audio(fetch_archive(f))
@@ -885,6 +894,9 @@ def ref_line(f: str, t0: float, t1: float, words, want_emb=False):
         raise ValueError('the line is empty at those times')
     res, lp, spf = analyse(seg, words, want_emb)
     res['f'] = f; res['t0'] = t0; res['t1'] = t1
+    if nikud:
+        try: res['shva'] = shva_heard(lp, nikud, len(words))
+        except Exception as e: res['shva_err'] = str(e)[:200]
     # the hazzan against himself: the ceiling each word can reach
     self_fit = fit_against(lp, spf, res['words'])
     for w, s in zip(res['words'], self_fit): w['selffit'] = s.get('fit')
@@ -892,12 +904,12 @@ def ref_line(f: str, t0: float, t1: float, words, want_emb=False):
     return res
 
 @app.get('/ref')
-def ref(f: str, words: str, t0: float = 0, t1: float = 0, emb: int = 0):
+def ref(f: str, words: str, t0: float = 0, t1: float = 0, emb: int = 0, nikud: str = None):
     W = he_words(words)
     if not W:
         return JSONResponse({'err': 'no words'}, status_code=400)
     try:
-        return ref_line(f, t0, t1, W, bool(emb))
+        return ref_line(f, t0, t1, W, bool(emb), nikud or None)
     except Exception as e:
         return JSONResponse({'err': str(e)[:300]}, status_code=502)
 
@@ -998,7 +1010,7 @@ def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None, alt
     if ref:
         try:
             progress("listening to the hazzan's line")
-            R = ref_line(ref, t0, t1, W, bool(emb))
+            R = ref_line(ref, t0, t1, W, bool(emb), nikud or None)
             out['ref'] = R
             out['fit'] = fit_against(lp, spf, R['words'])
             if FULL is not None or FT is not None:
@@ -1010,9 +1022,27 @@ def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None, alt
         try:
             exp = {i: [{'heard': u['c']} for u in us if u['kind'] == 'vowel'] for i, (_, _, us) in enumerate(parse_verse(nikud))}
             if len(exp) == len(W):
-                out['vowels_nikud'] = compare_vowels({i: w.get('vow', []) for i, w in enumerate(take['words'])}, exp)
+                vn = compare_vowels({i: w.get('vow', []) for i, w in enumerate(take['words'])}, exp)
+                # (v4.9) a vowel the hazzan himself is heard saying the same way is not the student's mistake: the
+                # vowel ear hears some of Rabbi Alouf's kubutz/holam as each other (the top false alarm on his own
+                # reading — e.g. מְנֻחוֹת "oh for oo"), and the student who sings it as he does is right
+                RW = (out.get('ref') or {}).get('words') or []
+                for i in list(vn):
+                    hv = {v['k']: v['heard'] for v in (RW[i].get('vow') or [])} if i < len(RW) else {}
+                    vn[i] = [d for d in vn[i] if hv.get(d['k']) != d['you']]
+                    if not vn[i]: del vn[i]
+                out['vowels_nikud'] = vn
         except Exception as e:
             out['nikud_err'] = str(e)[:200]
+    if nikud:
+        # shva na / nah (v4.9): the take's shvas as heard, and where they clearly differ from the hazzan / the rules
+        try:
+            sv = shva_heard(lp, nikud, len(W))
+            if sv is not None:
+                out['shva_heard'] = sv
+                out['shva'] = SH.notes(sv, (out.get('ref') or {}).get('shva'))
+        except Exception as e:
+            out['shva_err'] = str(e)[:200]
     out['vowel_names'] = VOWEL_NAME
     return out
 
@@ -1380,8 +1410,11 @@ def summarize(out):
             if marks[int(i)] == 'off': continue   # a word that was not there has no vowels to speak of
             for d in ds: vow.append({'w': W[int(i)], 'k': d['k'], 'you': nm(d['you']), 'ref': nm(d['ref']), 'against': against})
     miss = {W[i]: t['miss'] for i, t in enumerate(TW) if t.get('miss')}
-    if cant_hear or no_speech: throat, vow, miss = [], [], {}   # the words were not made out: no claims about the letters inside them
-    return {'marks': marks, 'why': why, 'line_wrong': line_wrong, 'cant_hear': cant_hear, 'no_speech': no_speech, 'rival': out['take'].get('rival'), 'gap': out['take'].get('gap'), 'throat': throat, 'vowels': vow, 'miss': miss, 'clean': clean, 'head': head_median(TW), 'hazzan': bool(F), 'dur': out['take'].get('dur')}
+    # shva na / nah notes: as the vowels, only on a clean take and only in words that were there
+    shv = [{'w': W[int(i)], 'k': d['k'], 'c': d['c'], 'you': d['you'], 'want': d['want'], 'rule': d['rule'], 'by': d['by']}
+           for i, ds in ((out.get('shva') or {}).items() if clean else ()) if int(i) < len(W) and marks[int(i)] != 'off' for d in ds]
+    if cant_hear or no_speech: throat, vow, miss, shv = [], [], {}, []   # the words were not made out: no claims about the letters inside them
+    return {'marks': marks, 'why': why, 'line_wrong': line_wrong, 'cant_hear': cant_hear, 'no_speech': no_speech, 'rival': out['take'].get('rival'), 'gap': out['take'].get('gap'), 'throat': throat, 'vowels': vow, 'shva': shv, 'miss': miss, 'clean': clean, 'head': head_median(TW), 'hazzan': bool(F), 'dur': out['take'].get('dur')}
 
 def list_takes(set_=None, name=None, who=None):
     items = []
@@ -1465,6 +1498,18 @@ def score_take(J):
         vw = [v for v in vw if he_letters(v['w']) != he_letters(L['word'])]
     for v in vw:
         tally['claims'] += 1; claims.append(f"{v['w']}: machine says you sang {v['you']} where the {v.get('against', 'hazzan')} has {v['ref']} — right or wrong?")
+    # shva na / nah (v4.9): a planted one (swallowed / an extra "e") is caught or missed; any other note on a take read
+    # right is a false alarm; on other takes it is a claim to look at
+    sv = list(S.get('shva') or []); say = lambda v: 'no short e' if v == 'none' else 'a short e'
+    if do in ('shvana', 'shvanah') and L.get('word') and L.get('done', True):
+        want = 'vowel' if do == 'shvana' else 'none'
+        hit = [v for v in sv if he_letters(v['w']) == he_letters(L['word']) and v['want'] == want]
+        if hit: tally['caught'] += 1; claims.append(f"{L['word']}: you said {say(hit[0]['you'])} there, machine heard it ✓")
+        else: tally['missed'] += 1; claims.append(f"{L['word']}: you changed its shva, machine heard nothing ✕")
+        sv = [v for v in sv if he_letters(v['w']) != he_letters(L['word'])]
+    for v in sv:
+        if do == 'right': tally['false_alarm'] += 1; claims.append(f"{v['w']}: machine says {say(v['you'])} after the {v['c']}, wants {say(v['want'])} ✕ (false alarm, unless you did)")
+        else: tally['claims'] += 1; claims.append(f"{v['w']}: machine says {say(v['you'])} after the {v['c']}, wants {say(v['want'])} — right or wrong?")
     return {'state': 'scored', 'claims': claims, 'tally': tally, 'clean': S.get('clean'), 'hazzan': S.get('hazzan'), 'cant_hear': bool(S.get('cant_hear')), 'no_speech': bool(S.get('no_speech')), 'line_wrong': bool(S.get('line_wrong'))}
 
 @app.get('/score')

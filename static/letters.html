@@ -94,6 +94,9 @@ async function health(){const el=$('#srv');try{const r=await fetch(url('/health'
 async function load(){try{L=await (await fetch(url('/letters.json'),{cache:'no-store'})).json();}catch(e){try{L=await (await fetch(RAW+'letters.json',{cache:'no-store'})).json();}catch(e2){$('#err').textContent='Could not load the letters.';return;}}
  const g=$('#grid');g.innerHTML=L.letters.map(x=>`<button class="tile" type="button" data-c="${x.c}">${x.c}<small>${esc(x.name)}</small></button>`).join('');
  g.querySelectorAll('.tile').forEach(b=>b.onclick=()=>pick(b.dataset.c));
+ /* a link can open one letter: /letters?c=ע (&want=v), or /letters#ע — the line checker's "practice" links */
+ const Q=new URLSearchParams(location.search);let want=Q.get('c')||'';try{want=want||decodeURIComponent(location.hash.slice(1));}catch(e){}
+ if(want&&L.letters.some(x=>x.c===want)){pick(want);const w=Q.get('want');if(w&&CUR.want&&CUR.want.some(x=>x[0]===w)){const b=document.querySelector(`#seg button[data-k="${w}"]`);if(b)b.click();}return;}
  const last=ls('dk.letters.last');if(last&&L.letters.some(x=>x.c===last))pick(last);}
 function pick(c){CUR=L.letters.find(x=>x.c===c);if(!CUR)return;ls('dk.letters.last',c);
  document.querySelectorAll('.tile').forEach(b=>b.classList.toggle('on',b.dataset.c===c));

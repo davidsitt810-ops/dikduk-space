@@ -56,6 +56,7 @@ select{padding-right:28px}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--gold);border-radius:50%;animation:sp .8s linear infinite;flex:none}
 @keyframes sp{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion: reduce){.spin{animation:none}}
+.prac{color:var(--gold);font-size:14px;white-space:nowrap;text-decoration:none;border-bottom:1px solid currentColor}
 .strict{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--mute);margin:-4px 0 12px;cursor:pointer}.strict input{width:18px;height:18px;accent-color:var(--gold);margin:0}
 .say{font-size:17px;line-height:1.4;margin:0 0 12px}.say .he{font-size:20px}.say.ok{color:var(--good)}.say.bad{color:var(--bad)}.say.warn{color:var(--warn)}
 .words{display:flex;flex-wrap:wrap;gap:8px;direction:rtl;justify-content:flex-start}
@@ -77,6 +78,7 @@ details.lab{background:var(--panel);border:1px dashed var(--line);border-radius:
 details.lab summary{font-size:15px;color:var(--fg)}
 .sub{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}
 .nums{font-size:12px;color:var(--mute);width:100%;border-collapse:collapse;margin-top:6px;font-variant-numeric:tabular-nums}
+.nums tr.bad td{color:var(--bad)}
 .nums td,.nums th{padding:3px 6px;text-align:left;border-top:1px solid var(--line)}.nums th{font-weight:500}.nums td.he{font-size:16px;color:var(--fg);text-align:right}
 .ph{font-size:13px;line-height:1.7;word-break:break-word;color:var(--mute)}.ph b{color:var(--fg);font-weight:500}
 .verdict{display:flex;flex-wrap:wrap;gap:6px;direction:rtl}
@@ -148,6 +150,7 @@ textarea{width:100%;min-height:80px;font:12px/1.4 ui-monospace,Menlo,monospace;c
    <details class="lab-only" id="detP"><summary>Details: numbers, vowels, every sound heard</summary>
     <table class="nums" id="nums"></table>
     <div id="vwP" hidden><h3>Vowels</h3><div id="vw"></div></div>
+    <div id="svP" hidden><h3>Shva na / nah</h3><div id="sv"></div></div>
     <p class="ph" id="ph"></p>
    </details>
   </div>
@@ -265,8 +268,8 @@ $('#pid').addEventListener('keydown',e=>{if(e.key==='Enter')$('#go').click();});
 const PREF=new Set();
 /* the hazzan's line is analysed on the server the moment a line is picked (and cached there), so by the time the
    person has recorded, the check only has to listen to the take */
-function prefetchRef(l){if(!REC||l.t0==null)return;const k=REC+'|'+l.t0+'|'+l.t1+'|'+l.text;if(PREF.has(k))return;PREF.add(k);
- fetch(url('/ref?'+new URLSearchParams({f:REC,words:l.text,t0:l.t0,t1:l.t1})),{cache:'no-store'}).catch(()=>PREF.delete(k));}
+function prefetchRef(l){if(!REC||l.t0==null)return;const nk=P&&P.s.ln&&P.s.ln[l.k];const k=REC+'|'+l.t0+'|'+l.t1+'|'+l.text+'|'+(nk||'');if(PREF.has(k))return;PREF.add(k);
+ const q=new URLSearchParams({f:REC,words:l.text,t0:l.t0,t1:l.t1});if(nk)q.set('nikud',nk);fetch(url('/ref?'+q),{cache:'no-store'}).catch(()=>PREF.delete(k));}
 const hiTh=(w,cls)=>esc(w).replace(/[עח]/g,c=>`<span class="th${cls?' '+cls(c):''}">${c}</span>`);
 function pickLine(l){LINE=l;TAKE=null;RESULT=null;prefetchRef(l);$('#lines').querySelectorAll('.ln').forEach(b=>b.classList.toggle('on',+b.dataset.k===l.k));
  foldStep('s2','Line '+(l.k+1)+' · '+he(l.text));
@@ -373,6 +376,10 @@ function thSay(t){if(!t||!t.v)return {v:'?',lead:'not found',ears:''};const f=x=
  const lead=t.v==='throat'?'from the throat ✓':t.v==='plain'?(t.c==='ע'?'said like alef ✕':'not from the throat ✕'):(t.raw==='plain'?'not sure (sounded plain, but the take is not clear enough to say)':'not sure');
  return {v:t.v,lead,ears:ears.join(' · '),s:lead+' · '+ears.join(' · ')};}
 const VCLS={throat:'good',plain:'bad',unsure:'warn'};
+const SHVA_WHY={start:'a shva at the start of a word is said',second:'the second of two shvas in a row is said',twin:'a shva under the first of two identical letters is said',
+ dagesh:'a shva under a doubled letter (dagesh) is said',short:'after a short vowel the shva closes the syllable',first:'the first of two shvas in a row is silent',
+ final:'a shva at the end of a word is silent',hazzan:'listen to the hazzan here'};
+const prac=c=>` <a class="prac" href="${API||''}/letters?c=${encodeURIComponent(c)}" target="_blank" rel="noopener">practice ${esc(c)} ›</a>`;
 function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(j.fit&&j.fit.length)?j.fit:null;   /* an empty fit list is no fit */
  const HM=headMedian(TW);CLEAN=HM!=null&&HM>=.7;
  let {marks,why,lineWrong,cantHear}=marksOf(TW,F,j.take.gap,j.take.rival);
@@ -399,12 +406,13 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
   else if(why[i]==='unclear')parts.push('not clearly right');else if(marks[i]==='off')parts.push('not heard where it belongs');else if(marks[i]==='unsure')parts.push('not sure it was there');
   if(marks[i]&&marks[i]!=='ok'&&t.miss&&t.miss.length&&t.miss.length<(t.n||9))parts.push(`${he(t.miss.join(' '))} not heard`);
   if(marks[i]!=='off')(t.throat||[]).forEach(th=>{if(th.v!=='plain')return;const r=RW&&RW[i]&&(RW[i].throat||[]).find(x=>x.k===th.k);if(r&&r.v==='plain')return;   /* the hazzan says it plain there too: not a fault */
-   parts.push(th.c==='ע'?'the ע was said like alef':'the ח was not from the throat');});
-  if(SON&&marks[i]!=='off')(t.throat||[]).forEach(th=>{if(th.v==='unsure')parts.push(th.c==='ע'?'the ע was not clearly from the throat':'the ח was not clearly from the throat');});
-  (t.notes||[]).forEach(n=>{if(n.say==='sav')parts.push('the ת sounded like a samekh');});
+   parts.push((th.c==='ע'?'the ע was said like alef':'the ח was not from the throat')+prac(th.c));});
+  if(SON&&marks[i]!=='off')(t.throat||[]).forEach(th=>{if(th.v==='unsure')parts.push((th.c==='ע'?'the ע was not clearly from the throat':'the ח was not clearly from the throat')+prac(th.c));});
+  (t.notes||[]).forEach(n=>{if(n.say==='sav')parts.push('the ת sounded like a samekh'+prac('ת'));});
   const vd=(marks[i]==='off'||!CLEAN)?[]:((j.vowels&&j.vowels[i])||[]),vn=(marks[i]==='off'||!CLEAN)?[]:((j.vowels_nikud&&j.vowels_nikud[i])||[]);
   vd.forEach(d=>parts.push(`you sang ${vname(d.you)} where the hazzan sings ${vname(d.ref)}`));
   vn.forEach(d=>{if(!vd.some(x=>x.k===d.k))parts.push(`you sang ${vname(d.you)} where the nikud says ${vname(d.ref)}`);});
+  const sv=(marks[i]==='off'||!CLEAN)?[]:((j.shva&&j.shva[i])||[]);sv.forEach(d=>parts.push((d.want==='vowel'?`say a short “e” after the ${he(d.c)} (shva na)`:`no vowel after the ${he(d.c)} — its shva is silent (shva nah)`)+' — '+(SHVA_WHY[d.rule]||SHVA_WHY.hazzan)));
   if(parts.length)lines.push(`<li>${he(w)}: ${parts.join('; ')}.</li>`);});
  const off=marks.filter(m=>m==='off').length,uns=marks.filter(m=>m==='unsure').length,say=$('#say');
  if(noSpeech){say.className='say warn';say.textContent='I did not hear any singing in this recording. Check that the microphone picked you up (hold the phone closer), then record again.';}
@@ -429,6 +437,11 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
  if(CLEAN&&!cantHear&&!noSpeech){addV(j.vowels,'the hazzan');addV(j.vowels_nikud,'the nikud');}
  if(j.vowel_names){$('#vw').innerHTML=vrows.length?vrows.map(x=>`<div class="tr"><div class="hd"><span class="lt">${esc(heL(x.w)[x.d.k]||'')}</span><span>in ${he(x.w)}</span></div><div><span class="k">you</span><span class="v warn">${esc(VN[x.d.you]||x.d.you)}</span></div><div><span class="k">${esc(x.label)}</span><span class="v">${esc(VN[x.d.ref]||x.d.ref)}</span></div></div>`).join('')
    :'<p class="hint" style="margin:0">No clear vowel differences from the hazzan'+(j.vowels_nikud?' or the nikud':'')+'.</p>';$('#vwP').hidden=false;}else $('#vwP').hidden=true;
+ /* shva na / nah (v4.9 servers): every sheva of a pointed line — the rule, what was heard in you and in the hazzan */
+ const SVH=j.shva_heard||null,SVR=(j.ref&&j.ref.shva)||{};
+ if(SVH){const rows=[];W.forEach((w,i)=>{(SVH[i]||[]).forEach(s=>{const r=(SVR[i]||[]).find(x=>x.k===s.k);const note=((j.shva&&j.shva[i])||[]).find(x=>x.k===s.k);
+   rows.push(`<tr${note?' class="bad"':''}><td class="he" lang="he">${esc(w)}</td><td class="he" lang="he">${esc(s.c)}</td><td>${s.kind} · ${esc(s.rule)}</td><td>${esc(s.heard)} <span class="hint">(${f2(s.mass)} / ${f2(s.gapmax_any!=null?s.gapmax_any:s.gapmax)})</span></td><td>${r?esc(r.heard)+` <span class="hint">(${f2(r.mass)} / ${f2(r.gapmax_any!=null?r.gapmax_any:r.gapmax)})</span>`:'–'}</td></tr>`);});});
+  $('#sv').innerHTML=rows.length?`<table class="nums"><tr><th>word</th><th>letter</th><th>rule</th><th>you (e-mass / any vowel between)</th><th>the hazzan</th></tr>${rows.join('')}</table>`:'<p class="hint" style="margin:0">No sheva in this line.</p>';$('#svP').hidden=false;}else $('#svP').hidden=true;
  $('#ph').innerHTML=`<b>you:</b> ${esc(TW.map(t=>'['+t.phones.join(' ')+']').join(' '))}<br><b>hazzan:</b> ${RW?esc(RW.map(t=>'['+t.phones.join(' ')+']').join(' ')):'–'}`;
  /* David's verdict row (lab) */
  $('#vd').innerHTML=W.map((w,i)=>`<span class="vd"><span>${esc(w)}</span><button class="r on" data-i="${i}" data-v="1" type="button">✓</button><button class="x" data-i="${i}" data-v="0" type="button">✕</button></span>`).join('');
