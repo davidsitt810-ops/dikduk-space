@@ -916,3 +916,70 @@ calibration through the server.
 Rabbi Alouf drifts as the reader's weight grows — which would not matter if the calibrated head heard only that
 student's takes and the shipped head kept hearing the hazzan. The catch: it learns whatever the student says,
 mistakes included, unless only takes the checker already trusts (clean, confident) are used to calibrate.
+
+## 33. Does learning a student's voice also learn his mistakes? A planted mistake (Nov 1)
+
+**Why.** §32: 30 of a reader's own pesukim cut his false vowel notes by a third to a half. But the head learns whatever
+his pesukim are labeled with, and by sound alone it cannot tell a voice from a mistake. (The voice card, v5, carries the
+same risk for its four pairs: a card read with "menohot" for מְנֻחוֹת drops every "oh for oo" note that student will
+ever get — `drop_card` — and Tehillim 23:1-2 has a single u, so one word decides it.)
+
+**The plant** (`tools/mistake_lab.py`). On a correct reader, the o-vowels of his text are written u (pron O→U, the Name
+kept), in his 30 calibration pesukim and in his held-out pesukim alike: he now "says o where the page says u".
+- **every time**: in every o-word — 81 planted vowels in Tawil's 30 pesukim, 85 in Ben Haim's;
+- **in some words**: in 30% of his o-words, the same words each time — 29 and 17 planted vowels.
+
+**What the calibration may learn**, each judged by the shipped head on the 30 pesukim (recipe as §32's cal30,
+`HEAD_NV_PRON` gives train_head2 the labels):
+- naive — the 30 pesukim as labeled;
+- safe1 — only the pesukim the shipped head raises no flag on (mistake every time: 1 of 30 survives; true text: 15 of
+  Tawil's, 12 of Ben Haim's);
+- safe2 — every vowel the shipped head CLEARLY hears otherwise is relabeled to what it hears;
+- safe3 — the same, only for a confusion that is his USUAL way of saying that vowel (at least half its slots clearly
+  heard as the other). Mistake every time: U→O 67 of 100 (Tawil), 73 of 101 (Ben Haim), blocked. True text: no
+  confusion reaches half (Ben Haim's u heard o 9 of 29, Tawil's i heard e 9 of 69), so safe3 changes nothing there —
+  it IS the naive calibration, with its whole gain.
+
+**Head level** (his held-out pesukim; caught = a mistake word the vowel ear flags):
+
+| calibration | mistake every time, caught: Tawil | Ben Haim | his correct reading, words flagged: Tawil | Ben Haim |
+|---|---|---|---|---|
+| none (shipped) | 86% | 73% | 5.5% | 9.4% |
+| naive | **39%** | **27%** | 3.9% | 4.8% |
+| safe1 | 86% | 70% | 4.3% | 7.5% |
+| safe2 | 82% | 75% | 3.9% | 8.2% |
+| **safe3** | **83%** | **72%** | **3.9%** (= naive) | **4.8%** (= naive) |
+
+The mistake in some words (30%): caught — none 86% / 69%, naive 81% / 72% (the clean calibration itself: 88% / 80%),
+safe3 81% (= naive; U→O 28 of 59, under half) / 79% (U→O 23 of 44 = 52% with his own o-like u, blocked — his correct
+reading then flags 6.2% instead of naive's 4.5%). A mistake made in some words is hardly learned: the same o is
+labeled o in his other words, and the head hears sounds, not words. Rabbi Alouf's held-out reading under these heads:
+1.0–1.8% flagged (naive with the mistake every time 2.1–2.3%; shipped 0.9%) — the calibrated head is for that student's
+takes only.
+
+**Through the whole server** (`exam_voice.py` with `PLANT=OU NO_REF=1` — the planted text, no hazzan: he says those
+vowels exactly as the hazzan does, and the v4.9 rule drops a nikud note the hazzan shares — 80 takes on the exam
+perakim; `planted_catch.py`; on clean takes, "told" = a vowel note on the word or ✕):
+
+| calibration | Tawil: mistake words told | other words with a note | Ben Haim: told | other words with a note |
+|---|---|---|---|---|
+| none (shipped) | 85.6% (oo→oh 131 of 153) | 6.2% | 77.8% (oo→oh 105, oo→ah 19 of 167) | 7.6% |
+| naive | **23.5%** | 4.0% | **22.8%** | 2.7% |
+| **safe3** | **81.7%** | 4.3% | **72.5%** | 4.9% |
+
+The quick test pointed the right way this time (head level 86 / 39 / 83% and 73 / 27 / 72%); the server is harsher still on
+the naive head. On his correct reading, with the hazzan, safe3 is §32's cal30: Tawil 7.1% → 4.6%, Ben Haim 9.3% → 4.7%.
+
+**What it means.**
+- The risk is real for a mistake made every time: calibrating on it as written, the checker stops telling him about
+  three quarters of it (through the server: Tawil 86% → 24%, Ben Haim 78% → 23%).
+- Trusting the ear where it is sure (safe2) blocks it, but on Ben Haim it throws away most of the gain (9.4% → 8.2%
+  instead of 4.8%): the shipped head is SURE his u is an o. A voice can sound as clear to the ear as a mistake.
+- What separates them here is how often: Ben Haim's u is heard o in a third of his u's; a mistake made every time, in
+  most of them. safe3 uses that — it blocks the every-time mistake as well as safe2 (through the server: 82% and 73% told, 4-5
+  points under no calibration) and keeps the whole gain on a correct reader.
+- Its limits: a mistake made in some words passes as voice — but the head barely learns those anyway; a voice whose
+  difference reaches half (a stronger accent, or Ben Haim's with a sometimes-mistake on top) loses part of the gain;
+  and the line at half is a choice. Not shipped: it would be one calibrated head per student (10 MB, about 3 minutes of
+  training here on 2 cores), made from his first clean takes with safe3, the shipped head kept for the hazzan, and the
+  confusions it blocked or learned shown to the teacher.
