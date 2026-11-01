@@ -236,6 +236,7 @@ for job in JOBS:
                 cu = units_of(verses[c0:c0 + step], v_base=c0); chunks.append(cu); units += cu
             first = None
             for cu in chunks:
+                if not cu: continue                          # verses left empty: a parasha that starts or ends inside this perek
                 alt_list, toks = ph_tokens(cu)
                 est = len(cu) * (rate if rate else 0.2) / spf                            # frames the stretch should take
                 W0 = pos; W1 = min(ph_lp.shape[0], int(pos + est * (1.6 if rate else 3.0) + 45 / spf))
