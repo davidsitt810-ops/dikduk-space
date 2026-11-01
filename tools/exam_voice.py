@@ -36,6 +36,34 @@ if os.environ.get('ONLY_PS'):   # re-check just these pesukim (perek:pasuk from 
     want_ps = {tuple(int(x) for x in s.split(':')) for s in os.environ['ONLY_PS'].split(',')}
     jobs = [(n, i) for n, i in jobs if (n, i + 1) in want_ps]
 print(f'{NAME}: {len(jobs)} pesukim', flush=True)
+# PLANT=OU: a planted mistake (tools/mistake_lab.py) — the page's o-vowels written u (holam, kamatz katan, hataf kamatz ->
+# kubutz; holam male -> shuruk), the Name kept, so the correct reader now "says o where the page says u". Run it with
+# NO_REF=1: the reader says those vowels exactly as the hazzan does, and the hazzan comparison (and the v4.9 rule that
+# drops a nikud note the hazzan shares) would hide every planted mistake. Rows get 'planted' (word indices) and 'nw'.
+PLANT = os.environ.get('PLANT'); NO_REF = bool(os.environ.get('NO_REF'))
+if PLANT:
+    assert PLANT == 'OU', 'only PLANT=OU'
+    import nikud as NK
+    O_MARKS = {NK.HOLAM, NK.HOLAM_VAV, NK.QAMATS_QATAN, NK.HAT_QAM}
+    def plant_word(w):
+        if NK.NAME.search(w): return w
+        groups = []
+        for ch in w:
+            if 'א' <= ch <= 'ת' or not groups: groups.append([ch, []])
+            else: groups[-1][1].append(ch)
+        out = []
+        for c, ms in groups:
+            if any(m in O_MARKS for m in ms):
+                male = c == 'ו' and NK.DAGESH not in ms and not any(m in NK.VOWEL_MARKS and m not in O_MARKS for m in ms)
+                ms = [(NK.DAGESH if male else NK.QUBUTS) if m in O_MARKS else m for m in ms]
+            out.append(c + ''.join(ms))
+        return ''.join(out)
+    def plant(nik):
+        new = ' '.join(plant_word(w) for w in nik.split(' '))
+        a, b = NK.parse_verse(nik), NK.parse_verse(new)
+        assert len(a) == len(b)
+        idx = [j for j, ((_, _, ua), (_, _, ub)) in enumerate(zip(a, b)) if [u['c'] for u in ua] != [u['c'] for u in ub]]
+        return new, idx, len(a)
 CACHE = {}
 def align(n):
     if n not in CACHE: CACHE[n] = json.load(open(os.path.join(AL, f'{n}.json'), encoding='utf-8'))
@@ -58,9 +86,11 @@ for done, (n, i) in enumerate(jobs, 1):
     A = align(n); R = IDX[str(n)]; p = A['pesukim'][i]; q = R['pesukim'][i]
     wav = cut(n, p['t0'] - .25, p['t1'] + .25)
     alts = '|'.join(x['text'] for k, x in enumerate(R['pesukim']) if k != i and x.get('text'))
+    nik, planted, nw = (plant(q['nikud']) if PLANT else (q['nikud'], None, None))
+    prm = {'words': q['text'], 'nikud': nik, 'alts': alts}
+    if not NO_REF: prm.update({'ref': R['file'], 't0': q['t0'], 't1': q['t1']})
     try:
-        r = requests.post(BASE + '/check', params={'words': q['text'], 'nikud': q['nikud'], 'ref': R['file'], 't0': q['t0'], 't1': q['t1'], 'alts': alts},
-                          data=wav, headers={'Content-Type': 'application/octet-stream'}, timeout=900)
+        r = requests.post(BASE + '/check', params=prm, data=wav, headers={'Content-Type': 'application/octet-stream'}, timeout=900)
         out = r.json()
         if r.status_code != 200: keep({'per': n, 'ps': i, 'err': out.get('err', r.status_code)}); continue
     except Exception as e:
@@ -69,7 +99,8 @@ for done, (n, i) in enumerate(jobs, 1):
     keep({'per': n, 'ps': i, 'words': out['words'], 'dur': round(p['t1'] - p['t0'] + .5, 2), 'align_p': p['p'], 'marks': sm['marks'], 'why': sm['why'],
                  'line_wrong': sm['line_wrong'], 'cant_hear': sm['cant_hear'], 'no_speech': sm['no_speech'], 'clean': sm['clean'], 'head': rule.head_median(out['take']['words']),
                  'throat': sm['throat'], 'vowels': sm['vowels'], 'shva': sm['shva'], 'rival': sm['rival'], 'gap': sm['gap'],
-                 'strict': rule.strict_of(sm['marks'], sm['why'], sm['clean'], sm['cant_hear'])[0]})
+                 'strict': rule.strict_of(sm['marks'], sm['why'], sm['clean'], sm['cant_hear'])[0],
+                 **({'planted': planted, 'nw': nw} if PLANT else {})})
     if done % 10 == 0: print(f'  {done}/{len(jobs)}  [{int(time.time() - t_start)} s]', flush=True)
 jl.close(); want = set(jobs); rows = [r for r in rows if (r['per'], r['ps']) in want]
 json.dump(rows, open(os.path.join(HERE, f'exam_{NAME}.json'), 'w', encoding='utf-8'), ensure_ascii=False)

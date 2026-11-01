@@ -17,6 +17,11 @@ SYM = ['<b>', ' '] + LETTERS + (VOWELS if MODE == 'full' else []); S2I = {s: i f
 rows = [json.loads(l) for l in open(os.path.join(HERE, 'manifest.jsonl'), encoding='utf-8')]
 rows += [json.loads(l) for l in open(os.path.join(HERE, 'manifest_alouf.jsonl'), encoding='utf-8')] if os.path.exists(os.path.join(HERE, 'manifest_alouf.jsonl')) else []
 rows += [json.loads(l) for l in open(os.path.join(HERE, 'manifest_voices.jsonl'), encoding='utf-8')] if os.path.exists(os.path.join(HERE, 'manifest_voices.jsonl')) else []   # readers the heads never heard (Be'eri, Ben Haim, Tawil: voice_register / perek_to_manifest)
+# HEAD_NV_PRON=map.json {id: pron | null}: another pronounced sequence for these items (a planted mistake, a filtered
+# calibration — tools/mistake_lab.py); null leaves the item out of training (after HEAD_NV_KEEP has chosen)
+PRON = json.load(open(os.environ['HEAD_NV_PRON'], encoding='utf-8')) if os.environ.get('HEAD_NV_PRON') else {}
+for r in rows:
+    if PRON.get(r['id']): r['pron'] = PRON[r['id']]
 ar = [r for r in rows if r['src'] == 'ar' and r['skel'] >= .35 and r['good'] >= .5 and r['T'] >= 20]
 al = [r for r in rows if r['src'] == 'al' and r['skel'] >= .5 and r['T'] >= 20]
 il = [r for r in rows if r['src'] == 'il']
@@ -40,6 +45,7 @@ nv_train = [r for r in nv if r['pid'] not in hold_nv and int(r['pid'][len(r['voi
 # the head his voice? — and Rabbi Alouf subsampled to anchor it (HEAD_AL_SUB=n)
 if os.environ.get('HEAD_NV_KEEP'):
     kv, kk = os.environ['HEAD_NV_KEEP'].split(':'); pool = [r for r in nv_train if r['voice'] == kv]; random.Random(1).shuffle(pool); nv_train = pool[:int(kk)]
+nv_train = [r for r in nv_train if not (r['id'] in PRON and PRON[r['id']] is None)]
 al_train = [r for r in al if r['pid'] not in hold_al]
 if os.environ.get('HEAD_AL_SUB'): random.Random(2).shuffle(al_train); al_train = al_train[:int(os.environ['HEAD_AL_SUB'])]
 if MODE == 'letters':
@@ -47,6 +53,9 @@ if MODE == 'letters':
 else:
     train = al_train * int(os.environ.get('HEAD_AL_FULL', '1')) + nv_train * NV_W   # HEAD_AL_FULL=k: Rabbi Alouf k times
 test_ar = [r for r in ar if r['pid'] in hold]; test_al = [r for r in al if r['pid'] in hold_al]; test_nv = [r for r in nv if r['pid'] in hold_nv]
+if os.environ.get('HEAD_DUMP'):   # which new-voice items train and which are held out (for tools/mistake_lab.py)
+    json.dump({'nv_train': [r['id'] for r in nv_train], 'test_nv': [r['id'] for r in test_nv]}, open(os.environ['HEAD_DUMP'], 'w'))
+    if os.environ.get('HEAD_DUMP_ONLY'): sys.exit(0)
 print(f'mode {MODE}: archive lines {len(ar)}, Alouf pesukim {len(al)} (weight {AL_W}), israeli {len(il)}, egyptian {len(eg)} (weight {EG_W}), israeli train {len(il2)} (weight {IL_W}); train items {len(train)}; held out {len(test_ar)} hazzan lines of {len(hold)} pizmonim, {len(test_al)} Alouf pesukim of {len(hold_al)} perakim; new voices {len(nv)} (weight {NV_W}; {len(nv_train)} in training, none from his held-out perakim {sorted(al_held_text)}), held out {len(test_nv)} of {len(hold_nv)} perakim')
 
 def feats(r):
