@@ -23,7 +23,7 @@ from huggingface_hub import hf_hub_download
 torch.set_num_threads(int(os.environ.get('THREADS', '2')))
 OUT = sys.argv[1]; JOBS = sys.argv[2:]
 os.makedirs(os.path.join(OUT, 'align'), exist_ok=True); os.makedirs(os.path.join(OUT, 'feat'), exist_ok=True)
-T = json.load(open(os.path.join(TEH, 'tehillim_nikud.json'), encoding='utf-8'))
+T = json.load(open(os.environ.get('TEXT') or os.path.join(TEH, 'tehillim_nikud.json'), encoding='utf-8'))   # TEXT: another book's {chapter: [verses]} (fetch_texts.py), e.g. Esther
 PH_ID = 'facebook/wav2vec2-xlsr-53-espeak-cv-ft'; AR_ID = 'jonatasgrosman/wav2vec2-large-xlsr-53-arabic'
 FE = Wav2Vec2FeatureExtractor.from_pretrained(PH_ID); PH = Wav2Vec2ForCTC.from_pretrained(PH_ID).eval()
 PH_V = json.load(open(hf_hub_download(PH_ID, 'vocab.json'), encoding='utf-8')); PH_PAD = PH_V['<pad>']

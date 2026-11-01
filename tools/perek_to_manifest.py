@@ -20,7 +20,8 @@ torch.set_num_threads(int(os.environ.get('THREADS', '2')))
 TAG = sys.argv[1]; JOBS = sys.argv[2:]
 TEST = {3, 7, 11, 15, 19, 23, 27, 31, 35, 39, 43, 47, 115, 123, 127, 131, 135, 143, 147}
 FEAT = os.path.join(S, 'space_test', 'feat'); MAN = os.path.join(S, 'space_test', 'manifest_voices.jsonl')
-T_ALL = json.load(open(os.path.join(S, 'tehillim', 'tehillim_nikud.json'), encoding='utf-8'))
+T_ALL = json.load(open(os.environ.get('TEXT') or os.path.join(S, 'tehillim', 'tehillim_nikud.json'), encoding='utf-8'))
+BOOK = os.environ.get('BOOK', '')   # another book (TEXT = its {chapter: [verses]}): ids <voice>_<book><chapter>; the Tehillim exam perakim (TEST) only matter for Tehillim
 AR_ID = 'jonatasgrosman/wav2vec2-large-xlsr-53-arabic'
 PROC = Wav2Vec2Processor.from_pretrained(AR_ID); AR = Wav2Vec2ForCTC.from_pretrained(AR_ID).eval()
 V = PROC.tokenizer.get_vocab(); PAD = PROC.tokenizer.pad_token_id; NV = len(V)
@@ -63,8 +64,8 @@ def ear(x, win=20.0, pad=1.0):
 t_start = time.time(); n_items = 0
 for job in JOBS:
     parts = job.split(':'); path, n = parts[0], int(parts[1]); rng = parts[2] if len(parts) > 2 else None
-    pid = f'{TAG}{n}'
-    if n in TEST or pid in have or str(n) not in T_ALL: continue
+    pid = f'{TAG}_{BOOK}{n}' if BOOK else f'{TAG}{n}'
+    if (n in TEST and not BOOK) or pid in have or str(n) not in T_ALL: continue
     t0, t1 = (float(v) for v in rng.split('-')) if rng else (None, None)
     x = decode(path, t0, t1)
     if x.shape[0] < 16000: continue
@@ -104,11 +105,11 @@ for job in JOBS:
                 r['heard'] = max(mass, key=mass.get); r['mass'] = {mm: round(val, 3) for mm, val in mass.items()}
             align.append(r)
         h = h12[f0:f1]; sc = np.maximum(np.abs(h).max(1), 1e-6)
-        cid = f'{TAG}_{n}_{vi + 1}'
+        cid = f'{TAG}_{BOOK}{n}_{vi + 1}' if BOOK else f'{TAG}_{n}_{vi + 1}'
         np.savez(os.path.join(FEAT, cid + '.npz'), lp=lp[f0:f1].astype(np.float16), h12q=np.round(h / sc[:, None] * 127).astype(np.int8), h12s=sc.astype(np.float16))
         text = ' '.join(letters for _, letters, _ in P[vi])
         pron = ' '.join(''.join(u['c'] for u in us) for _, _, us in parse_verse(clean_verse(v)))
-        row = {'id': cid, 'src': 'nv', 'voice': TAG, 'pid': pid, 'rec': os.path.basename(path), 'line': vi + 1, 'text': text, 'pron': pron,
+        row = {'id': cid, 'src': 'nv', 'voice': TAG, 'pid': pid, 'book': BOOK or 'tehillim', 'rec': os.path.basename(path), 'line': vi + 1, 'text': text, 'pron': pron,
                'dur': round((f1 - f0) * spf, 3), 'T': int(f1 - f0), 'spf': spf, 'skel': round(pv, 3), 'good': 1.0, 'align': align,
                't0': round((t0 or 0.0) + f0 * spf, 3), 't1': round((t0 or 0.0) + f1 * spf, 3)}
         with open(MAN, 'a', encoding='utf-8') as fo: fo.write(json.dumps(row, ensure_ascii=False) + '\n')

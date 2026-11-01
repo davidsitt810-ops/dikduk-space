@@ -40,7 +40,8 @@ nvp = sorted(set(r['pid'] for r in nv)); random.shuffle(nvp); hold_nv = set(nvp[
 # exam_alouf.py) stay unseen in voice AND text
 al_held_text = {int(p[2:]) for p in hold_al}
 NV_SKIP = set(v for v in os.environ.get('HEAD_NV_SKIP', '').split(',') if v)   # leave a voice out entirely (does the head help a voice it never heard?)
-nv_train = [r for r in nv if r['pid'] not in hold_nv and int(r['pid'][len(r['voice']):]) not in al_held_text and r['voice'] not in NV_SKIP]
+perek_no = lambda r: int(r['pid'][len(r['voice']):]) if r['pid'][len(r['voice']):].isdigit() else None   # a Tehillim perek (other books: <voice>_<book><chapter>)
+nv_train = [r for r in nv if r['pid'] not in hold_nv and perek_no(r) not in al_held_text and r['voice'] not in NV_SKIP]
 # calibration test: only K pesukim of one voice (HEAD_NV_KEEP=voice:K, seeded) — can a reader's first K pesukim teach
 # the head his voice? — and Rabbi Alouf subsampled to anchor it (HEAD_AL_SUB=n)
 if os.environ.get('HEAD_NV_KEEP'):
