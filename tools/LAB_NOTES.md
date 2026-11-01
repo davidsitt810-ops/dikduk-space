@@ -885,6 +885,8 @@ it, 6 epochs from the shipped head; Ben Haim's held-out perakim, head level):
 | Tawil (not in the K runs) | 5.8% | 4.4% | 4.6% | 4.6% | (trained on: 1.9%) |
 
 Ten pesukim of his own voice take out about 40% of his false notes, thirty about half, a hundred about two thirds.
+Through the whole server on his exam perakim, the 30-pesukim head: word-slots with a vowel note 104 (9.3%) → 53 (4.7%),
+not sure 6.2% → 5.2%, ✕ 10 → 10 (one new: תוציא, one gone: נדחי).
 Rabbi Alouf drifts as the reader's weight grows — which would not matter if the calibrated head heard only that
 student's takes and the shipped head kept hearing the hazzan. The catch: it learns whatever the student says,
 mistakes included, unless only takes the checker already trusts (clean, confident) are used to calibrate.
