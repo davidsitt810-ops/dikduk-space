@@ -29,7 +29,8 @@ Afterwards:
 - The site: load `embed.js` from a place that is up even when a server is not —
   `<script src="https://cdn.jsdelivr.net/gh/davidsitt810-ops/dikduk-space@main/static/embed.js"></script>` — and give
   it both servers, the Mac first: `data-api="https://dikduk.thepizmonim.com https://davidsitt-pizmonim-dikduk.hf.space"`.
-  The embed uses whichever answers `/health` first (a dead tunnel fails in a second; the sleeping Space answers late)
+  The embed uses the first server listed (the Mac) when its `/health` answers within 1.5 s, another one only after that or
+  once the first has failed (a dead tunnel fails in a second; the sleeping Space answers late)
   and asks the other one if a check cannot reach the chosen one. jsDelivr keeps a copy for up to 12 hours; after a
   push, `https://purge.jsdelivr.net/gh/davidsitt810-ops/dikduk-space@main/static/embed.js` refreshes it.
 

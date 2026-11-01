@@ -54,7 +54,7 @@ Endpoints (JSON, CORS open):  GET /health   GET /info   GET /lyrics (the site's 
   GET  /tehillim/audio/<file>                                  a Rabbi Alouf recording
 Nothing here deploys or changes the site.
 """
-import os, re, sys, json, time, hashlib, subprocess, tempfile, threading, queue, uuid, shutil, urllib.parse, asyncio
+import os, re, sys, json, time, hashlib, subprocess, tempfile, threading, queue, uuid, shutil, urllib.parse, asyncio, ipaddress
 import numpy as np
 import torch
 import requests
@@ -850,7 +850,7 @@ def try_page():
 def health():
     return {'ok': True, 'version': VERSION, 'build': {'commit': COMMIT, 'commit_from': COMMIT_FROM, 'files': FILES, 'models': MODEL_REV, 'rule': RULE_HASH, 'ref_tag': REF_TAG},
             'storage': storage(), 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
-            'page_from': 'github' if (_PAGES.get('index.html') or {}).get('body') else 'local', 'jobs': {'queued': sum(1 for v in JOBS.values() if v['state'] == 'queued'), 'running': sum(1 for v in JOBS.values() if v['state'] == 'running'), 'plain': PLAIN[0]},
+            'page_from': 'github' if (_PAGES.get('index.html') or {}).get('body') else 'local', 'jobs': {'queued': sum(1 for v in JOBS.values() if v['state'] == 'queued'), 'running': sum(1 for v in JOBS.values() if v['state'] == 'running'), 'plain': PLAIN[0], 'ref': REFN[0]},
             # v5.2: 'reviews' (ask a hazzan, send a hidden note) only where they are kept: on a kept disk (a GitHub mirror only
             # pushes, so after a restart /hazzan would not have them); the v5.1 embed hides both when false
             'letters': sorted(LT.BY_C), 'follow': True, 'reviews': DURABLE_DISK, 'ears': {'letter_head': HEAD is not None, 'vowel_head': FULL is not None, 'fine_tuned': FT is not None, 'classifier_v2': bool(CLF2), 'tehillim_lyrics': len(TEHILLIM_LYR), 'tehillim_audio': os.path.isdir(TEHILLIM_DIR) and len(os.listdir(TEHILLIM_DIR)) or (TEHILLIM_BASE or 0),
@@ -1005,6 +1005,22 @@ print('build:', COMMIT and COMMIT[:12], COMMIT_FROM, '· ref tag', REF_TAG, '· 
 
 REF_MAX = 60   # seconds of the hazzan's recording analysed at most (a line is 3-20 s; t1=0 used to mean the whole file)
 REF_KEEP = int(os.environ.get('DK_REF_KEEP', '50000'))   # hazzan analyses kept at most (one a line, ~8 KB each)
+def ref_touch(p):
+    try: os.utime(p)   # a hit marks the entry as used, so the trim below keeps the lines people sing
+    except OSError: pass
+def ref_trim():
+    """past REF_KEEP entries the least recently used go, down to 90% (v5.2: the key holds the raw t0/t1, so anyone could
+       add an entry a call for ever; a cap that only stopped writing left the real lines uncached for good)"""
+    def mt(q):
+        try: return os.path.getmtime(q)
+        except OSError: return 0
+    try:
+        P = [os.path.join(REF_DIR, n) for n in os.listdir(REF_DIR) if n.startswith('ref_')]
+        if len(P) <= REF_KEEP: return
+        for q in sorted(P, key=mt)[:len(P) - int(REF_KEEP * 0.9)]:
+            try: os.unlink(q)
+            except OSError: pass
+    except Exception as e: print('ref trim:', str(e)[:120], flush=True)
 
 def shva_heard(lp, nikud, nw):
     """the shvas of a pointed line as heard on the phone ear (shva.probe) -> {word index (str): [slots]}, or None when
@@ -1019,7 +1035,7 @@ def ref_key(f, t0, t1, words, want_emb=False, nikud=None):
 def ref_line(f: str, t0: float, t1: float, words, want_emb=False, nikud=None):
     key = ref_key(f, t0, t1, words, want_emb, nikud)
     if os.path.exists(key):
-        return json.load(open(key, encoding='utf-8'))
+        J = json.load(open(key, encoding='utf-8')); ref_touch(key); return J
     x = decode_audio(fetch_archive(f))
     a = max(0.0, t0); end = min(t1, a + REF_MAX) if t1 > 0 else a + REF_MAX
     seg = x[int(a * SR):int(end * SR)]
@@ -1034,9 +1050,7 @@ def ref_line(f: str, t0: float, t1: float, words, want_emb=False, nikud=None):
     self_fit = fit_against(lp, spf, res['words'])
     for w, s in zip(res['words'], self_fit): w['selffit'] = s.get('fit')
     os.makedirs(os.path.dirname(key), exist_ok=True)   # another server on the same cache may have removed it (drop_old_refs)
-    # v5.2: kept only while there is room and the folder is under REF_KEEP entries: the key holds the raw t0/t1, so
-    # anyone could add an entry a call (~8 KB) for ever; past it a line is analysed again each time instead
-    if room_ok(REF_DIR) and len(os.listdir(REF_DIR)) < REF_KEEP: write_json(key, res)
+    if room_ok(REF_DIR): write_json(key, res); ref_trim()   # v5.2: at most REF_KEEP entries, the least used go first
     return res
 
 @app.get('/ref')
@@ -1047,15 +1061,17 @@ async def ref(f: str, words: str, t0: float = 0, t1: float = 0, emb: int = 0, ni
     if emb and not key_ok(key): return need_key(key)   # v5.2: no page asks for it, and its cache entry is 12x the size
     k = ref_key(f, t0, t1, W, bool(emb), nikud or None)
     if os.path.exists(k):   # already analysed: a file read, never refused as busy
-        try: return json.load(open(k, encoding='utf-8'))
+        try: J = json.load(open(k, encoding='utf-8')); ref_touch(k); return J
         except Exception: pass   # half-written or removed meanwhile: analysed below
-    if too_busy(True): return busy()   # v5.2: an uncached one runs the models too, so it counts with the plain checks
-    PLAIN[0] += 1
+    # v5.2: an uncached one runs the models; it is the pages' best-effort prefetch (a check analyses its line itself), so it
+    # has its own small budget and is refused past it, never queued ahead of what someone tapped
+    if too_busy() or REFN[0] >= REF_CONC: return busy()
+    REFN[0] += 1
     try:
         return await run_in_threadpool(ref_line, f, t0, t1, W, bool(emb), nikud or None)
     except Exception as e:
         return JSONResponse({'err': str(e)[:300]}, status_code=502)
-    finally: PLAIN[0] -= 1
+    finally: REFN[0] -= 1
 
 DRILL_DIR = os.path.join(KEEP_DIR, 'drill'); os.makedirs(DRILL_DIR, exist_ok=True)   # beside the booth's takes (/data when the Space has it)
 
@@ -1085,14 +1101,22 @@ def drill_export(key: str = None):
 # worker thread runs the queue, so two visitors never run the models at the same time (which would slow both).
 JOBS = {}; JOB_Q = queue.Queue(); JOB_LOCK = threading.Lock()
 JOB_MAX = int(os.environ.get('DK_JOB_MAX', '40'))   # checks waiting at most: one visitor (or a script) cannot queue the server for hours
-# v5.2: the checks without job=1 (scripts, older pages) and the /ref analyses run in the thread pool, outside the queue,
-# and wait for the same model LOCK: they count against JOB_MAX too (3 of them made a page check take 40 s while /health
-# said queued 0). Only the event loop changes the count, so a plain list cell needs no lock.
-# And at most DK_PLAIN_MAX of them at once: each holds one of the thread pool's 40 threads while it waits, so 40 of them
-# (JOB_MAX's default) froze /health, the job polls and every other route for minutes.
-PLAIN = [0]; PLAIN_MAX = int(os.environ.get('DK_PLAIN_MAX', '4'))
+# v5.2: the checks without job=1 (scripts, older pages), /letter, /follow and the uncached /ref analyses run in the thread
+# pool, outside the queue, and wait for the same model LOCK: they count against JOB_MAX too (3 plain checks made a page
+# check take 40 s while /health said queued 0). Only the event loop changes the counts, so plain list cells need no lock.
+# At most DK_PLAIN_MAX of the plain ones run at once and the rest WAIT for a turn here, on the event loop, holding no
+# thread (40 of them waiting in the pool froze /health, the job polls and every other route); refusing them at once
+# instead made the letters page answer "busy" while one person clicked through lines. /ref has its own budget (DK_REF_CONC).
+PLAIN = [0]; PLAIN_MAX = int(os.environ.get('DK_PLAIN_MAX', '4')); PLAIN_SEM = asyncio.Semaphore(PLAIN_MAX)
+REFN = [0]; REF_CONC = int(os.environ.get('DK_REF_CONC', '2'))
 def busy(): return JSONResponse({'err': 'the server is busy — try again in a minute'}, status_code=503)
-def too_busy(plain): return queued() + PLAIN[0] >= JOB_MAX or (plain and PLAIN[0] >= PLAIN_MAX)
+def too_busy(): return queued() + PLAIN[0] + REFN[0] >= JOB_MAX
+async def plain_run(fn, *a):
+    """fn(*a) in the thread pool, counted in PLAIN from now on; at most PLAIN_MAX run at once, the others wait their turn"""
+    PLAIN[0] += 1
+    try:
+        async with PLAIN_SEM: return await run_in_threadpool(fn, *a)
+    finally: PLAIN[0] -= 1
 
 GRADE_MAX = int(os.environ.get('DK_GRADE_MAX', '200'))   # booth takes waiting to be graded at most (beyond that /submit asks to try again)
 
@@ -1160,7 +1184,7 @@ async def check(request: Request, words: str = Query(...), ref: str = None, t0: 
     ALT = [he_words(a) for a in alts.split('|') if he_words(a) and he_words(a) != W] if alts else pid   # a list of lines, or the text's id (its lines are looked up in the worker, off the event loop)
     if not W:
         return JSONResponse({'err': 'no words'}, status_code=400)
-    if too_busy(not job): return busy()   # v5.2: both paths (the plain one was not counted)
+    if too_busy(): return busy()   # v5.2: both paths (the plain one was not counted)
     data = await read_body(request, MAX_BODY['check'])
     if data is None: return too_big(MAX_BODY['check'])
     if len(data) < 1000:
@@ -1177,14 +1201,12 @@ async def check(request: Request, words: str = Query(...), ref: str = None, t0: 
         out = run_check(x, W, ref, t0, t1, emb, drill, nikud, progress, ALT, VC)
         if drill_err: out['drill_err'] = drill_err
         return out
-    if too_busy(not job):   # again: others were let in while this one was read and decoded (no await between here and new_job / PLAIN)
+    if too_busy():   # again: others were let in while this one was read and decoded (no await between here and new_job / PLAIN)
         return busy()
     if job:
         return JSONResponse({'job': new_job(work)}, status_code=202)
     # the plain path (scripts, older pages): the same work in a thread, so /health and the polls keep answering
-    PLAIN[0] += 1
-    try: return await run_in_threadpool(work, lambda s: None)
-    finally: PLAIN[0] -= 1
+    return await plain_run(work, lambda s: None)
 
 # The voice card (v5, after Kriah Listener's "voice card"): a person reads Tehillim 23:1-2 once, carefully; the vowel
 # notes that reading gets against the nikud are the vowel ear mishearing THAT voice, and later checks leave those
@@ -1410,17 +1432,15 @@ async def letter(request: Request, c: str = Query(...), want: str = None, strict
        the verdict on its opening sound, what was heard, and the ears' numbers (letters.py)"""
     c = he_letters(c)[:1]
     if c not in LT.BY_C: return JSONResponse({'err': 'not a letter I check'}, status_code=400)
-    if too_busy(True): return busy()   # v5.2: it runs the models under the LOCK too, so it counts with the plain checks
+    if too_busy(): return busy()   # v5.2: it runs the models under the LOCK too, so it counts with the plain checks
     data = await read_body(request, MAX_BODY['letter'])
     if data is None: return too_big(MAX_BODY['letter'])
     if len(data) < 500: return JSONResponse({'err': 'no audio'}, status_code=400)
     try: x = await run_in_threadpool(decode_audio, data, 7)
     except Exception as e: return JSONResponse({'err': 'decode: ' + str(e)[:200]}, status_code=400)
     if x.shape[0] > SR * 6: x = x[:SR * 6]
-    if too_busy(True): return busy()   # again after the decode, then counted (no await in between)
-    PLAIN[0] += 1
-    try: P = await run_in_threadpool(letter_probe, x, c)
-    finally: PLAIN[0] -= 1
+    if too_busy(): return busy()   # again after the decode, then counted (no await in between)
+    P = await plain_run(letter_probe, x, c)
     V = LT.verdict(c, want, P, bool(strict))
     P.update(V); P['c'] = c; P['want'] = want
     return P
@@ -1563,13 +1583,20 @@ async def sound_of(data):
     try: x = await run_in_threadpool(decode_audio, data, 41)
     except Exception: return None
     return x if x.shape[0] >= SR * 0.5 else None
-def quiet(x): return float(np.abs(x).max()) < 0.01   # digital silence (a 15 KB flac of it is kept as a 1.3 MB wav)
+def quiet(x): return float(np.std(x)) < 3e-4   # silence or a constant level (~-70 dB; a 15 KB flac of it is kept as a 1.3 MB wav); a soft voice passes
 def silent(): return JSONResponse({'err': 'there is no sound in the recording'}, status_code=400)
 def room_ok(d): return shutil.disk_usage(d).free >= (1 << 30)
 def client_of(request):
-    """the sender as well as the server can tell: Cloudflare's header on the Mac's tunnel, the proxy's on a Space"""
-    h = request.headers
-    return h.get('cf-connecting-ip') or (h.get('x-forwarded-for') or '').split(',')[0].strip() or (request.client.host if request.client else '')
+    """the sender as well as the server can tell: Cloudflare's header when the request came through the Mac's tunnel (cloudflared
+       on this machine), else the proxy's (a Space), else the connection; an IPv6 address by its /64 (one home line has a whole
+       /64 to rotate through). Best effort: where no Cloudflare sits in front, a client can send x-forwarded-for itself."""
+    h = request.headers; peer = request.client.host if request.client else ''
+    a = (h.get('cf-connecting-ip') if peer in ('127.0.0.1', '::1') else None) or (h.get('x-forwarded-for') or '').split(',')[0].strip() or peer
+    try:
+        ip = ipaddress.ip_address(a)
+        if ip.version == 6 and not ip.ipv4_mapped: return str(ipaddress.ip_network(f'{a}/64', strict=False))
+    except ValueError: pass
+    return a
 # v5.2: one sender could fill a cap for everyone (2000 silent posts and nobody could ask a hazzan). Each sender's ids
 # that still hold a place (a question waiting, a note this month) are counted apart: in memory only, so no address is
 # written to disk, and a restart forgets them (the caps on disk still hold).
@@ -1602,7 +1629,7 @@ async def feedback(request: Request, meta: str = None):
     if os.path.isdir(d) and sum(1 for f in os.listdir(d) if f.endswith('.json')) >= int(os.environ.get('DK_FEEDBACK_MAX', 2000)):
         return JSONResponse({'err': 'too many notes have been sent here this month — try again later'}, status_code=503)
     k, L = mine('fb', request, lambda i: i.startswith(mo + '/'))
-    if len(L) >= FEEDBACK_PER: return JSONResponse({'err': 'you have sent many notes this month — thank you; try again later'}, status_code=429)
+    if len(L) >= FEEDBACK_PER: return JSONResponse({'err': 'many notes have come from your network this month — thank you; try again later'}, status_code=429)
     fid = time.strftime('%Y%m/%Y%m%d-%H%M%S-') + uuid.uuid4().hex[:8]; full = os.path.join(FEEDBACK_DIR, fid)
     os.makedirs(os.path.dirname(full), exist_ok=True)
     write_wav(full + '.wav', x[:SR * 40])
@@ -1657,7 +1684,7 @@ async def review_ask(request: Request, meta: str = None):
         if await run_in_threadpool(reviews_waiting) >= int(os.environ.get('DK_REVIEW_MAX', 2000)):
             return JSONResponse({'err': 'too many questions are waiting — try again later'}, status_code=503)
         k, L = mine('rv', request, is_waiting)
-        if len(L) >= REVIEW_PER: return JSONResponse({'err': f'you have {len(L)} questions waiting — please wait for the answers first'}, status_code=429)
+        if len(L) >= REVIEW_PER: return JSONResponse({'err': f'{len(L)} questions from your network are already waiting for a hazzan — please try again once some are answered'}, status_code=429)
         rid = uuid.uuid4().hex[:12]; tok = uuid.uuid4().hex[:16]
         write_wav(os.path.join(REVIEW_DIR, rid + '.wav'), x[:SR * 40])
         write_json(os.path.join(REVIEW_DIR, rid + '.json'), {'id': rid, 'token': tok, 't': int(time.time()), 'state': 'waiting', **clip_meta(M, RV_KEYS), 'audio': rid + '.wav', 'stamp': STAMP})
@@ -1733,7 +1760,7 @@ async def follow(request: Request, words: str = Query(...)):
        every 1.5 s while recording, and only on a fast server (the Mac's GPU); it never waits behind a check."""
     W = he_words(words)
     if not W: return JSONResponse({'err': 'no words'}, status_code=400)
-    if queued() > 0 or PLAIN[0] > 0: return JSONResponse({'busy': True}, status_code=429)   # (v5.2: nor behind a plain check or a /ref)
+    if queued() > 0 or PLAIN[0] > 0 or REFN[0] > 0: return JSONResponse({'busy': True}, status_code=429)   # (v5.2: nor behind a plain check or a /ref)
     data = await read_body(request, MAX_BODY['check'])
     if data is None: return too_big(MAX_BODY['check'])
     if len(data) < 500: return {'done': 0, 'n': len(W)}
@@ -1751,7 +1778,7 @@ async def follow(request: Request, words: str = Query(...)):
         return {'done': done, 'n': len(W), 'tokens': got, 'ms': int((time.time() - t) * 1000)}
     # again after the decode, and counted (v5.2: any number of follows ran at once, uncounted, and a page check waited
     # behind all of them): one follow at a time, and never beside a check or a /ref
-    if queued() > 0 or PLAIN[0] > 0: return JSONResponse({'busy': True}, status_code=429)
+    if queued() > 0 or PLAIN[0] > 0 or REFN[0] > 0: return JSONResponse({'busy': True}, status_code=429)
     PLAIN[0] += 1
     try: return await run_in_threadpool(work)
     finally: PLAIN[0] -= 1

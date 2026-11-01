@@ -167,7 +167,8 @@ Base: `https://davidsitt-pizmonim-dikduk.hf.space`. All JSON, CORS `*`. No keys.
 - Storage: the visitor's settings, the last tries, the voice card and each question's id + token are kept in the
   visitor's browser (localStorage keys `dk.*`); nothing needs an account. What the visitor chooses to send is kept on
   the checker server: with "send it" (`/feedback`) the recording and the note they hid; with "Ask a hazzan" (`/review`)
-  the recording, their question and the contact they type, until the hazzan answers or removes it. From v5.2 the
+  the recording, their question and the contact they type, until the hazzan removes it (an answered question stays, so
+  the person's page can show the answer; a copy already pushed to a GitHub mirror stays there). From v5.2 the
   recording is kept as the server's own 16 kHz wav (no longer the upload as it came, which could be a phone video), the
   question and contact travel in a request header (out of the server's access log), and both buttons are offered only
   by a server that keeps recordings (`/health` → `reviews` true: the Mac; the Space only with its `/data` storage).

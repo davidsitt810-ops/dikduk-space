@@ -187,7 +187,7 @@ where a fix below says so.
   own consonant's next ~100 ms, not on a sound after the line (a false "final" note).
 - **Safety**: "Ask a hazzan" and "send this recording" exist only on a server that keeps them on its own disk
   (`/health` `reviews` = `storage.takes` persistent: `/data` or `DK_DURABLE=1`; the Space without `/data` lost them at
-  its next restart, and a GitHub mirror only pushes); the upload must decode to sound that is not digital silence, and
+  its next restart, and a GitHub mirror only pushes); the upload must decode to sound that is not silence or a constant level, and
   only the server's own 16 kHz wav is kept (it was the raw body: any bytes, a phone video); the notes kept this month
   and the questions waiting are capped (`DK_FEEDBACK_MAX`, `DK_REVIEW_MAX`), each sender's too (`DK_FEEDBACK_PER`,
   `DK_REVIEW_PER`), counted with nothing let in between the count and the write; a meta with `NaN` or `Infinity` is
@@ -195,10 +195,13 @@ where a fix below says so.
   (`nosniff`); a hazzan gets a key of his own (`DK_HAZZAN_KEY`) and can remove a question; a question whose notes are
   not a list no longer blanks `/hazzan`; v5.2 pages send the meta (name, contact, question) in the `x-dk-meta` header,
   not the URL, so the access log does not keep it; a booth take must decode to sound unless the key is sent; the
-  plain `/check` path, `/ref` and `/letter` count against `DK_JOB_MAX` like the queued checks (three plain checks made
-  a page check take 40 s while `/health` said nothing was queued), at most `DK_PLAIN_MAX` of them at once (each holds
-  one of the 40 threads while it waits: 40 froze every route), and `/follow` runs one at a time and never beside them;
-  `/ref?emb=1` needs the key and the hazzan analyses kept are capped (`DK_REF_KEEP`); the warm-up
+  plain `/check` path, `/letter`, `/follow` and an uncached `/ref` count against `DK_JOB_MAX` like the queued checks
+  (three plain checks made a page check take 40 s while `/health` said nothing was queued); at most `DK_PLAIN_MAX` plain
+  ones run at once and the others wait their turn without holding a thread (40 waiting in the thread pool froze every
+  route); an uncached `/ref` (the pages' prefetch: a check analyses its line itself) has its own budget
+  (`DK_REF_CONC`) and is refused past it, never queued ahead of what someone tapped; `/follow` runs one at a time and
+  never beside them; `/ref?emb=1` needs the key and the hazzan analyses kept are capped (`DK_REF_KEEP`, the least
+  used go first); the warm-up
   analyses the hazzan's Tehillim lines with their nikud, as the pages ask for them (it filled cache entries nobody used).
 - **CI** (`checks.yml`): every top-level `.py` compiles (shva.py was never compiled, and app.py imports it at start);
   `tools/t_shva_rules.py` checks `shva.shva_marks` and every branch of `shva.notes` without models; `rule_baseline.py`
@@ -221,12 +224,17 @@ Settings (environment variables) new in v5.2, beside `DK_KEY`, `DK_PUBLIC`, `DK_
   `/feedback` answers 503 until the month turns. `DK_FEEDBACK_PER` (default 200): from one sender a month (429).
 - `DK_REVIEW_MAX` (default 2000) — questions **waiting** for a hazzan at most (since v5.2 the answered ones no longer
   count; before, it was 2000 questions ever); past it `/review` answers 503. `DK_REVIEW_PER` (default 20): waiting
-  from one sender (429). A sender is Cloudflare's `cf-connecting-ip` (the Mac), else the first `x-forwarded-for`, else
-  the connection; it is counted in memory only (no address is written to disk; a restart forgets it).
-- `DK_PLAIN_MAX` (default 4) — plain `/check`s, uncached `/ref`s and `/letter`s running or waiting for the models at
-  once; past it they get 503 "busy" (the pages' queued checks are not counted here).
-- `DK_REF_KEEP` (default 50000) — hazzan analyses kept in the cache at most (~8 KB each); past it a line is analysed
-  again each time.
+  from one sender (429, "… from your network …"). A sender is one address (an IPv6 one by its /64): Cloudflare's
+  `cf-connecting-ip` when the request came through the Mac's tunnel, else the first `x-forwarded-for`, else the
+  connection. So a class on one school Wi-Fi shares the 20 (raise it for such a class), and where no Cloudflare is in
+  front (a Space) a client can forge the header: the per-sender caps are best effort, the totals are the real limit. It
+  is counted in memory only (no address is written to disk; a restart forgets it).
+- `DK_PLAIN_MAX` (default 4) — plain `/check`s and `/letter`s running at once; more wait their turn (they still count
+  against `DK_JOB_MAX`, so past it they get 503 "busy").
+- `DK_REF_CONC` (default 2) — uncached `/ref` analyses at once; more get 503 at once (the page's prefetch just skips;
+  the check analyses the line itself). A `/ref` already in the cache is always answered.
+- `DK_REF_KEEP` (default 50000) — hazzan analyses kept in the cache at most (~8 KB each); past it the least recently
+  used are removed, down to 90%.
 - The `x-dk-meta` request header (v5.2 pages, on `/submit`, `/feedback`, `/review`): the meta JSON, URI-encoded
   (`encodeURIComponent(JSON.stringify(meta))`), in place of the `?meta=` query, which older pages still send and every
   version still reads.

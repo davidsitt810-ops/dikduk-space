@@ -451,8 +451,9 @@ function mount(root, opts) {
  /* ----- v5: hide a wrong note, and with a yes send the take (Tarteel) ----- */
  const metaOf = extra => ({pid: P && P.id, line: LINE && LINE.k, words: LINE && LINE.text, nikud: P && P.s.ln && LINE ? P.s.ln[LINE.k] : null, ref: REC, t0: LINE && LINE.t0, t1: LINE && LINE.t1,
   marks: LAST.marks, notes: LAST.notes.map(x => x.w + ': ' + x.text).slice(0, 30), strict: STRICT, voice_card: VC && VC.pairs, server: RESULT && RESULT.server, device: String(navigator.userAgent || '').slice(0, 120), ...extra});
- /* the send-it prompt and "Ask a hazzan": a server before v5 has no /review or /feedback, and one whose storage is temporary (the Space) loses them at its next restart */
- const keeps = () => !!(SRV && SRV.reviews && SRV.storage && SRV.storage.durable);
+ /* the send-it prompt and "Ask a hazzan": a server before v5 has no /review or /feedback, and one whose own disk is temporary (the Space)
+    loses them at its next restart — a GitHub mirror only pushes, so 'durable' is not enough: the takes must be 'persistent' */
+ const keeps = () => !!(SRV && SRV.reviews && SRV.storage && SRV.storage.takes === 'persistent');
  /* a 5.2+ server reads the meta (contact, question) from a header, so its access log never records it; older ones only from the query */
  const postMeta = (path, meta) => { const m = encodeURIComponent(JSON.stringify(meta)), hd = !!(SRV && +SRV.version >= 5.2);
   return fetch(url(path + (hd ? '' : '?meta=' + m)), {method: 'POST', body: TAKE.blob, headers: Object.assign({'content-type': TAKE.blob.type || 'application/octet-stream'}, hd ? {'x-dk-meta': m} : {})}); };
