@@ -845,23 +845,28 @@ perakim 2–120 (1,029 + 1,039 pesukim); Be'eri: his 68 perakim outside the exam
 warm, LR 3e-4, new voices x1 (`HEAD_NV=1`); nv1 = Alouf x1, nv2 = Alouf x2 (`HEAD_AL_FULL=2`). Head-level exam
 (held-out perakim; % of a correct reading's words the vowel ear would flag):
 
-| | shipped | nv1 | **nv2** | nv2 without Ben Haim (`HEAD_NV_SKIP`) |
-|---|---|---|---|---|
-| Ben Haim | 9.9% (U heard U 68%, O→A 11%, I→E 10%) | 1.8% | **2.0%** (U 95%) | 8.1% (U 70%, O→A 9%, I→E 4%) |
-| Tawil | 5.8% | 1.9% | **1.9%** | 2.2% |
-| Be'eri | 1.0% | 0.2% | **0.2%** | 0.2% |
-| Rabbi Alouf | 0.9% | 1.5% | **1.2%** | 1.4% |
+| | shipped | nv1 | **nv2** | nv2 without Ben Haim (`HEAD_NV_SKIP`) | nv2 without Tawil |
+|---|---|---|---|---|---|
+| Ben Haim | 9.9% (U heard U 68%, O→A 11%, I→E 10%) | 1.8% | **2.0%** (U 95%) | 8.1% (U 70%, O→A 9%, I→E 4%) | 1.8% |
+| Tawil | 5.8% (I heard I 89%, I→E 8%, O→U 2%) | 1.9% | **1.9%** (I 98%) | 2.2% | 4.1% (I 92%, I→E 6%, O→U 3%) |
+| Be'eri | 1.0% | 0.2% | **0.2%** | 0.2% | 0.2% |
+| Rabbi Alouf | 0.9% | 1.5% | **1.2%** | 1.4% | 1.2% |
 
 nv1's 15 new flags on Rabbi Alouf: 7 his E heard as I, 6 his O heard as U — the very boundaries moved to hear Ben
 Haim's u (the old ear: o) and Tawil's i (the old ear: e). Alouf x2 won back half.
 
 Through the whole server, on the exams' held-out perakim (word-slots with a vowel note, % of clean words):
 
-| reader | shipped | nv2 | nv2 without Ben Haim |
+| reader | shipped | nv2 | nv2 without that reader |
 |---|---|---|---|
 | Ben Haim (150) | 104 (9.3%); not sure 6.2%; ✕ 10 | **29 (2.6%)**; not sure 4.2%; ✕ 10 | 103 (9.2%); not sure 5.3%; ✕ 13 |
-| Tawil (150) | 72 (7.1%); not sure 4.2%; ✕ 9 | **23 (2.3%)**; not sure 2.8%; ✕ 8 | |
+| Tawil (150) | 72 (7.1%); not sure 4.2%; ✕ 9 | **23 (2.3%)**; not sure 2.8%; ✕ 8 | 67 (6.6%); not sure 4.2%; ✕ 9 |
 | Shmuelof (24, never trained on) | 3 (1.5%) | **9 (4.5%)** | |
+
+Left out, each reader's notes are mostly swapped, not removed. Tawil: ee→eh 30 → 16 (Ben Haim says some i's like e
+too, and that carried over), but eh→ee 10 → 16 and oh→oo 4 → 13 — the o/u line moved for Ben Haim's u-like-o and
+Tawil's o now falls on the u side, as Shmuelof's did (33 notes gone, 28 new). Ben Haim: oo→oh 38 → 26, ee→eh 14 → 8,
+but eh→ah 4 → 12, and oh→ah 30 → 32 untouched.
 
 Shmuelof's 6 new notes are all O→U and E→I (יוֹמָם, בְאַפּוֹ, וּבַחֲרוֹנוֹ, יְבַהֲלֵמוֹ, חֹק, יֶהְגֶּה); on three of them the phone
 ear hears "o" (יבהלמו "m o", חק "h o k a") or "o u" (באפו) — the new ear calls his o a u. Reader scores (`score_voice.py`):
@@ -870,7 +875,8 @@ said; the gap left is the throat part, 30%: Ben Haim's ע 15% not sure, Tawil's 
 
 **What it means.** The head learned the VOICES, not the vowels: on a voice it heard, notes drop by three quarters;
 on a voice it never heard — Ben Haim left out — nothing (9.3% → 9.2% through the server, and 3 more ✕ from the word
-score, which leans on the vowel ear's `vskel`), and on Shmuelof it got worse. What transfers is what voices share:
+score, which leans on the vowel ear's `vskel`); Tawil left out, next to nothing (7.1% → 6.6%, most of it swapped
+notes); and on Shmuelof it got worse. What transfers is what voices share:
 Tawil's i-like-e taught the head Ben Haim's I→E too (10% → 4%), but Ben Haim's own u-like-o (U heard U 68% → 70%)
 did not move. Every student is a voice the head never heard, so nv2 would not help them — **not shipped.** Three
 readers are not enough; it takes many voices of the community (the outreach), or the head learning each student.
@@ -887,6 +893,12 @@ it, 6 epochs from the shipped head; Ben Haim's held-out perakim, head level):
 Ten pesukim of his own voice take out about 40% of his false notes, thirty about half, a hundred about two thirds.
 Through the whole server on his exam perakim, the 30-pesukim head: word-slots with a vowel note 104 (9.3%) → 53 (4.7%),
 not sure 6.2% → 5.2%, ✕ 10 → 10 (one new: תוציא, one gone: נדחי).
+
+**The same on Tawil** (`HEAD_NV_KEEP=tawil:30`, same recipe): head level Tawil 5.8% → 3.9% (Ben Haim 9.9% → 9.7%:
+Tawil's 30 do nothing for him; Rabbi Alouf 1.6%, Be'eri 1.1%). Through the server: 72 (7.1%) → 47 (4.6%) — a third of
+his false notes, not half — not sure 4.2% → 2.8%, ✕ 9 → 8 (מהר gone); ee→eh 30 → 10, but oo→oh 6 → 9. Note the
+table's last row: Ben Haim's 30 alone took Tawil to 4.6% at head level, near his own 30's 3.9% — for Tawil part of
+the gain may be any Syrian voice, not his.
 Rabbi Alouf drifts as the reader's weight grows — which would not matter if the calibrated head heard only that
 student's takes and the shipped head kept hearing the hazzan. The catch: it learns whatever the student says,
 mistakes included, unless only takes the checker already trusts (clean, confident) are used to calibrate.
