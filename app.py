@@ -1012,9 +1012,12 @@ def shva_heard(lp, nikud, nw):
     res, n = SH.probe(lp, nikud, VOCAB, PAD)
     return {str(i): v for i, v in res.items()} if n == nw else None
 
-def ref_line(f: str, t0: float, t1: float, words, want_emb=False, nikud=None):
+def ref_key(f, t0, t1, words, want_emb=False, nikud=None):
     # (a pointed line adds the hazzan's shvas: its own cache entry, so the plain one stays valid)
-    key = os.path.join(REF_DIR, 'ref_' + hashlib.sha1((f'{f}|{t0}|{t1}|{" ".join(words)}|{int(want_emb)}' + (f'|{nikud}' if nikud else '')).encode()).hexdigest() + '.json')
+    return os.path.join(REF_DIR, 'ref_' + hashlib.sha1((f'{f}|{t0}|{t1}|{" ".join(words)}|{int(want_emb)}' + (f'|{nikud}' if nikud else '')).encode()).hexdigest() + '.json')
+
+def ref_line(f: str, t0: float, t1: float, words, want_emb=False, nikud=None):
+    key = ref_key(f, t0, t1, words, want_emb, nikud)
     if os.path.exists(key):
         return json.load(open(key, encoding='utf-8'))
     x = decode_audio(fetch_archive(f))
@@ -1042,7 +1045,11 @@ async def ref(f: str, words: str, t0: float = 0, t1: float = 0, emb: int = 0, ni
     if not W:
         return JSONResponse({'err': 'no words'}, status_code=400)
     if emb and not key_ok(key): return need_key(key)   # v5.2: no page asks for it, and its cache entry is 12x the size
-    if too_busy(True): return busy()   # v5.2: it runs the models too, so it counts with the plain checks
+    k = ref_key(f, t0, t1, W, bool(emb), nikud or None)
+    if os.path.exists(k):   # already analysed: a file read, never refused as busy
+        try: return json.load(open(k, encoding='utf-8'))
+        except Exception: pass   # half-written or removed meanwhile: analysed below
+    if too_busy(True): return busy()   # v5.2: an uncached one runs the models too, so it counts with the plain checks
     PLAIN[0] += 1
     try:
         return await run_in_threadpool(ref_line, f, t0, t1, W, bool(emb), nikud or None)
