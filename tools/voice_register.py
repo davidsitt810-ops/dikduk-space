@@ -198,6 +198,7 @@ def perakim_of(spec):
     return out
 
 t_start = time.time()
+AR_SET = os.environ.get('AR', 'all'); AR_SET = None if AR_SET == 'all' else set(perakim_of(AR_SET)) if AR_SET else set()   # perakim for the Arabic ear
 for job in JOBS:
     path, _, rest = job.partition(':')
     if rest.startswith('book:'):
@@ -224,7 +225,6 @@ for job in JOBS:
                 say(f'  phone ear block {k} of {int(np.ceil(dur / BLOCK))} [{int(time.time() - t_start)} s]')
             ph_lp = np.concatenate(blocks); spf = dur / ph_lp.shape[0]
             np.savez(fp, ph_lp=ph_lp, spf=spf, dur=dur)
-        AR_SET = os.environ.get('AR', 'all'); AR_SET = None if AR_SET == 'all' else set(perakim_of(AR_SET)) if AR_SET else set()
         nV = len(PH_V); rate = None; pos = 0                 # pos: phone-ear frame where the next text should start
         for n in P:
             if os.path.exists(os.path.join(OUT, 'align', f'{n}.json')):
@@ -279,8 +279,8 @@ for job in JOBS:
         # ---------- one perek per file ----------
         n = int(rest)
         if os.path.exists(os.path.join(OUT, 'align', f'{n}.json')): continue
-        x = decode(path); dur = x.shape[0] / 16000; verses = T[str(n)]
-        ph_lp, spf = run_long(x, 'ph'); ar_lp, spf2 = run_long(x, 'ar')
+        x = decode(path); dur = x.shape[0] / 16000; verses = T[str(n)]; do_ar = AR_SET is None or n in AR_SET
+        ph_lp, spf = run_long(x, 'ph'); ar_lp, spf2 = run_long(x, 'ar') if do_ar else (None, spf)
         units = units_of(verses); alt_list, toks = ph_tokens(units)
         lp2, ids = with_virtual_columns(ph_lp.astype(np.float32), alt_list, PH_V)
         tok_ids = [ids[t] for t in toks]; keep = [i for i, t in enumerate(tok_ids) if t is not None]
@@ -288,7 +288,7 @@ for job in JOBS:
         full = [{'f0': -1, 'f1': -1, 'score': 0.0} for _ in units]
         for i, a in zip(keep, al): full[i] = a
         place_units(units, ph_lp, 0, full)
-        arl = ar_letters_of(verses, ar_lp, 0, ar_lp.shape[0])
+        arl = ar_letters_of(verses, ar_lp, 0, ar_lp.shape[0]) if do_ar else []
         q = finish(n, path, dur, spf, spf2, units, arl, verses, {})
         say(f'perek {n} ({os.path.basename(path)}): {dur:.0f} s, units {q["units"]} placed {q["placed"]} mean p {q["mean_p"]} good {q["good"]} ar {q["ar_mean_p"]}  [{int(time.time() - t_start)} s]')
 say('done')
