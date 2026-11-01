@@ -178,6 +178,14 @@ another line. Found by testing on readers the checker never heard
 (`tools/voice_register.py` aligns a new reader's Tehillim, one file per perek or one file for the whole book;
 `tools/exam_voice.py` checks every pasuk against Rabbi Alouf's as the site does; LAB_NOTES §31).
 
+v5.2 (Nov 1): the vowel ear (`full_head.pt`) is raised on Rabbi Alouf plus 17 correct readers of the community —
+Tehillim (Ben Haim, Tawil, Be'eri) and the megillot from the pizmonim.com archive (Menahem Salem, Kairey, Hamaoui,
+Daya, Azrak, Nahum, Sardar and seven more). On readers it never heard, false vowel notes fall (Faraj Samra 8.1% → 5.9%
+of his correct words, Ben Haim left out of training 9.3% → 8.4%) and a planted vowel mistake is told more often
+(81.5% → 86%); Rabbi Alouf's own exam does not move (vowel notes 4 → 3 in 1,022 vowels, the same word marks), and
+Israelis reading get fewer "not sure" marks (21% → 18%). With three readers the same recipe had made new voices worse:
+it takes many voices (LAB_NOTES §32, §34).
+
 
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
 - `GET /letters` — the letter checker; `POST /letter?c=<letter>[&want=…][&strict=1]` with a short take as the body; `GET /letters.json`, `GET /letters/audio/<name>.mp3` — Rabbi Alouf's example words.

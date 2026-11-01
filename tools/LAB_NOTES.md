@@ -983,3 +983,99 @@ the naive head. On his correct reading, with the hazzan, safe3 is §32's cal30: 
   and the line at half is a choice. Not shipped: it would be one calibrated head per student (10 MB, about 3 minutes of
   training here on 2 cores), made from his first clean takes with safe3, the shipped head kept for the hazzan, and the
   confusions it blocked or learned shown to the teacher.
+
+## 34. The community's archive: fourteen more readers, and the vowel ear raised on seventeen voices (Nov 1)
+
+**The recordings.** pizmonim.com's reading sections — the Syrian community's archive of Torah, haftarot, the megillot,
+Mishle and Iyob, which David has the community's permission to train on — surveyed (`section_survey.py`) and fetched
+one at a time with the checker's own user agent (`archive_fetch.py`): 198 recordings, 1.8 GB (Esther 47, Haftarot 59 —
+50 of them M. Kairey's — Pentateuch 30 of 80 (one reader's 50 more parashiyot skipped: more voices, not more hours),
+Iyob 27, Shir HaShirim 10, Ruth 9, Eicha 8, Mishle 6, Kohelet 2). Each book's text: Sefaria's Miqra according to the
+Masorah (`fetch_texts.py`). Used so far: the three megillot below. The Torah, haftarot, Iyob, Mishle, Ruth and Kohelet
+are on disk and wait. Readers already in (Ben Haim's and Max E. Tawil's — §32's Tawil — full megillot) were left out: more of the same
+voices, not more voices.
+
+The Sephardic Hazzanut Project (Hazzan Faraj Samra, born in Damascus — Torah, Tehillim, Shir HaShirim, Esther; 554
+files, 3.5 GB): fetching it from here through the Wayback Machine was refused and was not worked around; David
+downloaded it on his Mac. His Tehillim on the 19 exam perakim came here as a test voice no head trains on
+(`step_samra.sh`; lined up at mean unit probability .76).
+
+**Lined up** (`book_chain.sh`, `book_rest.sh`). A file per chapter goes straight to `perek_to_manifest.py` (`TEXT` =
+the book, `BOOK` = its tag: items `<reader>_<book><chapter>_<pasuk>`); a whole-book file is first lined up chapter by
+chapter (`voice_register.py <file>:book:<chapters>`, the phone ear, each chapter aligned locally) and cut by those
+spans. Kept, as before: a pasuk with unit probability ≥ .5 and every word placed.
+
+| reader | book | file | mean p | pesukim kept | minutes |
+|---|---|---|---|---|---|
+| Menahem Salem (Argentina) | Esther | whole | .81 | 167 | 39.2 |
+| M. Kairey | Esther | per chapter | | 166 | 40.5 |
+| Y. Hamaoui | Esther | per chapter | | 160 | 43.8 |
+| Haim Daya | Eicha | whole | .59 | 143 | 15.0 |
+| E. Azrak | Esther | whole | .57 | 136 | 22.9 |
+| R. Edmond Nahum | Esther | whole | .55 | 118 | 24.2 |
+| H. Zaki Sardar | Shir HaShirim | whole | .76 | 103 | 17.5 |
+| H. Obadia Yosef (Iraqi Sigah chant) | Esther | whole | .47 | 31 | 5.2 |
+| D. Binker-Duek | Esther 1 | one chapter | | 22 | 6.8 |
+| H. Mourad Maslaton (1945) | Esther | whole | .44 | 22 | 4.1 |
+| Habusha | Esther 1 | one chapter | | 16 | 3.7 |
+| Eddie Mishaan (2015) | Esther | whole | .47 | 8 | 1.7 |
+| Felix Tourgeman | Shir HaShirim 8 | one chapter | | 6 | 1.4 |
+| D. Tawil | Shir HaShirim | whole | .46 | 4 | 0.5 |
+
+4,277 new pesukim in all with Ben Haim, Tawil and Be'eri (§32). A reading made in a full synagogue (crowd, speed, an
+old record) lines up badly — mean p under .5 keeps a few dozen pesukim of a whole megillah. Azrak's mp3 had no length
+header: ffprobe said 33.6 minutes for 26.6 of audio, the second 30-minute block came out empty and the run failed;
+`voice_register.py` now takes the length of the decoded audio (beae44f).
+
+**nv3** = the shipped vowel ear raised on every voice: Rabbi Alouf x2 + the 17 readers (`HEAD_NV=1 HEAD_AL_FULL=2`,
+`train_head2.py full 5 full_head.pt`, LR 3e-4): 7,742 training items, 3,500 of them the new voices'; held out, 425
+pesukim of 27 of their chapters, and, as always, the text of Rabbi Alouf's 14 held-out perakim. Head level on held-out
+chapters (% of a correct reading's words the vowel ear would flag): Rabbi Alouf 1.3% (shipped 0.9%, nv2 1.2%), Be'eri
+0.0%, Menahem Salem 0.9%, Tawil 2.3%, Obadia Yosef 2.5%, Ben Haim 3.1%, Azrak 8.0%, Nahum 8.4%, Daya 11.2%,
+Binker-Duek 12.9%, Maslaton 19.0% (42 words).
+
+**Readers no head ever heard** — through the whole server (`exam_voice.py`, hazzan = Rabbi Alouf, seed 7; word-slots
+with a vowel note, % of clean words; `compare_exams.py`):
+
+| reader | shipped | nv2 (3 voices) | **nv3 (17 voices)** |
+|---|---|---|---|
+| Faraj Samra (150 takes, 97% clean) | 102 (8.1%); not sure 1.6%; ✕ 7 | 120 (9.5%); 1.4%; 7 | **74 (5.9%); 1.3%; 7** |
+| Ben Haim, left out of training (150) | 104 (9.3%); 6.2%; 10 | 103 (9.2%); 5.3%; 13 | **94 (8.4%); 5.5%; 11** |
+| Shmuelof (24) | 3 (1.5%) | 9 (4.5%) | **4 (2.0%)** |
+
+Faraj: eh→ee 60 → 53, oh→oo 9 → 4, ah→ee 6 → 3, ee→eh 12 → 3 (45 notes gone, 17 new). Ben Haim: oo→oh 38 → 32,
+ee→eh 14 → 4, eh→ah 4 → 10, oh→ah 30 → 31 untouched; one new ✕ (תוציא, as with the other reader's 30 in §32).
+
+**Does it still hear a real mistake?** Faraj's takes with §33's plant (he "says o where the page says u", `PLANT=OU
+NO_REF=1`, 80 takes, `planted_catch.py`): told 81.5% → **86.0%** of the planted words (oo→oh 147 → 158), other words
+with a note 7.9% → **5.7%**, ✕ 1.0% both.
+
+**Before shipping: the regression exams** (`step_reg.sh` → `step_r.sh`: the current code in process, shipped heads vs
+nv3; `exam_report_r.py`, `exam_rules.py`):
+
+| | shipped | nv3 |
+|---|---|---|
+| Rabbi Alouf, 60 held-out pesukim intact: right words red / not sure | 0 / 0 of 455 | 0 / 0 |
+| … a skipped word caught | 56 of 59 | 56 |
+| … swapped words caught | 110 of 116 | 110 |
+| … a replaced word caught / not sure / passed | 43 / 12 / 5 of 60 | 42 / 13 / 5 |
+| … vowel notes against the nikud, intact | 4 of 1,022 slots (0.4%) | 3 of 1,029 (0.3%) |
+| Israelis (80 FLEURS sentences, unpointed): right words red / not sure | 16 (1.3%) / 264 (21%) of 1,271 | 17 (1.3%) / 224 (18%) |
+| … a skipped word caught / swapped words caught | 37 of 80 / 118 of 158 | 37 / 118 |
+| ע / ח verdicts, both exams | | the same (the letter head did not change) |
+
+The head-level rise on Rabbi Alouf (0.9% → 1.3% of his words flagged) does not reach the checker: vowel notes come
+only on clean takes and clear slots, and his own intact pasuk is the hazzan. The Israelis' "not sure" falls by a
+sixth (the word marks lean on the vowel ear's `vskel`, §32).
+
+**What it means.** With three voices, a reader the head never heard gained nothing (§32: 9.3% → 9.2%). With
+seventeen, he gains a little — a tenth of Ben Haim's false notes, a quarter of Faraj's — the ear hears a planted vowel
+mistake better, not worse, and nothing the regression exams measure got worse. What transfers is what the voices
+share, and seventeen share more. A reader's own voice is still worth far more (Ben Haim trained on: 2.6%), so the
+per-student calibration of §33 stays the bigger step. **v5.2 ships nv3 as `full_head.pt` (sha 6f55a83e3a1c).**
+
+**Next voices** (`torah_chain.sh`, `parasha_text.py`): the archive's Torah readers — Abe Zami (Bereshit, Noah, Lekh
+Lekha, Vayera, full: 2.4 hours), Eli Cabasso (Behar, Behuqotai, Nissabim-Vayelekh, Shelah), Moshe Dabbah (Egyptian;
+part of Eqeb), Amerique Ashear (1989; part of Shofetim) — each file lined up against its parasha's text alone; a full
+Iyob and Mishle by one reader the archive does not name (an album "qeri'ah nusah eres", tracks 07–08: 2.6 hours);
+Moshe Dwek's Shir HaShirim, Rabia's Esther ("from Syria"), Eli Cabasso's Esther sample.

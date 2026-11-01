@@ -169,3 +169,7 @@ Base: `https://davidsitt-pizmonim-dikduk.hf.space`. All JSON, CORS `*`. No keys.
   older than v5.1 the line stays hidden.
 - Server: the Name with a prefix is read as adonay (ליהוה, ביהוה, ליי…); a hazzan vowel note is dropped when the student
   said the nikud's vowel.
+
+## v5.2 (Nov 1)
+- Server only: the vowel ear is raised on 17 more correct readers of the community, so fewer false vowel notes for a
+  voice it never heard. Nothing to change on the site.
