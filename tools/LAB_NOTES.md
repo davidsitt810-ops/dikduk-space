@@ -727,10 +727,15 @@ cuts for ע ח ק never right; silence and a tone → "I did not hear anything";
 a fake microphone in Chromium (`flow_letters.py`): record → post → ✓ with all three ears.
 
 ## 28. The strict check, and the Mac going live (Oct 29–30)
-- Strict = on a clean take (head median ≥ .7) every "not sure" word is ✕ "not clear". Exam (Alouf): wrong words caught
-  76% → 89%, skips 97 → 97%, swaps 96 → 96%; good words ✕ 0/537 → 2/537. Applied to every take it would have marked
-  168/528 good archive words (32%); on clean archive takes of right lines 18/86 — so on an unclear take strict changes no
-  mark and asks for a clearer take. Parity 547/547 (marks and strict marks), browser test t_strict_ui.py all good.
+- Strict = on a clean take (head median ≥ .7) every "not sure" word is ✕ "not clear". Exam (Alouf, his takes checked
+  against his own recording): wrong words caught 76% → 89%, skips 97 → 97%, swaps 96 → 96%; good words ✕ 0/537 → 2/537
+  (0.4%). That 0.4% is his own voice, not a general rate. Recomputed (Nov 1, rule.py over the committed rows, right
+  lines where strict is on: clean and heard): the archive's other hazzan 4/86 → 18/86 good words ✕ (21%; 12 of 16
+  lines get a ✕, 4 before), Israelis reading (exam_israeli_all) 13/537 → 51/537 (9.5%; 26 of 36 lines, 8 before),
+  head-v7 Israelis 7/251 → 25/251. Without the clean-take requirement it would mark 168 of the 528 good archive words
+  (32%; 168 of the 383 on takes the head can hear, 44%) — hence the clear-take requirement: on an unclear take strict changes no mark and asks for a
+  clearer take. Even on clean takes it is for Rabbi Alouf's kind of take; measure other voices before a site turns it
+  on by default. Parity 547/547 (marks and strict marks), browser test t_strict_ui.py all good.
 - The Mac mini (M4): mps = the same verdicts as cpu within .02, a pasuk 0.4 s (cpu 8–14 s), a letter 0.1–0.5 s.
   Live at https://dikduk.thepizmonim.com since Oct 29 (uptime 80 h before the mps restart). Install lessons in
   mac/README_MAC.md: Homebrew python's pyexpat vs the system expat, Canopy re-signing HTTPS (python gets the Mac's

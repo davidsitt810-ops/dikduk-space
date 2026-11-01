@@ -117,15 +117,17 @@ $('#hear').onclick=()=>{if(HIS){HIS.currentTime=0;HIS.play().catch(()=>{});}};
 $('#his').onclick=()=>$('#hear').onclick();
 function reset(){$('#out').hidden=true;$('#err').textContent='';$('#rec').hidden=false;$('#note').textContent='Tap, then say it right away. The recording stops by itself.';}
 /* ---------- recording: 2.5 s, stops by itself (or on a second tap) ---------- */
-let MR=null,CH=[],T0=0,TK=null;
-$('#rec').onclick=async()=>{if(MR&&MR.state==='recording'){MR.stop();return;}
- try{const st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+/* one recorder at a time, as in the booth: BUSY from the tap until its stop is handled (two taps while the mic opened made two
+   recorders on one chunk list: the mic stayed on and every later take was undecodable); chunks and stream per take */
+let MR=null,T0=0,TK=null,BUSY=false;
+$('#rec').onclick=async()=>{if(MR&&MR.state==='recording'){MR.stop();return;}if(BUSY)return;BUSY=true;let st=null;
+ try{st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
   const mt=['audio/mp4','audio/webm;codecs=opus','audio/webm',''].find(t=>!t||MediaRecorder.isTypeSupported(t));
-  MR=new MediaRecorder(st,mt?{mimeType:mt}:undefined);CH=[];MR.ondataavailable=e=>{if(e.data.size)CH.push(e.data);};
-  MR.onstop=()=>{st.getTracks().forEach(t=>t.stop());clearInterval(TK);$('#rec').textContent='● Say it';send(new Blob(CH,{type:MR.mimeType||'audio/mp4'}));};
-  MR.start(100);T0=Date.now();$('#out').hidden=true;$('#err').textContent='';$('#rec').textContent='● 2.5';$('#note').textContent='Say it now…';
-  TK=setInterval(()=>{const left=Math.max(0,2.5-(Date.now()-T0)/1000);$('#rec').textContent='● '+left.toFixed(1);if(left<=0)MR.stop();},100);}
- catch(e){$('#err').textContent='The microphone could not be used: '+e.message;}};
+  const mr=new MediaRecorder(st,mt?{mimeType:mt}:undefined),ch=[];MR=mr;mr.ondataavailable=e=>{if(e.data.size)ch.push(e.data);};
+  mr.onstop=()=>{BUSY=false;st.getTracks().forEach(t=>t.stop());clearInterval(TK);$('#rec').textContent='● Say it';send(new Blob(ch,{type:mr.mimeType||'audio/mp4'}));};
+  mr.start(100);T0=Date.now();$('#out').hidden=true;$('#err').textContent='';$('#rec').textContent='● 2.5';$('#note').textContent='Say it now…';
+  TK=setInterval(()=>{const left=Math.max(0,2.5-(Date.now()-T0)/1000);$('#rec').textContent='● '+left.toFixed(1);if(left<=0&&mr.state==='recording')mr.stop();},100);}
+ catch(e){BUSY=false;if(st)st.getTracks().forEach(t=>t.stop());$('#err').textContent='The microphone could not be used: '+e.message;}};
 async function send(blob){if(TAKE_URL)URL.revokeObjectURL(TAKE_URL);TAKE_URL=URL.createObjectURL(blob);MINE=null;
  $('#busy').hidden=false;$('#rec').disabled=true;$('#note').textContent='';
  try{const q=new URLSearchParams({c:CUR.c});if(WANT)q.set('want',WANT);if($('#strict').checked)q.set('strict','1');

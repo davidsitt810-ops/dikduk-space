@@ -124,17 +124,22 @@ Base: `https://davidsitt-pizmonim-dikduk.hf.space`. All JSON, CORS `*`. No keys.
   `skel<.4` or `fit<.2` or `kept<.5` or `pw≥.8`; else fine. One-consonant words are never flagged.
 - **Two servers, the Mac mini first (v4.7; live since Oct 29)**: David's M4 Mac mini runs the same server at home behind a
   Cloudflare Tunnel at `https://dikduk.thepizmonim.com` (on its GPU: ~0.4 s a pasuk; `mac/README_MAC.md` in the repo).
-  A GitHub workflow opens an issue in the repo when it stops answering. The
-  embed takes several servers and uses whichever answers `/health` first, re-asking the others if a check cannot
-  reach the chosen one: `data-api="https://dikduk.thepizmonim.com https://davidsitt-pizmonim-dikduk.hf.space"`
+  A GitHub workflow opens an issue in the repo when it stops answering (best effort: GitHub runs it late, often hours
+  apart). The embed takes several servers: from v5.2 it uses the first one listed when its `/health` answers within
+  1.5 s, another one only after that or once the first has failed (before, whichever answered first, so a quick Space
+  could beat a working Mac), re-asking the others if a check cannot reach the chosen one: `data-api="https://dikduk.thepizmonim.com https://davidsitt-pizmonim-dikduk.hf.space"`
   (or `api: [..]` in `mount`). Load the script from a CDN that is up even when a server is not:
   `<script src="https://cdn.jsdelivr.net/gh/davidsitt810-ops/dikduk-space@main/static/embed.js"></script>`
   (jsDelivr caches the branch for up to 12 h; `https://purge.jsdelivr.net/gh/davidsitt810-ops/dikduk-space@main/static/embed.js` refreshes). Until the Mac is up, the single Space URL works as before.
 - **Strict check (v4.8)**: a switch under each result ("Strict check: only what is clearly right counts"). Off by default;
-  `data-strict="1"` (or `strict: true` in `mount`) starts it on, and the person's last choice is remembered (`localStorage`
-  key `dk.strict`, the embed's only storage). On a clear take, "not sure" words become ✕ "not clear"; on an unclear take
-  the marks stay and the summary asks for a clearer recording. `onResult(result, {pid, line, rec, strict})` says which
-  mode was on. Nothing to do on the site unless you want it on by default somewhere (a teacher's page, say).
+  `data-strict="1"` or `data-strict="true"` (also `on` / `yes`; or `strict: true` in `mount`) starts it on. The person's
+  own last choice wins over that: once they switch it, it stays their way on that browser (`localStorage` key
+  `dk.strict`). (Before v5.2's embed only `"1"` worked, and the site's setting overrode the person's choice.) On a clear
+  take, "not sure" words become ✕ "not clear"; on an unclear take the marks stay and the summary asks for a clearer
+  recording. `onResult(result, {pid, line, rec, strict})` says which mode was on. Nothing to do on the site unless you
+  want it on by default somewhere (a teacher's page, say) — and then know that its "0.4% of good words marked" is Rabbi
+  Alouf checked against his own recording: on clear takes by other voices it marks about a fifth (the archive's other
+  hazzan, 18 of 86) to a tenth (Israelis reading, 51 of 537) of right words ✕.
 - **v4.9 (on the repo's `next` branch until David merges it)**: for Tehillim lines (pointed text) the result can now
   say "say a short “e” after the ב (shva na)" or "no vowel after the ר — its shva is silent (shva nah)", each with the
   rule in a few words. ע / ח / ת notes end with a "practice ע ›" link to the letter checker; by default it opens the
@@ -159,6 +164,12 @@ Base: `https://davidsitt-pizmonim-dikduk.hf.space`. All JSON, CORS `*`. No keys.
 - New in the result: × on each note (hide it; with a yes the take is sent to `/feedback` for training), "Ask a hazzan to
   listen" (a review queue answered at the checker server's `/hazzan?key=…`; answers show at the top of the checker),
   "The hazzan, then you", the last tries on the line, and "Tune the checker to your voice" (one minute, Tehillim 23).
-- Storage: all of it in the visitor's browser (localStorage keys `dk.*`); nothing needs an account. If the site later
-  has accounts, the reviews' id + token and the voice card are the things worth moving into them.
+- Storage: the visitor's settings, the last tries, the voice card and each question's id + token are kept in the
+  visitor's browser (localStorage keys `dk.*`); nothing needs an account. What the visitor chooses to send is kept on
+  the checker server: with "send it" (`/feedback`) the recording and the note they hid; with "Ask a hazzan" (`/review`)
+  the recording, their question and the contact they type, until the hazzan answers or removes it. From v5.2 the
+  recording is kept as the server's own 16 kHz wav (no longer the upload as it came, which could be a phone video), the
+  question and contact travel in a request header (out of the server's access log), and both buttons are offered only
+  by a server that keeps recordings (`/health` → `reviews` true: the Mac; the Space only with its `/data` storage).
+  If the site later has accounts, the reviews' id + token and the voice card are the things worth moving into them.
 - Nothing to change on the site for any of this; an older checker server just doesn't offer the new buttons.

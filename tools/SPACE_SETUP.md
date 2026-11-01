@@ -35,6 +35,17 @@ throat drill live unless the Space has storage. In this order:
    `storage.durable` true. If `storage.takes` says `temporary` with storage attached, the mount is not writable for
    the app: the booth warns people before they record.
 
+## v5.2: "Ask a hazzan" and "send this recording" need the storage too
+
+The questions to a hazzan (`/review`) and the recordings sent with a hidden note (`/feedback`) are kept beside the
+booth's takes. Without storage at `/data` (`storage.takes` says `temporary`) from v5.2 the server turns both off:
+`/health` says `reviews` false, the embed hides the two buttons, and a direct POST gets 503 ("questions are not kept
+on this server"). They were lost at the next restart or sleep before. A `GH_TOKEN` mirror does not count here: it
+only pushes, so after a restart the questions would be on GitHub but not on the server's `/hazzan`. To have them
+on the Space, attach the `/data` storage above and Factory rebuild; the Mac keeps them on its own disk. The hazzan who
+answers on `/hazzan` can have a key of his own, `DK_HAZZAN_KEY` (a Space secret): it opens the questions and nothing
+else, where `DK_KEY` also opens every booth recording.
+
 ## Updating the server
 
 (Oct 23: v4.3 — whole-line evidence, the booth, `/embed.js` — is on GitHub; the Space runs it after one **Factory reboot**.)

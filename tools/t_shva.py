@@ -3,12 +3,20 @@
 2. The same take with the short vowel of מְ in מְנֻחוֹת cut out: a "say a short e" note on that word (and on nothing else).
 3. The same take with a short vowel put into the silent shva of יַרְבִּיצֵנִי: a "no vowel" note there.
 4. Without nikud (a pizmon line): no shva fields at all.
-usage: t_shva.py [base url]"""
+The take is tools/take_alouf_23_2.wav (his 23:2, cut from static/tehillim/tehillim-023.mp3 at the pasuk's times: 16 kHz
+mono); the pasuk's words, nikud and times come from lyrics_tehillim.json, as the pages take them. Writes nothing on
+the server (plain checks, no drill). Point it at a local or test server, not the live Mac.
+usage: t_shva.py [base url, default http://127.0.0.1:7861]"""
 import sys, os, io, json, wave
 import numpy as np, requests
-HERE = os.path.dirname(os.path.abspath(__file__)); BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://127.0.0.1:7861'
-IDX = json.load(open(os.path.join(HERE, '..', 'out', 'tehillim-alouf', 'tehillim_alouf.json'), encoding='utf-8'))
-P = IDX['perakim']['23']['pesukim'][1]; NIK = P['nikud']; WORDS = P['text']
+HERE = os.path.dirname(os.path.abspath(__file__)); BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://127.0.0.1:7861').rstrip('/')
+def pasuk(n, k):
+    """perek n, line k (0-based) -> words, nikud, t0, t1 (s), from the sync events (deciseconds,line; the next event ends the line)"""
+    s = json.load(open(os.path.join(HERE, '..', 'lyrics_tehillim.json'), encoding='utf-8'))['s'][f't{n}']
+    ev = [tuple(map(int, x.split(','))) for x in s['t'][f'tehillim-{n:03d}.mp3'].split(';') if x]
+    i = next(i for i, (_, kk) in enumerate(ev) if kk == k)
+    return s['l'][k], s['ln'][k], ev[i][0] / 10, (ev[i + 1][0] / 10 if i + 1 < len(ev) else ev[i][0] / 10 + 8)
+WORDS, NIK, T0, T1 = pasuk(23, 1); P = {'t0': T0, 't1': T1}
 fails = []
 def wav_bytes(x):
     b = io.BytesIO(); w = wave.open(b, 'wb'); w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000); w.writeframes((np.clip(x, -1, 1) * 32767).astype('<i2').tobytes()); w.close(); return b.getvalue()

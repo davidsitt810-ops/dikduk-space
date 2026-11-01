@@ -207,7 +207,7 @@ async function health(){const el=$('#srv');if(!API){el.className='pill bad';el.t
 /* a link can open the page on a text, and on a line: /try?pz=200&line=3 (pizmon 200, line 3), /try?th=23&line=1
    (Tehillim 23:1), &rec=<file> picks the hazzan recording — this is how the site sends a visitor to one line */
 function fromUrl(){const q=new URLSearchParams(location.search);const pz=q.get('pz'),th=q.get('th');if(!pz&&!th)return;
- if(th){KIND='th';$('#kindTh').classList.add('on');$('#kindPz').classList.remove('on');}
+ if(th){KIND='th';$('#kindTh').classList.add('on');$('#kindPz').classList.remove('on');kindHint();}   /* the box and its hint talk about perakim */
  const id=th?'t'+String(th).replace(/\D/g,''):String(pz).replace(/[^\dA-Za-z]/g,'');$('#pid').value=th?String(th).replace(/\D/g,''):id;
  if(q.get('rec'))REC=q.get('rec');openP(id);
  const k=parseInt(q.get('line')||'',10);if(k>=1){const b=$('#lines').querySelector(`.ln[data-k="${k-1}"]`);if(b)b.click();}}
@@ -285,17 +285,19 @@ function playHim(t0,t1){if(!REC||t0==null)return;const src=himSrc(REC);
  HIM.currentTime=Math.max(0,t0);HIM.addEventListener('timeupdate',stop);HIM.play().catch(()=>{});}
 $('#hearLine').onclick=()=>LINE&&playHim(LINE.t0,LINE.t1);
 /* ---------- the take: record on the phone, or upload a file ---------- */
-let MR=null,CH=[],T0=0,TK=null;
+/* one recorder at a time, as in the booth: BUSY from the tap until its stop is handled (two taps while the mic opened made two
+   recorders on one chunk list: Stop stopped one, the mic stayed on and every later take was undecodable); chunks and stream per take */
+let MR=null,T0=0,TK=null,BUSY=false;
 const canRec=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.MediaRecorder);
 if(!canRec){$('#recBtn').hidden=true;$('#recNote').textContent='Recording inside this page is not allowed here: record with Voice Memos, then upload the file.';}
-$('#recBtn').onclick=async()=>{if(MR&&MR.state==='recording'){MR.stop();return;}
- try{const st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+$('#recBtn').onclick=async()=>{if(MR&&MR.state==='recording'){MR.stop();return;}if(BUSY)return;BUSY=true;let st=null;
+ try{st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
   const mt=['audio/mp4','audio/webm;codecs=opus','audio/webm',''].find(t=>!t||MediaRecorder.isTypeSupported(t));
-  MR=new MediaRecorder(st,mt?{mimeType:mt}:undefined);CH=[];MR.ondataavailable=e=>{if(e.data.size)CH.push(e.data);};
-  MR.onstop=()=>{st.getTracks().forEach(t=>t.stop());clearInterval(TK);$('#recBtn').textContent='● Record';setTake(new Blob(CH,{type:MR.mimeType||'audio/mp4'}),'rec',(Date.now()-T0)/1000);};
-  MR.start(250);T0=Date.now();$('#takeRow').hidden=true;$('#recBtn').textContent='■ Stop · 0.0 s';$('#recNote').textContent='Recording… tap Stop when you are done.';
-  TK=setInterval(()=>{$('#recBtn').textContent='■ Stop · '+((Date.now()-T0)/1000).toFixed(1)+' s';if(Date.now()-T0>45000)MR.stop();},200);}
- catch(e){err('The microphone could not be used: '+e.message);}};
+  const mr=new MediaRecorder(st,mt?{mimeType:mt}:undefined),ch=[];MR=mr;mr.ondataavailable=e=>{if(e.data.size)ch.push(e.data);};
+  mr.onstop=()=>{BUSY=false;st.getTracks().forEach(t=>t.stop());clearInterval(TK);$('#recBtn').textContent='● Record';setTake(new Blob(ch,{type:mr.mimeType||'audio/mp4'}),'rec',(Date.now()-T0)/1000);};
+  mr.start(250);T0=Date.now();$('#takeRow').hidden=true;$('#recBtn').textContent='■ Stop · 0.0 s';$('#recNote').textContent='Recording… tap Stop when you are done.';
+  TK=setInterval(()=>{$('#recBtn').textContent='■ Stop · '+((Date.now()-T0)/1000).toFixed(1)+' s';if(Date.now()-T0>45000&&mr.state==='recording')mr.stop();},200);}
+ catch(e){BUSY=false;if(st)st.getTracks().forEach(t=>t.stop());err('The microphone could not be used: '+e.message);}};
 $('#file').onchange=e=>{const f=e.target.files[0];if(f)setTake(f,f.name,null);e.target.value='';};
 function resetTake(){TAKE=null;$('#takeRow').hidden=true;$('#recNote').textContent='';if(canRec)$('#recBtn').hidden=false;}
 $('#again').onclick=()=>{resetTake();if(canRec)$('#recBtn').click();};
@@ -363,8 +365,10 @@ function marksOf(TW,F,gap,rival){const marks=TW.map((t,i)=>markOf(t,F&&F[i]));co
  if(TW.length&&gap!=null&&rg!=null&&rg>=RULE.rival&&(gap-rg)<=RULE.altFit&&(rh==null||rh>=RULE.hear)){lineWrong=true;for(let i=0;i<marks.length;i++)if(marks[i]==='ok')marks[i]='unsure';}
  if(TW.length&&!CLEAN&&!lineWrong){const m=headMedian(TW);if(m!=null&&m<RULE.hear){cantHear=true;for(let i=0;i<marks.length;i++)if(marks[i]==='off')marks[i]='unsure';}}
  return {marks,why,lineWrong,cantHear};}
-/* strict: on a clean take every 'not sure' word counts as not clearly right (Alouf exam: wrong words caught 76% -> 89%, good words ✕ 0 -> 0.4%);
-   on an unclear take nothing changes — there it would put ✕ on a fifth of good words — and the page asks for a clearer take. Server: app.strict_of */
+/* strict: on a clean take every 'not sure' word counts as not clearly right (Alouf exam, Rabbi Alouf against his own recording: wrong words
+   caught 76% -> 89%, good words ✕ 0 -> 0.4%). That 0.4% is not general: clean takes by other voices give about 21% of good words ✕
+   (archive, 18 of 86) and 9.5% (Israeli readers), and every archive take, clear or not, 32% (168/528) — hence strict only on clear takes;
+   on an unclear take nothing changes and the page asks for a clearer take. Server: rule.strict_of */
 function strictOf(marks,why,clean,cantHear){if(!clean||cantHear)return {marks,why,on:false};return {marks:marks.map(m=>m==='unsure'?'off':m),why:why.map((w,i)=>marks[i]==='unsure'&&w==null?'unclear':w),on:true};}
 /* a throat letter's verdict in words: v = throat / plain / unsure; the ears (classifier, Arabic-letter ear, trained
    head) are for the lab */
@@ -386,13 +390,15 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
  /* no singing in the recording at all: the phone recognizer hears nothing (reading ~4 phones a second, slow singing 1.5, noise and silence 0) */
  const noSpeech=(j.take.phones||[]).length<Math.max(3,0.5*(j.take.dur||0));if(noSpeech){marks=marks.map(m=>m?'unsure':m);why=why.map(()=>null);lineWrong=false;cantHear=false;}
  /* on a take the heads hear poorly, a "plain" ע/ח is not a fault to show (the raw verdict stays in the lab line), and the vowel ear is not trusted at all */
- let SON=false;if(STRICT&&!noSpeech){const st=strictOf(marks,why,CLEAN,cantHear);marks=st.marks;why=st.why;SON=st.on;}
+ /* M0: the marks before strict — the throat colours, notes and panel, the vowel and shva notes follow it, so a word strict newly
+    flags keeps its evidence; the word's colour, label and the summary follow the strict marks */
+ const M0=marks.slice();let SON=false;if(STRICT&&!noSpeech){const st=strictOf(marks,why,CLEAN,cantHear);marks=st.marks;why=st.why;SON=st.on;}
  const strictUnclear=STRICT&&!CLEAN&&!noSpeech&&!cantHear&&!lineWrong;
  if(!CLEAN)TW.forEach(t=>(t.throat||[]).forEach(th=>{if(th.v==='plain'){th.raw='plain';th.v='unsure';}}));
  const LABEL={ok:'✓',unsure:'not sure',off:'not heard','':''};const lab=i=>why[i]==='unclear'?'not clear':LABEL[marks[i]];
  /* the words: colour = was the word there; the ע/ח inside each word coloured by its own verdict */
  $('#res').innerHTML=W.map((w,i)=>{const t=TW[i];let n=0;const ths=(t.throat||[]);
-  const cls=c=>{const th=ths[n++];if(!th||marks[i]==='off'||cantHear||noSpeech)return '';if(th.v==='plain'){const r=RW&&RW[i]&&(RW[i].throat||[]).find(x=>x.k===th.k);if(r&&r.v==='plain')return '';}if(SON&&th.v==='unsure')return 'bad';return VCLS[th.v]||'';};
+  const cls=c=>{const th=ths[n++];if(!th||M0[i]==='off'||cantHear||noSpeech)return '';if(th.v==='plain'){const r=RW&&RW[i]&&(RW[i].throat||[]).find(x=>x.k===th.k);if(r&&r.v==='plain')return '';}if(SON&&th.v==='unsure')return 'bad';return VCLS[th.v]||'';};
   return `<button class="w ${marks[i]}" data-i="${i}" type="button" lang="he"><b>${hiTh(w,cls)}</b><small>${lab(i)}</small></button>`;}).join('');
  $('#res').querySelectorAll('.w').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;$('#res').querySelectorAll('.w').forEach(x=>x.classList.toggle('sel',x===b));const r=RW&&RW[i],f=F&&F[i],t=TW[i];
   const mine=f&&f.t0!=null?[f.t0,f.t1]:t&&t.t0!=null?[t.t0,t.t1]:null;
@@ -405,14 +411,14 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
   if(why[i]==='swapped'){if(i+1<W.length&&why[i+1]==='swapped'&&TW[i].swap!=null&&TW[i].swap>=RULE.swap)parts.push(`${he(w)} and ${he(W[i+1])} seem swapped`);}
   else if(why[i]==='unclear')parts.push('not clearly right');else if(marks[i]==='off')parts.push('not heard where it belongs');else if(marks[i]==='unsure')parts.push('not sure it was there');
   if(marks[i]&&marks[i]!=='ok'&&t.miss&&t.miss.length&&t.miss.length<(t.n||9))parts.push(`${he(t.miss.join(' '))} not heard`);
-  if(marks[i]!=='off')(t.throat||[]).forEach(th=>{if(th.v!=='plain')return;const r=RW&&RW[i]&&(RW[i].throat||[]).find(x=>x.k===th.k);if(r&&r.v==='plain')return;   /* the hazzan says it plain there too: not a fault */
+  if(M0[i]!=='off')(t.throat||[]).forEach(th=>{if(th.v!=='plain')return;const r=RW&&RW[i]&&(RW[i].throat||[]).find(x=>x.k===th.k);if(r&&r.v==='plain')return;   /* the hazzan says it plain there too: not a fault */
    parts.push((th.c==='ע'?'the ע was said like alef':'the ח was not from the throat')+prac(th.c));});
-  if(SON&&marks[i]!=='off')(t.throat||[]).forEach(th=>{if(th.v==='unsure')parts.push((th.c==='ע'?'the ע was not clearly from the throat':'the ח was not clearly from the throat')+prac(th.c));});
+  if(SON&&M0[i]!=='off')(t.throat||[]).forEach(th=>{if(th.v==='unsure')parts.push((th.c==='ע'?'the ע was not clearly from the throat':'the ח was not clearly from the throat')+prac(th.c));});
   (t.notes||[]).forEach(n=>{if(n.say==='sav')parts.push('the ת sounded like a samekh'+prac('ת'));});
-  const vd=(marks[i]==='off'||!CLEAN)?[]:((j.vowels&&j.vowels[i])||[]),vn=(marks[i]==='off'||!CLEAN)?[]:((j.vowels_nikud&&j.vowels_nikud[i])||[]);
+  const vd=(M0[i]==='off'||!CLEAN)?[]:((j.vowels&&j.vowels[i])||[]),vn=(M0[i]==='off'||!CLEAN)?[]:((j.vowels_nikud&&j.vowels_nikud[i])||[]);
   vd.forEach(d=>parts.push(`you sang ${vname(d.you)} where the hazzan sings ${vname(d.ref)}`));
   vn.forEach(d=>{if(!vd.some(x=>x.k===d.k))parts.push(`you sang ${vname(d.you)} where the nikud says ${vname(d.ref)}`);});
-  const sv=(marks[i]==='off'||!CLEAN)?[]:((j.shva&&j.shva[i])||[]);sv.forEach(d=>parts.push((d.want==='vowel'?`say a short “e” after the ${he(d.c)} (shva na)`:`no vowel after the ${he(d.c)} — its shva is silent (shva nah)`)+' — '+(SHVA_WHY[d.rule]||SHVA_WHY.hazzan)));
+  const sv=(M0[i]==='off'||!CLEAN)?[]:((j.shva&&j.shva[i])||[]);sv.forEach(d=>parts.push((d.want==='vowel'?`say a short “e” after the ${he(d.c)} (shva na)`:`no vowel after the ${he(d.c)} — its shva is silent (shva nah)`)+' — '+(SHVA_WHY[d.rule]||SHVA_WHY.hazzan)));
   if(parts.length)lines.push(`<li>${he(w)}: ${parts.join('; ')}.</li>`);});
  const off=marks.filter(m=>m==='off').length,uns=marks.filter(m=>m==='unsure').length,say=$('#say');
  if(noSpeech){say.className='say warn';say.textContent='I did not hear any singing in this recording. Check that the microphone picked you up (hold the phone closer), then record again.';}
@@ -426,7 +432,7 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
  else{say.className='say warn';say.textContent='The words are there, with a few things to hear.';}
  $('#notes').innerHTML=lines.join('');
  /* throat letters: the verdict per ע / ח, you and the hazzan */
- const rows=[];TW.forEach((t,i)=>{if(marks[i]==='off'||cantHear||noSpeech)return;(t.throat||[]).forEach(th=>{const r=RW&&RW[i]&&(RW[i].throat||[]).find(x=>x.k===th.k);rows.push({w:W[i],c:th.c,you:th,him:r});});});
+ const rows=[];TW.forEach((t,i)=>{if(M0[i]==='off'||cantHear||noSpeech)return;(t.throat||[]).forEach(th=>{const r=RW&&RW[i]&&(RW[i].throat||[]).find(x=>x.k===th.k);rows.push({w:W[i],c:th.c,you:th,him:r});});});
  if(rows.length){$('#th').innerHTML=rows.map(x=>{const a=thSay(x.you),b=thSay(x.him);
    return `<div class="tr"><div class="hd"><span class="lt">${esc(x.c)}</span><span>in ${he(x.w)}</span></div><div><span class="k">you</span><span class="v ${SON&&a.v==='unsure'?'bad':VCLS[a.v]||''}">${esc(SON&&a.v==='unsure'?'not clearly from the throat ✕':a.lead)}</span><span class="ears hint" style="margin:0"> · ${esc(a.ears)}</span></div><div><span class="k">the hazzan</span><span class="v">${x.him?esc(b.lead):'–'}</span>${x.him?`<span class="ears hint" style="margin:0"> · ${esc(b.ears)}</span>`:''}</div></div>`;}).join('');
   $('#thP').hidden=false;}else $('#thP').hidden=true;
@@ -472,14 +478,14 @@ let DW=null,DSTYLE=null;
 $('#drillWords').innerHTML=DRILL.map(w=>`<button class="btn" data-w="${w}" lang="he" type="button" style="font-family:var(--he);font-size:18px">${w}</button>`).join('');
 $('#drillWords').querySelectorAll('button').forEach(b=>b.onclick=()=>{DW=b.dataset.w;$('#drillWords').querySelectorAll('button').forEach(x=>x.classList.toggle('gold',x===b));$('#drillPick').textContent=DW;$('#drillThroat').disabled=!canRec;$('#drillPlain').disabled=!canRec;const done=SC.filter(s=>s.kind==='drill'&&s.word===DW&&s.onServer).map(s=>s.style);$('#drillSay').textContent=done.length?'saved so far: '+done.join(', '):'';});
 if(!canRec)$('#drillSay').textContent='No microphone here: record the word with Voice Memos, pick the word, then Upload (it asks throat or plain).';
-let DMR=null,DCH=[],DTK=null;
-async function drillRec(style){if(!DW)return;if(DMR&&DMR.state==='recording'){DMR.stop();return;}DSTYLE=style;
- try{const st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
-  const mt=['audio/mp4','audio/webm;codecs=opus','audio/webm',''].find(t=>!t||MediaRecorder.isTypeSupported(t));DMR=new MediaRecorder(st,mt?{mimeType:mt}:undefined);DCH=[];
-  DMR.ondataavailable=e=>{if(e.data.size)DCH.push(e.data);};const btn=style==='throat'?$('#drillThroat'):$('#drillPlain');const lab=btn.textContent;
-  DMR.onstop=()=>{st.getTracks().forEach(t=>t.stop());clearInterval(DTK);btn.textContent=lab;drillSend(new Blob(DCH,{type:DMR.mimeType||'audio/mp4'}),style);};
-  DMR.start(250);const t0=Date.now();btn.textContent='■ Stop';DTK=setInterval(()=>{if(Date.now()-t0>6000)DMR.stop();},200);}
- catch(e){$('#drillSay').textContent='microphone: '+e.message;}}
+let DMR=null,DTK=null,DBUSY=false;   /* DBUSY: as BUSY, one drill recorder at a time (either button) */
+async function drillRec(style){if(!DW)return;if(DMR&&DMR.state==='recording'){DMR.stop();return;}if(DBUSY)return;DBUSY=true;DSTYLE=style;let st=null;
+ try{st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+  const mt=['audio/mp4','audio/webm;codecs=opus','audio/webm',''].find(t=>!t||MediaRecorder.isTypeSupported(t));const mr=new MediaRecorder(st,mt?{mimeType:mt}:undefined),ch=[];DMR=mr;
+  mr.ondataavailable=e=>{if(e.data.size)ch.push(e.data);};const btn=style==='throat'?$('#drillThroat'):$('#drillPlain');const lab=btn.textContent;
+  mr.onstop=()=>{DBUSY=false;st.getTracks().forEach(t=>t.stop());clearInterval(DTK);btn.textContent=lab;drillSend(new Blob(ch,{type:mr.mimeType||'audio/mp4'}),style);};
+  mr.start(250);const t0=Date.now();btn.textContent='■ Stop';DTK=setInterval(()=>{if(Date.now()-t0>6000&&mr.state==='recording')mr.stop();},200);}
+ catch(e){DBUSY=false;if(st)st.getTracks().forEach(t=>t.stop());$('#drillSay').textContent='microphone: '+e.message;}}
 $('#drillThroat').onclick=()=>drillRec('throat');$('#drillPlain').onclick=()=>drillRec('plain');
 $('#drillFile').onchange=e=>{const f=e.target.files[0];if(!f||!DW){$('#drillSay').textContent='pick a word first';return;}
  $('#drillSay').innerHTML='Was this one from the throat or plain? <button class="btn" id="dfT" type="button">throat</button> <button class="btn" id="dfP" type="button">plain</button>';

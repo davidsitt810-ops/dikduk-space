@@ -47,6 +47,9 @@ is rebooted remotely, nothing runs until someone types it). Power or internet at
   `tunnel run`. tunnel.sh now hands over to `fix_tunnel.sh`, which installs its own LaunchDaemon (`com.pizmonim.tunnel`,
   log `/Library/Logs/dikduk-tunnel.log`, `--protocol http2`).
 - **mps**: same verdicts as cpu (within .02), 0.4 s a pasuk instead of 8–14 s — the default now.
-- **Down alert**: `.github/workflows/watch.yml` asks `/health` every 15 minutes and opens one GitHub issue
-  ("Mac checker is down") when the Mac does not answer three times; it closes it when the Mac is back.
+- **Down alert**: `.github/workflows/watch.yml` asks `/health` and opens one GitHub issue ("Mac checker is down") when
+  the Mac does not answer 4 times, 45 s apart (the last try 2¼ minutes or more after the first, so update.sh's 1–3
+  minute restart seldom raises it); it closes it when the Mac is back. It is scheduled every 15 minutes, but GitHub
+  starts scheduled runs late — often hours apart (6 runs on Oct 31) — so it can miss an outage for hours. For a real
+  alert, point an outside monitor (UptimeRobot or the like) at `https://dikduk.thepizmonim.com/health`.
 - The scripts live in `~/dikduk/app/mac/` (the repo clone) — a nightly folder cleanup moved the Downloads copy.

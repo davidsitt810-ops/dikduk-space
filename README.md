@@ -125,11 +125,14 @@ lyrics fetch no longer runs on the event loop or retries on every request after 
 
 Also v4.8 (Oct 30, made on main before the two lines met) adds the **strict check** — a switch under the result in the embed and on the lab page (`data-strict="1"`
 or `strict: true` starts it on; the person's last choice is remembered). On a clean take every "not sure" word counts
-as "not clearly right" (✕), and a "not sure" ע/ח counts as "not clearly from the throat". Rabbi Alouf's exam: wrong
-words caught 76% → 89%, good words marked 0 → 0.4%. On an unclear take nothing is marked differently — there the
-strict rule would mark about a fifth of good words (the archive's clean-but-other-singer takes: 18 of 86) — and the
-page asks for a clearer take instead. Same rule in three places, checked word for word: `strict_of` (rule.py),
-`strictOf` (index.html, embed.js) — `tools/t_parity.py`; the browser test `t_strict_ui.py`.
+as "not clearly right" (✕), and a "not sure" ע/ח counts as "not clearly from the throat". Rabbi Alouf's exam (his
+takes checked against his own recording): wrong words caught 76% → 89%, good words marked 0 → 0.4%. That 0.4% is his
+voice, not a general rate: on clean takes by other voices the committed exam rows give 4 → 18 of 86 good words marked
+(about 21%: the archive's other hazzan, with instruments) and 13 → 51 of 537 (about 9.5%: Israelis reading); without
+the clean-take requirement it would mark 168 of the 528 good archive words (32%; 168 of the 383 on takes the head can
+hear, 44%). Hence strict only on a clean take: on an unclear one nothing is marked differently and the page asks for
+a clearer take instead. Same rule in three places, checked word for word: `strict_of` (rule.py), `strictOf`
+(index.html, embed.js) — `tools/t_parity.py`; the browser test `t_strict_ui.py`.
 The home Mac's server runs on its GPU (`DK_DEVICE=mps`: 0.4 s a pasuk instead of 8–14 s, the same verdicts), and
 `.github/workflows/watch.yml` opens a GitHub issue when it stops answering.
 
@@ -170,6 +173,63 @@ v5.1 (Oct 31, server only): on a pointed line, a "the hazzan says otherwise" vow
 said the vowel the nikud writes (the mirror of v4.9's rule). Found by testing on readers the checker never heard
 (`tools/voice_register.py` aligns a new reader's Tehillim, one file per perek or one file for the whole book;
 `tools/exam_voice.py` checks every pasuk against Rabbi Alouf's as the site does; LAB_NOTES §31).
+
+v5.2 (Nov 1) fixes what an audit of v4.8–v5.1 found; no word verdict is meant to move, and the notes change only
+where a fix below says so.
+- **For the person checking**: in strict mode a word strict newly marks ✕ keeps its letter, vowel and shva notes and
+  its throat colours (they were hidden exactly on those words); `data-strict` takes `1` / `true` / `on` / `yes`, and
+  the person's own last choice wins over the site's; a double tap on Record no longer opens two recorders (the mic
+  stayed on and every later take was undecodable — the embed, the voice card, the lab page and the letter page); the
+  embed keeps the first server listed (the Mac) when it answers `/health` within 1.5 s, instead of whichever answered
+  first; the live follow-along asks less often on a long take; the booth's shva tasks need their yes/no, like ע/ח (an
+  unanswered take was scored neither caught nor missed). On the server: a ת is no longer called "sav" when the s-sound
+  is its neighbour's (70 ms instead of 60: Rabbi Alouf's own 121:1); a shva at the end of a line is judged only on its
+  own consonant's next ~100 ms, not on a sound after the line (a false "final" note).
+- **Safety**: "Ask a hazzan" and "send this recording" exist only on a server that keeps them on its own disk
+  (`/health` `reviews` = `storage.takes` persistent: `/data` or `DK_DURABLE=1`; the Space without `/data` lost them at
+  its next restart, and a GitHub mirror only pushes); the upload must decode to sound that is not digital silence, and
+  only the server's own 16 kHz wav is kept (it was the raw body: any bytes, a phone video); the notes kept this month
+  and the questions waiting are capped (`DK_FEEDBACK_MAX`, `DK_REVIEW_MAX`), each sender's too (`DK_FEEDBACK_PER`,
+  `DK_REVIEW_PER`), counted with nothing let in between the count and the write; a meta with `NaN` or `Infinity` is
+  refused (one kept in a question made `/reviews` a 500, so `/hazzan` showed nothing); a question's audio is served as audio
+  (`nosniff`); a hazzan gets a key of his own (`DK_HAZZAN_KEY`) and can remove a question; a question whose notes are
+  not a list no longer blanks `/hazzan`; v5.2 pages send the meta (name, contact, question) in the `x-dk-meta` header,
+  not the URL, so the access log does not keep it; a booth take must decode to sound unless the key is sent; the
+  plain `/check` path, `/ref` and `/letter` count against `DK_JOB_MAX` like the queued checks (three plain checks made
+  a page check take 40 s while `/health` said nothing was queued), at most `DK_PLAIN_MAX` of them at once (each holds
+  one of the 40 threads while it waits: 40 froze every route), and `/follow` runs one at a time and never beside them;
+  `/ref?emb=1` needs the key and the hazzan analyses kept are capped (`DK_REF_KEEP`); the warm-up
+  analyses the hazzan's Tehillim lines with their nikud, as the pages ask for them (it filled cache entries nobody used).
+- **CI** (`checks.yml`): every top-level `.py` compiles (shva.py was never compiled, and app.py imports it at start);
+  `tools/t_shva_rules.py` checks `shva.shva_marks` and every branch of `shva.notes` without models; `rule_baseline.py`
+  tallies the strict marks too; `fuzz3.py` fuzzes the wrong-line rule (a random rival line), strict, and the pages' own
+  no-singing statement. `watch.yml` tries the Mac 4 times 45 s apart (update.sh's restart takes 1–3 minutes) and says
+  honestly that GitHub runs it late, often hours apart: for a real alert use an outside monitor (UptimeRobot or the
+  like) on `/health`. `tools/t_shva.py`, `t_shva_ui.py`, `t_strict_ui.py`, `t_deeplink.py` and `t_booth.py` take the
+  server as an argument (`t_booth.py` also the key, and it refuses a server not on this machine unless `--real`) and run
+  from a clean clone: the intact 23:2 take is `tools/take_alouf_23_2.wav`, the pasuk comes from `lyrics_tehillim.json`,
+  and the demo page and the tampered takes are made by the tests.
+- **Deploying**: the pages (`static/`) update by themselves — both servers serve them from GitHub main, refreshed every
+  minute — and work with a 5.1 server (they read `/health`'s `version` before using a 5.2 feature). The server part
+  needs `mac/update.sh` on the Mac and a Factory rebuild on the Space; until then `/health` says `version` 5.1.
+
+Settings (environment variables) new in v5.2, beside `DK_KEY`, `DK_PUBLIC`, `DK_DURABLE`, `DK_JOB_MAX`, `DK_GRADE_MAX`:
+- `DK_HAZZAN_KEY` — a key for the hazzan who answers on `/hazzan`: it opens `/reviews`, a question and its audio, the
+  reply and the remove, and nothing else (`DK_KEY` opens these too, and every booth recording, the drill, the feedback
+  and the report card — not a key to hand to a teacher). Unset: only `DK_KEY`.
+- `DK_FEEDBACK_MAX` (default 2000) — recordings sent with a hidden note kept at most **this month**; past it
+  `/feedback` answers 503 until the month turns. `DK_FEEDBACK_PER` (default 200): from one sender a month (429).
+- `DK_REVIEW_MAX` (default 2000) — questions **waiting** for a hazzan at most (since v5.2 the answered ones no longer
+  count; before, it was 2000 questions ever); past it `/review` answers 503. `DK_REVIEW_PER` (default 20): waiting
+  from one sender (429). A sender is Cloudflare's `cf-connecting-ip` (the Mac), else the first `x-forwarded-for`, else
+  the connection; it is counted in memory only (no address is written to disk; a restart forgets it).
+- `DK_PLAIN_MAX` (default 4) — plain `/check`s, uncached `/ref`s and `/letter`s running or waiting for the models at
+  once; past it they get 503 "busy" (the pages' queued checks are not counted here).
+- `DK_REF_KEEP` (default 50000) — hazzan analyses kept in the cache at most (~8 KB each); past it a line is analysed
+  again each time.
+- The `x-dk-meta` request header (v5.2 pages, on `/submit`, `/feedback`, `/review`): the meta JSON, URI-encoded
+  (`encodeURIComponent(JSON.stringify(meta))`), in place of the `?meta=` query, which older pages still send and every
+  version still reads.
 
 
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).

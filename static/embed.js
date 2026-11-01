@@ -3,19 +3,19 @@
    <script src="embed.js"></script>
    <script>Dikduk.mount(document.getElementById('dikduk'), {api:'https://davidsitt-pizmonim-dikduk.hf.space', pz:'200', line:3});</script>
    or simply <div data-dikduk data-api="https://…hf.space" data-pz="200" data-line="3"></div> and the script mounts it.
-   Options: api (the checker server — or several, an array or a space-separated string: the first one whose /health
-   answers is used, so a fast home server can come first and the Space second as the fallback; if a check cannot reach
+   Options: api (the checker server — or several, an array or a space-separated string: the first one is used when its
+   /health answers within 1.5 s (another one only after that, or once the first has failed), so a fast home server can come first and the Space second as the fallback; if a check cannot reach
    the chosen one, the others are asked once more), pz | th (pizmon id | Tehillim perek), line (1-based), rec (hazzan recording file),
    lyrics (the site's lyrics object or a URL — saves a fetch), archive (base URL of the archive mp3s), follow (true: words light up while recording, even on a slow server; false: never; default: on a fast server),
-   notes ('words' | 'letters' | 'all': which notes show at first), strict (1/true: start with the
-   strict check on — data-strict="1"; the person can switch it under the result), letters (where the "practice ע ›" links
+   notes ('words' | 'letters' | 'all': which notes show at first), strict (1/true/on/yes: start with the
+   strict check on — data-strict="1"; the person can switch it under the result, and their own last choice wins over this), letters (where the "practice ע ›" links
    go: a URL — default the server's /letters page — or false for no links; data-letters), onResult(result, {pid, line, rec, strict}).
    Styling: everything is under .dk; colours and fonts are CSS variables on the container (--dk-bg, --dk-panel, --dk-line,
    --dk-fg, --dk-mute, --dk-accent, --dk-good, --dk-warn, --dk-bad, --dk-ink, --dk-he, --dk-ui); the site's own fonts are
    inherited unless --dk-he / --dk-ui are set. Browser storage (this browser only): the strict and notes switches (dk.strict, dk.notes),
    the voice card (dk.vc), the tries per line (dk.hist.*) and the questions sent to a hazzan (dk.reviews: id + token).
    v5 also adds: hide a note and, with a yes, send the take (POST /feedback); "Ask a hazzan" (POST /review, answered on
-   the server's /hazzan page); "The hazzan, then you"; the voice card (Tehillim 23:1-2 read once: /check with vc=…). The same checker as the Space's /try page. */
+   the server's /hazzan page; both offered only by a server whose storage is durable); "The hazzan, then you"; the voice card (Tehillim 23:1-2 read once: /check with vc=…). The same checker as the Space's /try page. */
 (function () {
 'use strict';
 const CSS = `
@@ -223,10 +223,13 @@ function mount(root, opts) {
  root.classList.add('dk'); root.innerHTML = HTML;
  const $ = s => root.querySelector(`[data-r="${s}"]`); const url = p => API + p;
  const practice = (c, want) => { if (opts.letters === false || opts.letters === 'false') return ''; const base = (typeof opts.letters === 'string' && opts.letters) ? opts.letters : url('/letters'); const q = new URLSearchParams({c}); if (want) q.set('want', want); return ` <a class="dk-prac" href="${esc(base + (base.includes('?') ? '&' : '?') + q)}" target="_blank" rel="noopener">${esc(fmt(S.practice, {c}))}</a>`; };
- /* several servers: whichever answers /health first (and says ok) is the one; a dead tunnel fails fast, a sleeping Space answers late */
+ /* several servers: the first (the home Mac) when its /health says ok; another one only from 1.5 s after the start, or once the first
+    has failed — so a quick Space never beats a working Mac; a dead tunnel fails fast, a sleeping Space answers late */
  function pickApi() { if (APIS.length <= 1) return fetch(url('/health'), {cache: 'no-store'}).then(r => r.json());
-  return new Promise((res, rej) => { let left = APIS.length, done = false; APIS.forEach(async a => { try { const r = await fetch(a + '/health', {cache: 'no-store'}); if (!r.ok) throw new Error(String(r.status)); const j = await r.json(); if (!j || !j.ok) throw new Error('not ok'); if (!done) { done = true; API = a; res(j); } }
-   catch (e) { if (--left === 0 && !done) rej(e); } }); }); }
+  return new Promise((res, rej) => { let left = APIS.length, done = false, wake; const t0 = Date.now(), firstOut = new Promise(s => { wake = s; });
+   APIS.forEach(async (a, i) => { try { const r = await fetch(a + '/health', {cache: 'no-store'}); if (!r.ok) throw new Error(String(r.status)); const j = await r.json(); if (!j || !j.ok) throw new Error('not ok');
+     if (i > 0) await Promise.race([firstOut, new Promise(s => setTimeout(s, t0 + 1500 - Date.now()))]); if (!done) { done = true; API = a; res(j); } }
+   catch (e) { if (i === 0) wake(); if (--left === 0 && !done) rej(e); } }); }); }
  root.querySelectorAll('[data-t]').forEach(e => { e.textContent = S[e.dataset.t]; });
  root.querySelector('.dk-lede').textContent = S.lede; $('srv').textContent = S.waking;
  root.querySelectorAll('[data-change]').forEach(b => { if (!b.textContent) b.textContent = S.change; });
@@ -237,7 +240,9 @@ function mount(root, opts) {
  $('askNote').placeholder = S.askNote; $('askContact').placeholder = S.askContact; $('vcOpen').textContent = S.vcLink; $('vcRec').textContent = S.record; $('vcClose').textContent = S.vcClose;
  const fid = 'dkf' + Math.random().toString(36).slice(2, 8); $('file').id = fid; $('fileLab').htmlFor = fid;
  const err = t => { $('err').textContent = t || ''; };
- let STRICT = opts.strict != null ? !!(+opts.strict || opts.strict === true) : (() => { try { return localStorage.getItem('dk.strict') === '1'; } catch (e) { return false; } })();
+ /* the person's own last choice (dk.strict '1'/'0') wins over the site's default (strict: 1/true/on/yes) */
+ let STRICT = (() => { let st = null; try { st = localStorage.getItem('dk.strict'); } catch (e) {} if (st === '1' || st === '0') return st === '1';
+  return opts.strict === true || /^(1|true|on|yes)$/i.test(String(opts.strict == null ? '' : opts.strict).trim()); })();
  let SRV = null, LY = null, P = null, REC = opts.rec || null, LINE = null, TAKE = null, RESULT = null, KIND = opts.th ? 'th' : 'pz', TAKE_URL = null;
  /* v5 — what to check (Tarteel's tashkeel switch): letter notes, vowel & shva notes; opts.notes = 'words' | 'letters' | 'all' */
  const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } };
@@ -308,16 +313,18 @@ function mount(root, opts) {
   HIM.pause(); const stop = () => { if (HIM.currentTime >= t1 - .02) { HIM.pause(); HIM.removeEventListener('timeupdate', stop); } }; HIM.currentTime = Math.max(0, t0); HIM.addEventListener('timeupdate', stop); HIM.play().catch(() => {}); }
  $('hearLine').onclick = () => LINE && playHim(LINE.t0, LINE.t1);
  /* ----- the take ----- */
- let MR = null, CH = [], T0 = 0, TK = null;
+ /* RBUSY: from the tap until onstop, so a second tap while the mic opens cannot start a second recorder; each take has its own
+    chunks (ch) and stream (st) — CH only points at the current take's chunks, for the follow-along */
+ let MR = null, CH = [], T0 = 0, TK = null, RBUSY = false;
  const canRec = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
  if (!canRec) { $('recBtn').hidden = true; $('recNote').textContent = S.noMic; }
- $('recBtn').onclick = async () => { if (MR && MR.state === 'recording') { MR.stop(); return; }
-  try { const st = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: false}});
-   const mt = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', ''].find(t => !t || MediaRecorder.isTypeSupported(t)); MR = new MediaRecorder(st, mt ? {mimeType: mt} : undefined); CH = []; MR.ondataavailable = e => { if (e.data.size) CH.push(e.data); };
-   MR.onstop = () => { st.getTracks().forEach(t => t.stop()); clearInterval(TK); followStop(); $('recBtn').textContent = S.record; setTake(new Blob(CH, {type: MR.mimeType || 'audio/mp4'}), 'rec', (Date.now() - T0) / 1000); };
-   MR.start(250); T0 = Date.now(); $('takeRow').hidden = true; $('recBtn').textContent = S.stop + ' · 0.0 s'; $('recNote').textContent = S.recording; followStart();
-   TK = setInterval(() => { $('recBtn').textContent = S.stop + ' · ' + ((Date.now() - T0) / 1000).toFixed(1) + ' s'; if (Date.now() - T0 > 45000) MR.stop(); }, 200); }
-  catch (e) { err(S.micErr + e.message); } };
+ $('recBtn').onclick = async () => { if (MR && MR.state === 'recording') { MR.stop(); return; } if (RBUSY) return; RBUSY = true; let st = null;
+  try { st = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: false}});
+   const mt = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', ''].find(t => !t || MediaRecorder.isTypeSupported(t)), ch = []; const mr = new MediaRecorder(st, mt ? {mimeType: mt} : undefined); MR = mr; CH = ch; mr.ondataavailable = e => { if (e.data.size) ch.push(e.data); };
+   mr.onstop = () => { RBUSY = false; st.getTracks().forEach(t => t.stop()); clearInterval(TK); followStop(); $('recBtn').textContent = S.record; setTake(new Blob(ch, {type: mr.mimeType || 'audio/mp4'}), 'rec', (Date.now() - T0) / 1000); };
+   mr.start(250); T0 = Date.now(); $('takeRow').hidden = true; $('recBtn').textContent = S.stop + ' · 0.0 s'; $('recNote').textContent = S.recording; followStart();
+   TK = setInterval(() => { $('recBtn').textContent = S.stop + ' · ' + ((Date.now() - T0) / 1000).toFixed(1) + ' s'; if (Date.now() - T0 > 45000 && mr.state === 'recording') mr.stop(); }, 200); }
+  catch (e) { RBUSY = false; if (st) st.getTracks().forEach(t => t.stop()); err(S.micErr + e.message); } };
  $('file').onchange = e => { const f = e.target.files[0]; if (f) setTake(f, f.name, null); e.target.value = ''; };
  function resetTake() { TAKE = null; $('takeRow').hidden = true; $('recNote').textContent = ''; if (canRec) $('recBtn').hidden = false; }
  $('again').onclick = () => { resetTake(); if (canRec) $('recBtn').click(); };
@@ -362,8 +369,10 @@ function mount(root, opts) {
   if (TW.length && gap != null && rg != null && rg >= RULE.rival && (gap - rg) <= RULE.altFit && (rh == null || rh >= RULE.hear)) { lineWrong = true; for (let i = 0; i < marks.length; i++) if (marks[i] === 'ok') marks[i] = 'unsure'; }
   if (TW.length && !CLEAN && !lineWrong) { const m = headMedian(TW); if (m != null && m < RULE.hear) { cantHear = true; for (let i = 0; i < marks.length; i++) if (marks[i] === 'off') marks[i] = 'unsure'; } }
   return {marks, why, lineWrong, cantHear}; }
- /* strict: on a clean take every 'not sure' word counts as not clearly right. Alouf exam: wrong words caught 76% -> 89%,
-    good words ✕ 0 -> 0.4%. On an unclear take nothing changes (there it would put ✕ on a fifth of good words): the page asks for a clearer take. Server: app.strict_of */
+ /* strict: on a clean take every 'not sure' word counts as not clearly right. Alouf exam (Rabbi Alouf against his own recording): wrong words
+    caught 76% -> 89%, good words ✕ 0 -> 0.4%. That 0.4% is not general: on clean takes by other voices the committed exam rows give about 21%
+    of good words ✕ (archive, 18 of 86) and 9.5% (Israeli readers), and on every archive take, clear or not, 32% (168/528) — hence strict only
+    on clear takes; on an unclear take nothing changes and the page asks for a clearer take. Server: rule.strict_of */
  function strictOf(marks, why, clean, cantHear) { if (!clean || cantHear) return {marks, why, on: false}; return {marks: marks.map(m => m === 'unsure' ? 'off' : m), why: why.map((w, i) => marks[i] === 'unsure' && w == null ? 'unclear' : w), on: true}; }
  const VCLS = {throat: 'good', plain: 'bad', unsure: 'warn'};
  const thLead = t => !t || !t.v ? '–' : t.v === 'throat' ? S.thThroat : t.v === 'plain' ? (t.c === 'ע' ? S.thAlef : S.thPlain) : S.thUnsure;
@@ -371,12 +380,14 @@ function mount(root, opts) {
   const HM = headMedian(TW); CLEAN = HM != null && HM >= .7;
   let {marks, why, lineWrong, cantHear} = marksOf(TW, F, j.take.gap, j.take.rival);
   const noSpeech = (j.take.phones || []).length < Math.max(3, 0.5 * (j.take.dur || 0)); if (noSpeech) { marks = marks.map(m => m ? 'unsure' : m); why = why.map(() => null); lineWrong = false; cantHear = false; }
-  let SON = false; if (STRICT && !noSpeech) { const st = strictOf(marks, why, CLEAN, cantHear); marks = st.marks; why = st.why; SON = st.on; }
+  /* M0: the marks before strict — the notes, the throat colours and rows and the shva underline follow it, so a word strict newly
+     flags keeps its evidence; the word's colour, label and the summary follow the strict marks */
+  const M0 = marks.slice(); let SON = false; if (STRICT && !noSpeech) { const st = strictOf(marks, why, CLEAN, cantHear); marks = st.marks; why = st.why; SON = st.on; }
   const strictUnclear = STRICT && !CLEAN && !noSpeech && !cantHear && !lineWrong;
   if (!CLEAN) TW.forEach(t => (t.throat || []).forEach(th => { if (th.v === 'plain') { th.raw = 'plain'; th.v = 'unsure'; } })); const LABEL = {ok: S.labelOk, unsure: S.labelUnsure, off: S.labelOff, '': ''};
   const lab = i => why[i] === 'unclear' ? S.labelUnclear : LABEL[marks[i]];
-  $('res').innerHTML = W.map((w, i) => { const t = TW[i]; let n = 0; const ths = (t.throat || []); const cls = () => { const th = ths[n++]; if (!th || !NOTES.l || marks[i] === 'off' || cantHear || noSpeech) return ''; if (th.v === 'plain') { const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return ''; } if (SON && th.v === 'unsure') return 'bad'; return VCLS[th.v] || ''; };
-   return `<button class="dk-w ${marks[i]}" type="button" data-i="${i}" lang="he"><b>${hiW(w, cls, new Set(((NOTES.v && CLEAN && marks[i] !== 'off' && !cantHear && !noSpeech) ? ((j.shva && j.shva[i]) || []) : []).map(d => d.k)))}</b><small>${lab(i)}</small></button>`; }).join('');
+  $('res').innerHTML = W.map((w, i) => { const t = TW[i]; let n = 0; const ths = (t.throat || []); const cls = () => { const th = ths[n++]; if (!th || !NOTES.l || M0[i] === 'off' || cantHear || noSpeech) return ''; if (th.v === 'plain') { const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return ''; } if (SON && th.v === 'unsure') return 'bad'; return VCLS[th.v] || ''; };
+   return `<button class="dk-w ${marks[i]}" type="button" data-i="${i}" lang="he"><b>${hiW(w, cls, new Set(((NOTES.v && CLEAN && M0[i] !== 'off' && !cantHear && !noSpeech) ? ((j.shva && j.shva[i]) || []) : []).map(d => d.k)))}</b><small>${lab(i)}</small></button>`; }).join('');
   $('res').querySelectorAll('.dk-w').forEach(b => b.onclick = () => { const i = +b.dataset.i; $('res').querySelectorAll('.dk-w').forEach(x => x.classList.toggle('sel', x === b)); const r = RW && RW[i], f = F && F[i], t = TW[i];
    const mine = f && f.t0 != null ? [f.t0, f.t1] : t && t.t0 != null ? [t.t0, t.t1] : null;
    if (r && LINE.t0 != null) { playHim(LINE.t0 + r.t0 - .1, LINE.t0 + r.t1 + .1); const wait = (r.t1 - r.t0 + .4) * 1000; setTimeout(() => { if (mine) playYou(Math.max(0, mine[0] - .15), mine[1] + .15); }, wait + 150); }
@@ -386,10 +397,10 @@ function mount(root, opts) {
    if (why[i] === 'swapped') { if (i + 1 < W.length && why[i + 1] === 'swapped' && TW[i].swap != null && TW[i].swap >= RULE.swap) parts.push(fmt(S.swapped, {a: he(w), b: he(W[i + 1])})); }
    else if (why[i] === 'unclear') parts.push(S.wUnclear); else if (marks[i] === 'off') parts.push(S.wOff); else if (marks[i] === 'unsure') parts.push(S.wUnsure);
    if (marks[i] && marks[i] !== 'ok' && t.miss && t.miss.length && t.miss.length < (t.n || 9)) parts.push(he(t.miss.join(' ')) + S.notHeard);
-   if (NOTES.l && marks[i] !== 'off') (t.throat || []).forEach(th => { if (th.v !== 'plain') return; const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return; parts.push((th.c === 'ע' ? S.ayinAlef : S.hetPlain) + practice(th.c)); });
-   if (NOTES.l && SON && marks[i] !== 'off') (t.throat || []).forEach(th => { if (th.v === 'unsure') parts.push((th.c === 'ע' ? S.ayinUnclear : S.hetUnclear) + practice(th.c)); });
+   if (NOTES.l && M0[i] !== 'off') (t.throat || []).forEach(th => { if (th.v !== 'plain') return; const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return; parts.push((th.c === 'ע' ? S.ayinAlef : S.hetPlain) + practice(th.c)); });
+   if (NOTES.l && SON && M0[i] !== 'off') (t.throat || []).forEach(th => { if (th.v === 'unsure') parts.push((th.c === 'ע' ? S.ayinUnclear : S.hetUnclear) + practice(th.c)); });
    if (NOTES.l) (t.notes || []).forEach(nn => { if (nn.say === 'sav') parts.push(S.tavSamekh + practice('ת')); });
-   const vOK = NOTES.v && CLEAN && marks[i] !== 'off'; const vd = vOK ? ((j.vowels && j.vowels[i]) || []) : [], vn = vOK ? ((j.vowels_nikud && j.vowels_nikud[i]) || []) : [];
+   const vOK = NOTES.v && CLEAN && M0[i] !== 'off'; const vd = vOK ? ((j.vowels && j.vowels[i]) || []) : [], vn = vOK ? ((j.vowels_nikud && j.vowels_nikud[i]) || []) : [];
    vd.forEach(d => parts.push(fmt(S.vowHaz, {you: vname(d.you), ref: vname(d.ref)}))); vn.forEach(d => { if (!vd.some(x => x.k === d.k)) parts.push(fmt(S.vowNik, {you: vname(d.you), ref: vname(d.ref)})); });
    const sv = vOK ? ((j.shva && j.shva[i]) || []) : []; sv.forEach(d => { const SW = S.shvaWhy || {}, why = SW[d.rule] || SW.hazzan; parts.push(fmt(d.want === 'vowel' ? S.shvaNa : S.shvaNah, {c: he(d.c)}) + (why ? ' — ' + esc(why) : '')); });   /* v4.9 servers */
    if (!parts.length) return; const txt = (() => { const d = document.createElement('div'); d.innerHTML = parts.join('; '); return d.textContent; })(), key = i + '|' + txt;
@@ -406,11 +417,11 @@ function mount(root, opts) {
   else if (unsW.length) { say.className = 'dk-say warn'; say.innerHTML = fmt(S.unsureOnly, {uns: unsW.map(he).join(', ')}); }
   else { say.className = 'dk-say warn'; say.textContent = S.few; }
   $('notes').innerHTML = lines.join('');
-  $('notes').querySelectorAll('.dk-x').forEach(b => b.onclick = () => { const li = b.closest('li'); HIDDEN.add(li.dataset.key); li.remove(); if (!SHARED && TAKE && SRV && SRV.reviews) $('share').hidden = false; });
-  $('askBtn').hidden = !(SRV && SRV.reviews) || !$('askForm').hidden;   /* a server before v5 has no /review or /feedback */
+  $('notes').querySelectorAll('.dk-x').forEach(b => b.onclick = () => { const li = b.closest('li'); HIDDEN.add(li.dataset.key); li.remove(); if (!SHARED && TAKE && keeps()) $('share').hidden = false; });
+  $('askBtn').hidden = !keeps() || !$('askForm').hidden;
   LAST = {ok: marks.filter(m => m === 'ok').length, n: W.length, marks: marks.slice(), notes: allNotes};
   $('bothLine').hidden = !(REC && LINE && LINE.t0 != null && TAKE_URL); showHist();
-  const rows = []; TW.forEach((t, i) => { if (marks[i] === 'off' || cantHear || noSpeech) return; (t.throat || []).forEach(th => { const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); rows.push({w: W[i], c: th.c, you: th, him: r}); }); });
+  const rows = []; TW.forEach((t, i) => { if (M0[i] === 'off' || cantHear || noSpeech) return; (t.throat || []).forEach(th => { const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); rows.push({w: W[i], c: th.c, you: th, him: r}); }); });
   if (rows.length && NOTES.l) { $('th').innerHTML = rows.map(x => `<div class="dk-tr"><div><span class="dk-lt">${esc(x.c)}</span><span>${he(x.w)}</span></div><div><span class="dk-k">${esc(S.you)}</span><span class="${SON && x.you.v === 'unsure' ? 'bad' : VCLS[x.you.v] || ''}">${esc(SON && x.you.v === 'unsure' ? S.thUnclear : thLead(x.you))}</span></div><div><span class="dk-k">${esc(S.hazzan)}</span><span>${esc(thLead(x.him))}</span></div></div>`).join(''); $('thP').hidden = false; } else $('thP').hidden = true;
   fold('s3'); $('s4').hidden = false; $('s4').querySelector('.dk-body').hidden = false; scrollTo('s4'); }
  const sb = $('strict'); sb.checked = STRICT; sb.onchange = () => { STRICT = sb.checked; try { localStorage.setItem('dk.strict', STRICT ? '1' : '0'); } catch (e) {} if (RESULT) render(RESULT); };
@@ -420,11 +431,12 @@ function mount(root, opts) {
  let FTK = null, FBUSY = false;
  const followOn = () => opts.follow === true || opts.follow === '1' || (opts.follow !== false && opts.follow !== '0' && SRV && SRV.follow && /mps|cuda/.test(String(SRV.device || '')));
  function followShow(done) { if (!LINE) return; $('lineWords').innerHTML = heWords(LINE.text).map((w, i) => `<span class="dk-fw${i < done ? ' on' : ''}">${hiTh(w)}</span>`).join(' '); }
+ /* each call re-sends the whole take so far, so the wait grows with it: 1.5 s, then a quarter of the take's length (a 40 s take: ~12 calls, not 26) */
  function followStart() { if (!followOn() || !LINE) return; followShow(0);
-  FTK = setInterval(() => { if (FBUSY || !CH.length || !MR || MR.state !== 'recording') return; FBUSY = true;
+  const tick = () => { FTK = setTimeout(() => { if (!MR || MR.state !== 'recording') return; tick(); if (FBUSY || !CH.length) return; FBUSY = true;
    fetch(url('/follow?' + new URLSearchParams({words: LINE.text})), {method: 'POST', body: new Blob(CH, {type: MR.mimeType || 'audio/mp4'})})
-    .then(r => r.ok ? r.json() : null).then(j => { if (j && j.n && MR && MR.state === 'recording') followShow(j.done); }).catch(() => {}).finally(() => { FBUSY = false; }); }, 1500); }
- function followStop() { clearInterval(FTK); FTK = null; if (LINE) $('lineWords').innerHTML = hiTh(LINE.text); }
+    .then(r => r.ok ? r.json() : null).then(j => { if (j && j.n && MR && MR.state === 'recording') followShow(j.done); }).catch(() => {}).finally(() => { FBUSY = false; }); }, Math.max(1500, .25 * (Date.now() - T0))); }; tick(); }
+ function followStop() { clearTimeout(FTK); FTK = null; if (LINE) $('lineWords').innerHTML = hiTh(LINE.text); }
  /* ----- v5: what to check ----- */
  $('nLet').checked = NOTES.l; $('nVow').checked = NOTES.v;
  const saveNotes = () => ls('dk.notes', (NOTES.l ? 'l' : '') + (NOTES.v ? 'v' : '') || '-');
@@ -439,7 +451,11 @@ function mount(root, opts) {
  /* ----- v5: hide a wrong note, and with a yes send the take (Tarteel) ----- */
  const metaOf = extra => ({pid: P && P.id, line: LINE && LINE.k, words: LINE && LINE.text, nikud: P && P.s.ln && LINE ? P.s.ln[LINE.k] : null, ref: REC, t0: LINE && LINE.t0, t1: LINE && LINE.t1,
   marks: LAST.marks, notes: LAST.notes.map(x => x.w + ': ' + x.text).slice(0, 30), strict: STRICT, voice_card: VC && VC.pairs, server: RESULT && RESULT.server, device: String(navigator.userAgent || '').slice(0, 120), ...extra});
- const postMeta = (path, meta) => fetch(url(path + '?meta=' + encodeURIComponent(JSON.stringify(meta))), {method: 'POST', body: TAKE.blob, headers: {'content-type': TAKE.blob.type || 'application/octet-stream'}});
+ /* the send-it prompt and "Ask a hazzan": a server before v5 has no /review or /feedback, and one whose storage is temporary (the Space) loses them at its next restart */
+ const keeps = () => !!(SRV && SRV.reviews && SRV.storage && SRV.storage.durable);
+ /* a 5.2+ server reads the meta (contact, question) from a header, so its access log never records it; older ones only from the query */
+ const postMeta = (path, meta) => { const m = encodeURIComponent(JSON.stringify(meta)), hd = !!(SRV && +SRV.version >= 5.2);
+  return fetch(url(path + (hd ? '' : '?meta=' + m)), {method: 'POST', body: TAKE.blob, headers: Object.assign({'content-type': TAKE.blob.type || 'application/octet-stream'}, hd ? {'x-dk-meta': m} : {})}); };
  $('shareNo').onclick = () => { SHARED = true; $('share').hidden = true; };
  $('shareYes').onclick = async () => { if (!TAKE) return; $('shareYes').disabled = true;
   try { const dis = LAST.notes.filter(x => HIDDEN.has(x.i + '|' + x.text)).map(x => ({i: x.i, word: x.w, text: x.text})); const r = await postMeta('/feedback', metaOf({dismissed: dis})); const jj = await r.json(); if (!r.ok || jj.err) throw new Error(jj.err || r.status);
@@ -467,17 +483,17 @@ function mount(root, opts) {
  /* ----- v5: the voice card ----- */
  function vcShow() { $('vcState').innerHTML = VC ? ' · ' + esc(S.vcOn) + ` <button class="dk-link" type="button" data-r="vcForget">${esc(S.vcForget)}</button>` : '';
   const f = $('vcForget'); if (f) f.onclick = () => { VC = null; ls('dk.vc', null); vcShow(); }; }
- vcShow(); let VCT = null, VMR = null, VCH = [], VT0 = 0, VTK = null;
+ vcShow(); let VCT = null, VMR = null, VT0 = 0, VTK = null, VBUSY = false;   // VBUSY: as RBUSY, for the voice card's recorder
  $('vcOpen').onclick = async () => { await loadLyrics(); const t = LY && LY.s && LY.s.t23; if (!t || !t.ln || t.ln.length < 2) { err(S.vcNoText); return; }
   VCT = {words: t.l[0] + ' ' + t.l[1], nikud: t.ln[0] + ' ' + t.ln[1]}; $('vcText').innerHTML = esc(t.ln[0]) + '<br>' + esc(t.ln[1]); $('vcSay').textContent = ''; $('vcSay').className = 'dk-say'; $('vc').hidden = false; scrollTo('vc'); };
  $('vcClose').onclick = () => { $('vc').hidden = true; };
- $('vcRec').onclick = async () => { if (VMR && VMR.state === 'recording') { VMR.stop(); return; }
-  try { const st = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: false}});
-   const mt = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', ''].find(x => !x || MediaRecorder.isTypeSupported(x)); VMR = new MediaRecorder(st, mt ? {mimeType: mt} : undefined); VCH = []; VMR.ondataavailable = e => { if (e.data.size) VCH.push(e.data); };
-   VMR.onstop = () => { st.getTracks().forEach(x => x.stop()); clearInterval(VTK); $('vcRec').textContent = S.record; vcCheck(new Blob(VCH, {type: VMR.mimeType || 'audio/mp4'})); };
-   VMR.start(250); VT0 = Date.now(); $('vcSay').textContent = ''; $('vcRec').textContent = S.stop + ' · 0.0 s';
-   VTK = setInterval(() => { $('vcRec').textContent = S.stop + ' · ' + ((Date.now() - VT0) / 1000).toFixed(1) + ' s'; if (Date.now() - VT0 > 40000) VMR.stop(); }, 200); }
-  catch (e) { err(S.micErr + e.message); } };
+ $('vcRec').onclick = async () => { if (VMR && VMR.state === 'recording') { VMR.stop(); return; } if (VBUSY) return; VBUSY = true; let st = null;
+  try { st = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: false}});
+   const mt = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', ''].find(x => !x || MediaRecorder.isTypeSupported(x)), ch = []; const mr = new MediaRecorder(st, mt ? {mimeType: mt} : undefined); VMR = mr; mr.ondataavailable = e => { if (e.data.size) ch.push(e.data); };
+   mr.onstop = () => { VBUSY = false; st.getTracks().forEach(x => x.stop()); clearInterval(VTK); $('vcRec').textContent = S.record; vcCheck(new Blob(ch, {type: mr.mimeType || 'audio/mp4'})); };
+   mr.start(250); VT0 = Date.now(); $('vcSay').textContent = ''; $('vcRec').textContent = S.stop + ' · 0.0 s';
+   VTK = setInterval(() => { $('vcRec').textContent = S.stop + ' · ' + ((Date.now() - VT0) / 1000).toFixed(1) + ' s'; if (Date.now() - VT0 > 40000 && mr.state === 'recording') mr.stop(); }, 200); }
+  catch (e) { VBUSY = false; if (st) st.getTracks().forEach(x => x.stop()); err(S.micErr + e.message); } };
  async function vcCheck(blob) { if (!VCT) return; const b = $('vcBusy'); b.hidden = false; b.innerHTML = '<span class="dk-spin"></span><span>' + esc(S.vcBusy) + '…</span>'; $('vcRec').disabled = true;
   try { const r = await fetch(url('/check?' + new URLSearchParams({words: VCT.words, nikud: VCT.nikud, job: 1})), {method: 'POST', body: blob, headers: {'content-type': blob.type || 'application/octet-stream'}});
    let j = await r.json(); if (!r.ok || j.err) throw new Error(j.err || r.status);
@@ -493,7 +509,7 @@ function mount(root, opts) {
  health();
  return {open: id => { LY ? openP(id) : null; }, get result() { return RESULT; }};
 }
-window.Dikduk = Object.assign(window.Dikduk || {}, {mount, strings: (window.Dikduk && window.Dikduk.strings) || {}, version: '5.0'});
+window.Dikduk = Object.assign(window.Dikduk || {}, {mount, strings: (window.Dikduk && window.Dikduk.strings) || {}, version: '5.2'});
 function auto() { document.querySelectorAll('[data-dikduk]').forEach(el => { if (el.dataset.dkMounted) return; el.dataset.dkMounted = '1'; mount(el, {api: el.dataset.api, pz: el.dataset.pz, th: el.dataset.th, line: el.dataset.line, rec: el.dataset.rec, archive: el.dataset.archive, strict: el.dataset.strict, letters: el.dataset.letters, follow: el.dataset.follow, notes: el.dataset.notes}); }); }   // data-api may hold several servers, space-separated
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', auto); else auto();
 })();

@@ -12,7 +12,7 @@ for f in sys.argv[1:] or ['exam_rows.json', 'exam_archive_rows.json']:
         rv = {'gain': TW[0]['rival']} if TW[0].get('rival') is not None else None
         clean = ns['clean_of'](TW); marks, why, lw, cant = ns['marks_of'](TW, F, TW[0].get('gap'), clean, rv)
         for mode in ('lenient', 'strict'):
-            m = [('off' if x == 'unsure' else x) for x in marks] if mode == 'strict' and not cant and clean else list(marks)
+            m = ns['strict_of'](marks, why, clean, cant)[0] if mode == 'strict' else list(marks)   # the page's switch, as the server has it
             c = S[(key[0], mode)]; c['lines'] += 1; c['clean takes'] += bool(clean)
             bad = [i for i, t in enumerate(TW) if t.get('bad')]
             if key[0] == 'intact' or not bad:

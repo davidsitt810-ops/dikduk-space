@@ -1,6 +1,11 @@
-# Down alert: every 15 minutes, ask the home Mac's checker (and the Space) whether it is up.
-# If the Mac does not answer three times in a row, open ONE issue titled "Mac checker is down" — GitHub then emails
-# you and pushes to the GitHub app. When it answers again, the issue gets a comment and is closed (another email).
+# Down alert: ask the home Mac's checker (and the Space) whether it is up. The schedule asks for every 15 minutes, but
+# GitHub starts scheduled runs late and drops some — in practice often hours apart (6 runs on Oct 31) — so this is a
+# slow, best-effort check, not a pager. For a real alert within minutes use an outside monitor (UptimeRobot or the like,
+# free) on https://dikduk.thepizmonim.com/health.
+# If the Mac does not answer 4 times, 45 s apart (the last try 2¼ minutes or more after the first: mac/update.sh's
+# restart takes 1-3, so a routine update seldom raises the alarm; 3 tries 30 s apart spanned only ~100 s), open ONE issue
+# titled "Mac checker is down" — GitHub then emails you and pushes to the GitHub app. When it answers again, the issue
+# gets a comment and is closed (another email).
 # Nothing here can change the server; it only reads /health. (Run it by hand: Actions → watch → Run workflow.)
 name: watch
 on:
@@ -11,7 +16,7 @@ concurrency: {group: watch, cancel-in-progress: false}
 jobs:
   health:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 10
     env:
       MAC: https://dikduk.thepizmonim.com/health
       SPACE: https://davidsitt-pizmonim-dikduk.hf.space/health
@@ -19,14 +24,14 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
-      - name: ask the Mac (3 tries, 30 s apart)
+      - name: ask the Mac (4 tries, 45 s apart)
         id: mac
         run: |
-          for i in 1 2 3; do
+          for i in 1 2 3 4; do
             if body="$(curl -fsS -m 20 "$MAC")" && echo "$body" | grep -q '"ok":true'; then
               echo "up=1" >> "$GITHUB_OUTPUT"; echo "up: $(echo "$body" | head -c 120)"; exit 0
             fi
-            echo "try $i: no answer"; sleep 30
+            echo "try $i: no answer"; [ "$i" = 4 ] || sleep 45
           done
           echo "up=0" >> "$GITHUB_OUTPUT"
       - name: ask the Space (for the record; it is the fallback)

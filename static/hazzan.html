@@ -3,7 +3,7 @@
 <style>
 /* The hazzan's page (v5): the questions people sent with "Ask a hazzan to listen" — each with their recording, the line,
    what the machine said, and their question. Answer in a few words; the person sees it in the checker. Needs the key
-   (/hazzan?key=…), the same one as the booth's scoreboard. Same look as the letters page. */
+   (/hazzan?key=…): from v5.2 the hazzan's own (DK_HAZZAN_KEY, these questions only), or the booth's (DK_KEY). Same look as the letters page. */
 :root{--bg:#2A1317;--panel:#3A1C22;--line:#5A3038;--fg:#F3E6CF;--mute:#C9AE96;--gold:#D8B060;--good:#9BD3A0;--warn:#F2C230;--bad:#EF7B6E;--ink:#2A1317;
  --he:"Frank Ruhl Libre",Georgia,serif;--ui:"Heebo",system-ui,-apple-system,sans-serif;color-scheme:dark}
 @media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#FBF6EC;--panel:#FFFFFF;--line:#E6D7C0;--fg:#2A1317;--mute:#6E5A4C;--gold:#A8782A;--good:#2E8B4A;--warn:#B8860B;--bad:#C0392B;--ink:#FFFFFF;color-scheme:light}}
@@ -26,6 +26,7 @@ audio{width:100%;margin:8px 0 0}
 textarea,input[type=text],input[type=password]{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;margin:6px 0}
 .btn{font:500 15px var(--ui);color:var(--fg);background:transparent;border:1px solid var(--line);border-radius:999px;padding:10px 16px;min-height:44px;cursor:pointer}
 .btn.gold{background:var(--gold);color:var(--ink);border-color:var(--gold);font-weight:700}.btn:disabled{opacity:.45;cursor:default}
+.btn.rm{min-height:0;padding:4px 12px;font-size:13px;color:var(--mute)}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .ans{white-space:pre-wrap;border-left:3px solid var(--good);padding:4px 0 4px 10px;margin:8px 0 0}
 .err{color:var(--bad);margin:0}.small{font-size:13px;color:var(--mute)}
@@ -44,30 +45,45 @@ const $=s=>document.querySelector(s);
 const API=location.origin;
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const ls=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v);}catch(e){return null;}};
-let KEY=new URLSearchParams(location.search).get('key')||ls('dk.key')||'';
-if(new URLSearchParams(location.search).get('key'))ls('dk.key',KEY);
+/* the key: the hazzan's own (DK_HAZZAN_KEY, v5.2: it opens only these questions) or DK_KEY. Kept as dk.hzkey, not dk.key, the lab
+   page's master key on the same origin (a hazzan key there would replace it); dk.key is only read, for a browser that opened this page
+   before v5.2. A ?key= is taken out of the address bar. */
+let KEY=(()=>{const q=new URLSearchParams(location.search),k=q.get('key');if(k){ls('dk.hzkey',k);q.delete('key');try{history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash);}catch(e){}}return k||ls('dk.hzkey')||ls('dk.key')||'';})();
 const when=t=>t?new Date(t*1000).toLocaleString():'';
+let VER=null;   /* the server's version: a 5.2+ server can remove a question (POST /review/<id>/delete) */
+const rm=q=>VER>=5.2&&q&&q.id?`<button class="btn rm" type="button">Remove</button>`:'';
+/* one question; a bad one (notes not a list, no reply…) becomes a small card of its own and never hides the rest */
+function card(q){try{const rp=q.reply||{};
+ return `<div class="card${q.state==='answered'?' done':''}" data-id="${esc(q.id)}">
+  <div class="row" style="justify-content:space-between"><div class="small">${esc(when(q.t))}${q.contact?' · from '+esc(q.contact):''}</div>${rm(q)}</div>
+  <p class="line" lang="he">${esc(q.nikud||q.words||'')}</p>
+  ${q.note?`<div class="k">Their question</div><p class="q">${esc(q.note)}</p>`:''}
+  <div class="k">What the machine told them</div><p class="q">${esc(q.say||'')}</p>${(Array.isArray(q.notes)&&q.notes.length)?`<ul class="notes">${q.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}
+  <audio controls preload="none" src="${esc(API+'/review/'+encodeURIComponent(q.id)+'/audio?key='+encodeURIComponent(KEY))}"></audio>
+  ${q.state==='answered'?`<div class="k">Your answer</div><p class="ans">${esc(rp.text)}</p><div class="small">${esc(rp.by||'')} · ${esc(when(rp.t))}</div>`
+   :`<div class="k">Your answer</div><textarea rows="3" placeholder="What was right, what to fix, how to say it"></textarea>
+     <div class="row"><input type="text" class="by" placeholder="Your name (shown to them)" style="flex:1"><button class="btn gold send" type="button">Send answer</button></div>`}<p class="err msg"></p>
+ </div>`;}
+ catch(e){return `<div class="card" data-id="${esc(q&&q.id)}"><div class="row" style="justify-content:space-between"><p class="small" style="margin:0">One question could not be shown (${esc(e.message)}).</p>${rm(q)}</div><p class="err msg"></p></div>`;}}
 async function load(){$('#err').textContent='';
  if(!KEY){$('#keyCard').hidden=false;$('#pill').textContent='key needed';return;}
+ if(VER==null){try{VER=+(await (await fetch(API+'/health',{cache:'no-store'})).json()).version||0;}catch(e){VER=0;}}
  let J;try{const r=await fetch(API+'/reviews?key='+encodeURIComponent(KEY),{cache:'no-store'});J=await r.json();if(!r.ok)throw new Error(J.err||r.status);}
  catch(e){$('#err').textContent='Could not load the questions: '+e.message;$('#keyCard').hidden=false;$('#pill').className='pill bad';$('#pill').textContent='no access';return;}
  $('#keyCard').hidden=true;$('#pill').className='pill ok';$('#pill').textContent=J.waiting+' waiting';
- if(!J.items.length){$('#list').innerHTML='<div class="card"><p class="intro">No questions yet.</p></div>';return;}
- $('#list').innerHTML=J.items.map(q=>`<div class="card${q.state==='answered'?' done':''}" data-id="${esc(q.id)}">
-  <div class="small">${esc(when(q.t))}${q.contact?' · from '+esc(q.contact):''}</div>
-  <p class="line" lang="he">${esc(q.nikud||q.words||'')}</p>
-  ${q.note?`<div class="k">Their question</div><p class="q">${esc(q.note)}</p>`:''}
-  <div class="k">What the machine told them</div><p class="q">${esc(q.say||'')}</p>${(q.notes&&q.notes.length)?`<ul class="notes">${q.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}
-  <audio controls preload="none" src="${esc(API+'/review/'+q.id+'/audio?key='+encodeURIComponent(KEY))}"></audio>
-  ${q.state==='answered'?`<div class="k">Your answer</div><p class="ans">${esc(q.reply.text)}</p><div class="small">${esc(q.reply.by||'')} · ${esc(when(q.reply.t))}</div>`
-   :`<div class="k">Your answer</div><textarea rows="3" placeholder="What was right, what to fix, how to say it"></textarea>
-     <div class="row"><input type="text" class="by" placeholder="Your name (shown to them)" style="flex:1"><button class="btn gold send" type="button">Send answer</button></div><p class="err msg"></p>`}
- </div>`).join('');
+ const items=Array.isArray(J.items)?J.items:[];
+ if(!items.length){$('#list').innerHTML='<div class="card"><p class="intro">No questions yet.</p></div>';return;}
+ $('#list').innerHTML=items.map(card).join('');
  const by=ls('dk.hazzan.name')||'';document.querySelectorAll('.by').forEach(i=>i.value=by);
  document.querySelectorAll('.send').forEach(b=>b.onclick=async()=>{const c=b.closest('.card'),id=c.dataset.id,text=c.querySelector('textarea').value.trim(),who=c.querySelector('.by').value.trim();
   if(!text){c.querySelector('.msg').textContent='Write an answer first.';return;}ls('dk.hazzan.name',who);b.disabled=true;
-  try{const r=await fetch(API+'/review/'+id+'/reply?key='+encodeURIComponent(KEY),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,by:who})});const j=await r.json();if(!r.ok||j.err)throw new Error(j.err||r.status);load();}
-  catch(e){c.querySelector('.msg').textContent='Not sent: '+e.message;b.disabled=false;}});}
-$('#keyGo').onclick=()=>{KEY=$('#keyIn').value.trim();ls('dk.key',KEY);load();};
+  try{const r=await fetch(API+'/review/'+encodeURIComponent(id)+'/reply?key='+encodeURIComponent(KEY),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,by:who})});const j=await r.json();if(!r.ok||j.err)throw new Error(j.err||r.status);load();}
+  catch(e){c.querySelector('.msg').textContent='Not sent: '+e.message;b.disabled=false;}});
+ document.querySelectorAll('.rm').forEach(b=>b.onclick=async()=>{const c=b.closest('.card'),id=c.dataset.id;
+  if(!confirm('Remove this question? Its recording is deleted from the server and the person will get no answer.'))return;b.disabled=true;
+  try{const r=await fetch(API+'/review/'+encodeURIComponent(id)+'/delete?key='+encodeURIComponent(KEY),{method:'POST'});const j=await r.json();if(!r.ok||j.err)throw new Error(j.err||r.status);
+   c.remove();if(!document.querySelector('#list .card'))$('#list').innerHTML='<div class="card"><p class="intro">No questions yet.</p></div>';}
+  catch(e){c.querySelector('.msg').textContent='Not removed: '+e.message;b.disabled=false;}});}
+$('#keyGo').onclick=()=>{KEY=$('#keyIn').value.trim();ls('dk.hzkey',KEY);load();};
 load();
 </script>

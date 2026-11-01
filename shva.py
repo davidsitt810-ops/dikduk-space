@@ -144,9 +144,11 @@ def _probe1(lp, pointed, vocab, pad, slot_set):
     for j, (m, a) in enumerate(zip(meta, al)):
         if m['kind'] != 'slot': continue
         prev = al[j - 1]; nxt = next((al[q] for q in range(j + 1, len(al)) if al[q]['f0'] >= 0), None)
-        g0 = prev['f1'] if prev['f0'] >= 0 else None; g1 = nxt['f0'] if nxt else lp.shape[0]
+        # the line's last slot looks only ~100 ms past its consonant (5 frames), and its own frames count only there: it
+        # could reach to the end of the recording, so an 'e' after the line (a hesitation, the next words) was a false 'final'
+        g0 = prev['f1'] if prev['f0'] >= 0 else None; g1 = nxt['f0'] if nxt else min(lp.shape[0], (g0 if g0 is not None else 0) + 5)
         gap = sch[g0:g1] if g0 is not None and g1 > g0 else np.zeros(0)
-        own = sch[a['f0']:a['f1']] if a['f0'] >= 0 else np.zeros(0)
+        own = sch[max(a['f0'], g0 or 0):min(a['f1'], g1)] if a['f0'] >= 0 else np.zeros(0)
         mm = m['m']
         out.setdefault(m['w'], []).append({'k': mm['k'], 'c': mm['c'], 'kind': mm['kind'], 'rule': mm['rule'], 'used': bool(a['f0'] >= 0),
                                            'mass': round(float(own.sum()), 3), 'gapmax': round(float(gap.max()) if gap.size else 0.0, 3),

@@ -18,18 +18,20 @@ def lines_of(R):
     return [[v[i] for i in sorted(v)] for v in L.values()]
 
 def words_suite(R):
-    """per case: takes, clean / wrong line / cannot hear, and the right and the changed words by mark"""
+    """per case: takes, clean / wrong line / cannot hear, and the right and the changed words by mark — lenient, and
+       strict (rule.strict_of, the page's switch: strict_on takes, strict_right / strict_wrong by mark)"""
     out = {}
     for TW in lines_of(R):
         F = [{'fit': t.get('fit')} for t in TW] if any(t.get('fit') is not None for t in TW) else None
         rival = {'gain': TW[0]['rival'], 'head': TW[0].get('rival_head')} if TW and TW[0].get('rival') is not None else None
         clean = rule.clean_of(TW); marks, why, lw, cant = rule.marks_of(TW, F, TW[0].get('gap'), clean, rival)
-        c = out.setdefault(TW[0]['case'], {'takes': 0, 'clean': 0, 'line_wrong': 0, 'cant_hear': 0, 'right': collections.Counter(), 'wrong': collections.Counter()})
-        c['takes'] += 1; c['clean'] += clean; c['line_wrong'] += lw; c['cant_hear'] += cant
-        for t, m in zip(TW, marks):
+        sm, _, son = rule.strict_of(marks, why, clean, cant)
+        c = out.setdefault(TW[0]['case'], {'takes': 0, 'clean': 0, 'line_wrong': 0, 'cant_hear': 0, 'strict_on': 0, **{k: collections.Counter() for k in ('right', 'wrong', 'strict_right', 'strict_wrong')}})
+        c['takes'] += 1; c['clean'] += clean; c['line_wrong'] += lw; c['cant_hear'] += cant; c['strict_on'] += son
+        for t, m, s in zip(TW, marks, sm):
             if (t.get('n') or 0) < 1: continue
-            c['wrong' if t.get('bad') else 'right'][m or 'ok'] += 1
-    return {k: {**v, 'right': dict(sorted(v['right'].items())), 'wrong': dict(sorted(v['wrong'].items()))} for k, v in sorted(out.items())}
+            c['wrong' if t.get('bad') else 'right'][m or 'ok'] += 1; c['strict_wrong' if t.get('bad') else 'strict_right'][s or 'ok'] += 1
+    return {k: {**v, **{x: dict(sorted(v[x].items())) for x in ('right', 'wrong', 'strict_right', 'strict_wrong')}} for k, v in sorted(out.items())}
 
 def letters_suite(R):
     """per letter, variant and source (al = Rabbi Alouf, il = Israelis): the verdicts letters.verdict gives"""

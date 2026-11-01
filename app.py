@@ -54,7 +54,7 @@ Endpoints (JSON, CORS open):  GET /health   GET /info   GET /lyrics (the site's 
   GET  /tehillim/audio/<file>                                  a Rabbi Alouf recording
 Nothing here deploys or changes the site.
 """
-import os, re, sys, json, time, hashlib, subprocess, tempfile, threading, queue, uuid, shutil
+import os, re, sys, json, time, hashlib, subprocess, tempfile, threading, queue, uuid, shutil, urllib.parse, asyncio
 import numpy as np
 import torch
 import requests
@@ -480,12 +480,13 @@ def place_words(lp, spf, words):
                          'mass': {p: round(v, 3) for p, v in mass.items()}})
         W.append({'w': w, 'cons': cons, 'n': len(cons), 'notes': []})
     # a tav said like samekh (the Ashkenazi way): the ת's own frames hold 's' and no 't' — unless an s-sound next to it
-    # (the ש of עשה before אות: David's take, Oct 24) is what the aligner's ת token was put on; then no note
+    # (the ש of עשה before אות: David's take, Oct 24) is what the aligner's ת token was put on; then no note. "Next to"
+    # is within 70 ms (v5.2): 60 ms missed Rabbi Alouf's own ת in 121:1, its neighbour 3 frames of 20.02 ms = 60.06 ms away
     allc = [c for w in W for c in w['cons']]
     for j, c in enumerate(allc):
         if c['c'] != 'ת' or c['heard'] != 's' or c['mass'].get('s', 0) < 2 * max(c['mass'].get('t', 0), c['mass'].get('θ', 0), 1e-6): continue
         near = [allc[i] for i in (j - 1, j + 1) if 0 <= i < len(allc)]
-        if any(n['heard'] in ('s', 'ʃ', 'ts', 'z') and n['t1'] >= c['t0'] - 0.06 and n['t0'] <= c['t1'] + 0.06 for n in near): continue
+        if any(n['heard'] in ('s', 'ʃ', 'ts', 'z') and n['t1'] >= c['t0'] - 0.07 and n['t0'] <= c['t1'] + 0.07 for n in near): continue
         w = next(w for w in W if c in w['cons']); w['notes'].append({'k': c['k'], 'c': 'ת', 'say': 'sav'})
     # word spans: the cut between two words is at the next word's first consonant; when the next word opens with
     # א/ע/ה (a vowel or a throat sound, not in the skeleton) the cut is right after this word's last consonant if this
@@ -849,8 +850,10 @@ def try_page():
 def health():
     return {'ok': True, 'version': VERSION, 'build': {'commit': COMMIT, 'commit_from': COMMIT_FROM, 'files': FILES, 'models': MODEL_REV, 'rule': RULE_HASH, 'ref_tag': REF_TAG},
             'storage': storage(), 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
-            'page_from': 'github' if (_PAGES.get('index.html') or {}).get('body') else 'local', 'jobs': {'queued': sum(1 for v in JOBS.values() if v['state'] == 'queued'), 'running': sum(1 for v in JOBS.values() if v['state'] == 'running')},
-            'letters': sorted(LT.BY_C), 'follow': True, 'reviews': True, 'ears': {'letter_head': HEAD is not None, 'vowel_head': FULL is not None, 'fine_tuned': FT is not None, 'classifier_v2': bool(CLF2), 'tehillim_lyrics': len(TEHILLIM_LYR), 'tehillim_audio': os.path.isdir(TEHILLIM_DIR) and len(os.listdir(TEHILLIM_DIR)) or (TEHILLIM_BASE or 0),
+            'page_from': 'github' if (_PAGES.get('index.html') or {}).get('body') else 'local', 'jobs': {'queued': sum(1 for v in JOBS.values() if v['state'] == 'queued'), 'running': sum(1 for v in JOBS.values() if v['state'] == 'running'), 'plain': PLAIN[0]},
+            # v5.2: 'reviews' (ask a hazzan, send a hidden note) only where they are kept: on a kept disk (a GitHub mirror only
+            # pushes, so after a restart /hazzan would not have them); the v5.1 embed hides both when false
+            'letters': sorted(LT.BY_C), 'follow': True, 'reviews': DURABLE_DISK, 'ears': {'letter_head': HEAD is not None, 'vowel_head': FULL is not None, 'fine_tuned': FT is not None, 'classifier_v2': bool(CLF2), 'tehillim_lyrics': len(TEHILLIM_LYR), 'tehillim_audio': os.path.isdir(TEHILLIM_DIR) and len(os.listdir(TEHILLIM_DIR)) or (TEHILLIM_BASE or 0),
                      'tehillim_perakim': sorted(int(m.group(1)) for m in (re.match(r'tehillim-(\d{3})\.mp3$', f) for f in (os.listdir(TEHILLIM_DIR) if os.path.isdir(TEHILLIM_DIR) else [])) if m)}}
 
 @app.get('/info')
@@ -867,11 +870,13 @@ def warm_up():
         for n in (23, 1, 121, 130, 150, 117, 133, 134):
             s = TEHILLIM_LYR.get(f't{n}'); f = f'tehillim-{n:03d}.mp3'
             if not s or not tehillim_file(f): continue
-            ev = [tuple(map(int, x.split(','))) for x in s['t'].get(f, '').split(';') if x]
+            ev = [tuple(map(int, x.split(','))) for x in s['t'].get(f, '').split(';') if x]; ln = s.get('ln') or []
             for i, (t, k) in enumerate(ev):
                 if k < 0: continue
                 t1 = ev[i + 1][0] / 10 if i + 1 < len(ev) else t / 10 + 8
-                try: ref_line(f, t / 10, t1, he_words(s['l'][k]))
+                # with the line's nikud, as the pages send it: since v4.9 it is part of the cache key (v5.2: it was left out,
+                # so the warm-up filled entries no page asks for)
+                try: ref_line(f, t / 10, t1, he_words(s['l'][k]), nikud=(ln[k] if k < len(ln) else None) or None)
                 except Exception as e: print('warm-up skip', n, k, str(e)[:80], flush=True)
             print('warm-up done: perek', n, flush=True)
     except Exception as e:
@@ -918,7 +923,7 @@ def lyrics():
     return _LYR['data']
 
 # ---- what this server is: the code, the heads and the models it runs, so every verdict can be traced to them
-VERSION = 5.1
+VERSION = 5.2
 HERE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def file_sha(path, n=12):
@@ -999,6 +1004,7 @@ def drop_old_refs():
 print('build:', COMMIT and COMMIT[:12], COMMIT_FROM, '· ref tag', REF_TAG, '· rule', RULE_HASH, flush=True)
 
 REF_MAX = 60   # seconds of the hazzan's recording analysed at most (a line is 3-20 s; t1=0 used to mean the whole file)
+REF_KEEP = int(os.environ.get('DK_REF_KEEP', '50000'))   # hazzan analyses kept at most (one a line, ~8 KB each)
 
 def shva_heard(lp, nikud, nw):
     """the shvas of a pointed line as heard on the phone ear (shva.probe) -> {word index (str): [slots]}, or None when
@@ -1025,18 +1031,24 @@ def ref_line(f: str, t0: float, t1: float, words, want_emb=False, nikud=None):
     self_fit = fit_against(lp, spf, res['words'])
     for w, s in zip(res['words'], self_fit): w['selffit'] = s.get('fit')
     os.makedirs(os.path.dirname(key), exist_ok=True)   # another server on the same cache may have removed it (drop_old_refs)
-    write_json(key, res)
+    # v5.2: kept only while there is room and the folder is under REF_KEEP entries: the key holds the raw t0/t1, so
+    # anyone could add an entry a call (~8 KB) for ever; past it a line is analysed again each time instead
+    if room_ok(REF_DIR) and len(os.listdir(REF_DIR)) < REF_KEEP: write_json(key, res)
     return res
 
 @app.get('/ref')
-def ref(f: str, words: str, t0: float = 0, t1: float = 0, emb: int = 0, nikud: str = None):
+async def ref(f: str, words: str, t0: float = 0, t1: float = 0, emb: int = 0, nikud: str = None, key: str = None):
     W = he_words(words)
     if not W:
         return JSONResponse({'err': 'no words'}, status_code=400)
+    if emb and not key_ok(key): return need_key(key)   # v5.2: no page asks for it, and its cache entry is 12x the size
+    if too_busy(True): return busy()   # v5.2: it runs the models too, so it counts with the plain checks
+    PLAIN[0] += 1
     try:
-        return ref_line(f, t0, t1, W, bool(emb), nikud or None)
+        return await run_in_threadpool(ref_line, f, t0, t1, W, bool(emb), nikud or None)
     except Exception as e:
         return JSONResponse({'err': str(e)[:300]}, status_code=502)
+    finally: PLAIN[0] -= 1
 
 DRILL_DIR = os.path.join(KEEP_DIR, 'drill'); os.makedirs(DRILL_DIR, exist_ok=True)   # beside the booth's takes (/data when the Space has it)
 
@@ -1066,6 +1078,14 @@ def drill_export(key: str = None):
 # worker thread runs the queue, so two visitors never run the models at the same time (which would slow both).
 JOBS = {}; JOB_Q = queue.Queue(); JOB_LOCK = threading.Lock()
 JOB_MAX = int(os.environ.get('DK_JOB_MAX', '40'))   # checks waiting at most: one visitor (or a script) cannot queue the server for hours
+# v5.2: the checks without job=1 (scripts, older pages) and the /ref analyses run in the thread pool, outside the queue,
+# and wait for the same model LOCK: they count against JOB_MAX too (3 of them made a page check take 40 s while /health
+# said queued 0). Only the event loop changes the count, so a plain list cell needs no lock.
+# And at most DK_PLAIN_MAX of them at once: each holds one of the thread pool's 40 threads while it waits, so 40 of them
+# (JOB_MAX's default) froze /health, the job polls and every other route for minutes.
+PLAIN = [0]; PLAIN_MAX = int(os.environ.get('DK_PLAIN_MAX', '4'))
+def busy(): return JSONResponse({'err': 'the server is busy — try again in a minute'}, status_code=503)
+def too_busy(plain): return queued() + PLAIN[0] >= JOB_MAX or (plain and PLAIN[0] >= PLAIN_MAX)
 
 GRADE_MAX = int(os.environ.get('DK_GRADE_MAX', '200'))   # booth takes waiting to be graded at most (beyond that /submit asks to try again)
 
@@ -1133,8 +1153,7 @@ async def check(request: Request, words: str = Query(...), ref: str = None, t0: 
     ALT = [he_words(a) for a in alts.split('|') if he_words(a) and he_words(a) != W] if alts else pid   # a list of lines, or the text's id (its lines are looked up in the worker, off the event loop)
     if not W:
         return JSONResponse({'err': 'no words'}, status_code=400)
-    if job and queued() >= JOB_MAX:
-        return JSONResponse({'err': 'the server is busy — try again in a minute'}, status_code=503)
+    if too_busy(not job): return busy()   # v5.2: both paths (the plain one was not counted)
     data = await read_body(request, MAX_BODY['check'])
     if data is None: return too_big(MAX_BODY['check'])
     if len(data) < 1000:
@@ -1151,12 +1170,14 @@ async def check(request: Request, words: str = Query(...), ref: str = None, t0: 
         out = run_check(x, W, ref, t0, t1, emb, drill, nikud, progress, ALT, VC)
         if drill_err: out['drill_err'] = drill_err
         return out
+    if too_busy(not job):   # again: others were let in while this one was read and decoded (no await between here and new_job / PLAIN)
+        return busy()
     if job:
-        if queued() >= JOB_MAX:   # again: others were let in while this one was read and decoded (no await between here and new_job)
-            return JSONResponse({'err': 'the server is busy — try again in a minute'}, status_code=503)
         return JSONResponse({'job': new_job(work)}, status_code=202)
     # the plain path (scripts, older pages): the same work in a thread, so /health and the polls keep answering
-    return await run_in_threadpool(work, lambda s: None)
+    PLAIN[0] += 1
+    try: return await run_in_threadpool(work, lambda s: None)
+    finally: PLAIN[0] -= 1
 
 # The voice card (v5, after Kriah Listener's "voice card"): a person reads Tehillim 23:1-2 once, carefully; the vowel
 # notes that reading gets against the nikud are the vowel ear mishearing THAT voice, and later checks leave those
@@ -1283,6 +1304,12 @@ def key_ok(key):
 
 def need_key(key):
     if not key_ok(key): return JSONResponse({'err': 'this needs the key (the Space secret DK_KEY)' if DK_KEY or os.environ.get('SPACE_ID') else 'no key set'}, status_code=403)
+# v5.2: a key for a hazzan who answers questions (/hazzan) and nothing else: DK_KEY also opens every booth recording,
+# the drill, the feedback and the report card, so it is not one to hand to a teacher. DK_KEY still works here too.
+HZ_KEY = os.environ.get('DK_HAZZAN_KEY', '')
+def hz_ok(key): return key_ok(key) or (bool(HZ_KEY) and key == HZ_KEY)
+def need_hz(key):
+    if not hz_ok(key): return JSONResponse({'err': 'this needs the hazzan key (DK_HAZZAN_KEY) or the key (DK_KEY)'}, status_code=403)
 PHR_TIMES = {"md cd08 15.mp3": [[0.35, 6.9, 0], [7.4, 14, 1], [20.75, 27.7, 2], [28.1, 34.35, 3], [41.4, 50.25, 4], [50.5, 55.25, 5], [55.7, 61.35, 6], [61.85, 66.5, 7]]}
 
 def sync_lines(s, f):
@@ -1376,13 +1403,17 @@ async def letter(request: Request, c: str = Query(...), want: str = None, strict
        the verdict on its opening sound, what was heard, and the ears' numbers (letters.py)"""
     c = he_letters(c)[:1]
     if c not in LT.BY_C: return JSONResponse({'err': 'not a letter I check'}, status_code=400)
+    if too_busy(True): return busy()   # v5.2: it runs the models under the LOCK too, so it counts with the plain checks
     data = await read_body(request, MAX_BODY['letter'])
     if data is None: return too_big(MAX_BODY['letter'])
     if len(data) < 500: return JSONResponse({'err': 'no audio'}, status_code=400)
     try: x = await run_in_threadpool(decode_audio, data, 7)
     except Exception as e: return JSONResponse({'err': 'decode: ' + str(e)[:200]}, status_code=400)
     if x.shape[0] > SR * 6: x = x[:SR * 6]
-    P = await run_in_threadpool(letter_probe, x, c)
+    if too_busy(True): return busy()   # again after the decode, then counted (no await in between)
+    PLAIN[0] += 1
+    try: P = await run_in_threadpool(letter_probe, x, c)
+    finally: PLAIN[0] -= 1
     V = LT.verdict(c, want, P, bool(strict))
     P.update(V); P['c'] = c; P['want'] = want
     return P
@@ -1481,37 +1512,95 @@ if GH_TOKEN: threading.Thread(target=mirror_loop, daemon=True).start()
 # with the key answers on /hazzan; the person's browser keeps the id and a token and shows the answer when it is
 # there. Both live beside the booth's takes (KEEP_DIR: /data on the Space when it has it, the Mac's own disk) and go
 # to the GitHub mirror with them when that is set up.
+# v5.2: only where they are kept (not on the Space's temporary disk, where they were lost at the next restart); the
+# upload is decoded and only the server's own 16 kHz wav is kept (the raw body was: any bytes, a phone video with a
+# face, a program served back from /review/<id>/audio); the questions waiting and the notes kept are capped; a hazzan
+# key (DK_HAZZAN_KEY) answers and removes questions; v5.2 pages send the meta in a header, out of the access log.
 AUDIO_EXT = ('.m4a', '.mp4', '.webm', '.wav', '.mp3', '.ogg', '.bin')
+AUDIO_MIME = {'m4a': 'audio/mp4', 'mp4': 'audio/mp4', 'webm': 'audio/webm', 'wav': 'audio/wav', 'mp3': 'audio/mpeg', 'ogg': 'audio/ogg'}   # by extension; anything else goes out as bytes
 def ext_of(mime):
     mime = str(mime or '')
     return '.m4a' if 'mp4' in mime or 'm4a' in mime else '.webm' if 'webm' in mime else '.wav' if 'wav' in mime else '.ogg' if 'ogg' in mime else '.mp3' if 'mpeg' in mime else '.bin'
+LIST_META = {'notes': (300, 30), 'marks': (20, 100)}   # lists of short strings (the hazzan page maps over notes): (chars, items)
 def clip_meta(M, keys, n=4000):
-    """only the expected fields, each JSON-sized: what a page sends is not trusted to be small or well formed"""
+    """only the expected fields, each JSON-sized: what a page sends is not trusted to be small or well formed. notes and
+       marks are kept only as lists; a string too long is cut to n characters, any other value too long is dropped
+       (v5.2: a cut-off JSON string was kept instead, and one question whose notes were a string blanked /hazzan)"""
     out = {}
     for k in keys:
-        if k in M:
-            v = M[k]; t = json.dumps(v, ensure_ascii=False)
-            out[k] = v if len(t) <= n else t[:n]
+        if k not in M: continue
+        v = M[k]
+        if k in LIST_META:
+            if isinstance(v, list): out[k] = [str(x)[:LIST_META[k][0]] for x in v][:LIST_META[k][1]]
+        elif len(json.dumps(v, ensure_ascii=False)) <= n: out[k] = v
+        elif isinstance(v, str): out[k] = v[:n]
     return out
+def meta_of(request, meta):
+    """the page's meta -> a dict, or None: from the x-dk-meta header (v5.2 pages: encodeURIComponent of the JSON, so a
+       name, a contact and a question are not written into the access log with the URL), else the query (older pages)"""
+    h = request.headers.get('x-dk-meta')
+    try: M = jstrict(urllib.parse.unquote(h) if h else meta)
+    except Exception: return None
+    return M if isinstance(M, dict) else None
+def finite(s):
+    v = float(s)
+    if not np.isfinite(v): raise ValueError('not a number JSON can keep: ' + s)
+    return v
+# what a page sends, without NaN, Infinity or 1e999: Python's json takes them, and one kept in a question, a note or a
+# take made the whole list a 500 (JSONResponse refuses them), so /hazzan showed nothing (v5.2)
+def jstrict(s): return json.loads(s, parse_float=finite, parse_constant=finite)
+def bad_meta(): return JSONResponse({'err': 'bad meta'}, status_code=400)
+def not_kept(): return JSONResponse({'err': 'questions are not kept on this server'}, status_code=503)
+async def sound_of(data):
+    """an upload decoded (at most 41 s) -> the sound, or None when it is not at least half a second of audio"""
+    try: x = await run_in_threadpool(decode_audio, data, 41)
+    except Exception: return None
+    return x if x.shape[0] >= SR * 0.5 else None
+def quiet(x): return float(np.abs(x).max()) < 0.01   # digital silence (a 15 KB flac of it is kept as a 1.3 MB wav)
+def silent(): return JSONResponse({'err': 'there is no sound in the recording'}, status_code=400)
 def room_ok(d): return shutil.disk_usage(d).free >= (1 << 30)
+def client_of(request):
+    """the sender as well as the server can tell: Cloudflare's header on the Mac's tunnel, the proxy's on a Space"""
+    h = request.headers
+    return h.get('cf-connecting-ip') or (h.get('x-forwarded-for') or '').split(',')[0].strip() or (request.client.host if request.client else '')
+# v5.2: one sender could fill a cap for everyone (2000 silent posts and nobody could ask a hazzan). Each sender's ids
+# that still hold a place (a question waiting, a note this month) are counted apart: in memory only, so no address is
+# written to disk, and a restart forgets them (the caps on disk still hold).
+MINE = {}
+def mine(kind, request, holds):
+    k = (kind, client_of(request)); L = [i for i in MINE.pop(k, []) if holds(i)]
+    if L: MINE[k] = L
+    return k, L
+KEEP_LOCK = asyncio.Lock()   # a count and the write after it, with no other upload let in between (12 at once all passed a cap of 5)
+REVIEW_PER = int(os.environ.get('DK_REVIEW_PER', '20')); FEEDBACK_PER = int(os.environ.get('DK_FEEDBACK_PER', '200'))
 FB_KEYS = ('pid', 'line', 'words', 'nikud', 'ref', 't0', 't1', 'dismissed', 'marks', 'notes', 'strict', 'voice_card', 'server', 'device', 'who')
 RV_KEYS = ('pid', 'line', 'words', 'nikud', 'ref', 't0', 't1', 'note', 'contact', 'marks', 'notes', 'say', 'server', 'device', 'who')
 
 @app.post('/feedback')
-async def feedback(request: Request, meta: str = Query(...)):
+async def feedback(request: Request, meta: str = None):
     """a hidden note and, with the person's yes, the recording it was about -> kept for the next round of training"""
-    try: M = json.loads(meta)
-    except Exception: return JSONResponse({'err': 'bad meta'}, status_code=400)
-    if not isinstance(M, dict): return JSONResponse({'err': 'bad meta'}, status_code=400)
+    M = meta_of(request, meta)
+    if M is None: return bad_meta()
+    if not DURABLE_DISK: return not_kept()
     data = await read_body(request, MAX_BODY['check'])
     if data is None: return too_big(MAX_BODY['check'])
     if len(data) < 1000: return JSONResponse({'err': 'no audio'}, status_code=400)
     if not room_ok(FEEDBACK_DIR): return JSONResponse({'err': 'the server is out of room'}, status_code=507)
+    x = await sound_of(data)
+    if x is None: return JSONResponse({'err': 'not audio'}, status_code=400)
+    if quiet(x): return silent()
+    # the caps, counted with no await before the write: this month's notes (a cap on every note ever closed the route
+    # for good: nothing frees a note), and this sender's
+    mo = time.strftime('%Y%m'); d = os.path.join(FEEDBACK_DIR, mo)
+    if os.path.isdir(d) and sum(1 for f in os.listdir(d) if f.endswith('.json')) >= int(os.environ.get('DK_FEEDBACK_MAX', 2000)):
+        return JSONResponse({'err': 'too many notes have been sent here this month — try again later'}, status_code=503)
+    k, L = mine('fb', request, lambda i: i.startswith(mo + '/'))
+    if len(L) >= FEEDBACK_PER: return JSONResponse({'err': 'you have sent many notes this month — thank you; try again later'}, status_code=429)
     fid = time.strftime('%Y%m/%Y%m%d-%H%M%S-') + uuid.uuid4().hex[:8]; full = os.path.join(FEEDBACK_DIR, fid)
-    os.makedirs(os.path.dirname(full), exist_ok=True); ext = ext_of(request.headers.get('content-type'))
-    open(full + ext, 'wb').write(data)
-    rec = {'id': fid, 't': int(time.time()), 'kind': 'dismissed', **clip_meta(M, FB_KEYS), 'audio': os.path.basename(full + ext), 'bytes': len(data), 'stamp': STAMP}
-    write_json(full + '.json', rec)
+    os.makedirs(os.path.dirname(full), exist_ok=True)
+    write_wav(full + '.wav', x[:SR * 40])
+    rec = {'id': fid, 't': int(time.time()), 'kind': 'dismissed', **clip_meta(M, FB_KEYS), 'audio': os.path.basename(full + '.wav'), 'bytes': len(data), 'stamp': STAMP}
+    write_json(full + '.json', rec); MINE[k] = L + [fid]
     return JSONResponse({'id': fid, 'saved': True}, status_code=201)
 
 @app.get('/feedback')
@@ -1532,21 +1621,40 @@ def review_path(rid):
     p = os.path.join(REVIEW_DIR, rid + '.json')
     return p if os.path.isfile(p) else None
 
+def reviews_waiting():
+    """the questions not answered yet (v5.2: the cap counted the answered ones too, so after 2000 questions ever it refused everyone)"""
+    n = 0
+    for f in os.listdir(REVIEW_DIR):
+        if not f.endswith('.json'): continue
+        try: n += json.load(open(os.path.join(REVIEW_DIR, f), encoding='utf-8')).get('state') == 'waiting'
+        except Exception: pass
+    return n
+def is_waiting(rid):
+    try: return json.load(open(review_path(rid), encoding='utf-8')).get('state') == 'waiting'
+    except Exception: return False
+
 @app.post('/review')
-async def review_ask(request: Request, meta: str = Query(...)):
+async def review_ask(request: Request, meta: str = None):
     """'ask a hazzan': the take and the person's question, kept until a hazzan answers -> {id, token}"""
-    try: M = json.loads(meta)
-    except Exception: return JSONResponse({'err': 'bad meta'}, status_code=400)
-    if not isinstance(M, dict): return JSONResponse({'err': 'bad meta'}, status_code=400)
+    M = meta_of(request, meta)
+    if M is None: return bad_meta()
+    if not DURABLE_DISK: return not_kept()
     data = await read_body(request, MAX_BODY['check'])
     if data is None: return too_big(MAX_BODY['check'])
     if len(data) < 1000: return JSONResponse({'err': 'no audio'}, status_code=400)
     if not room_ok(REVIEW_DIR): return JSONResponse({'err': 'the server is out of room'}, status_code=507)
-    if sum(1 for f in os.listdir(REVIEW_DIR) if f.endswith('.json')) >= int(os.environ.get('DK_REVIEW_MAX', 2000)):
-        return JSONResponse({'err': 'too many questions are waiting — try again later'}, status_code=503)
-    rid = uuid.uuid4().hex[:12]; tok = uuid.uuid4().hex[:16]; ext = ext_of(request.headers.get('content-type'))
-    open(os.path.join(REVIEW_DIR, rid + ext), 'wb').write(data)
-    write_json(os.path.join(REVIEW_DIR, rid + '.json'), {'id': rid, 'token': tok, 't': int(time.time()), 'state': 'waiting', **clip_meta(M, RV_KEYS), 'audio': rid + ext, 'stamp': STAMP})
+    x = await sound_of(data)
+    if x is None: return JSONResponse({'err': 'not audio'}, status_code=400)
+    if quiet(x): return silent()
+    async with KEEP_LOCK:   # the questions waiting, then this sender's, then the write, with no other question let in between
+        if await run_in_threadpool(reviews_waiting) >= int(os.environ.get('DK_REVIEW_MAX', 2000)):
+            return JSONResponse({'err': 'too many questions are waiting — try again later'}, status_code=503)
+        k, L = mine('rv', request, is_waiting)
+        if len(L) >= REVIEW_PER: return JSONResponse({'err': f'you have {len(L)} questions waiting — please wait for the answers first'}, status_code=429)
+        rid = uuid.uuid4().hex[:12]; tok = uuid.uuid4().hex[:16]
+        write_wav(os.path.join(REVIEW_DIR, rid + '.wav'), x[:SR * 40])
+        write_json(os.path.join(REVIEW_DIR, rid + '.json'), {'id': rid, 'token': tok, 't': int(time.time()), 'state': 'waiting', **clip_meta(M, RV_KEYS), 'audio': rid + '.wav', 'stamp': STAMP})
+        MINE[k] = L + [rid]
     return JSONResponse({'id': rid, 'token': tok}, status_code=201)
 
 @app.get('/review/{rid}')
@@ -1555,7 +1663,7 @@ def review_get(rid: str, t: str = None, key: str = None):
     p = review_path(rid)
     if not p: return JSONResponse({'err': 'no such question'}, status_code=404)
     J = json.load(open(p, encoding='utf-8'))
-    if not (key_ok(key) or (t and t == J.get('token'))): return JSONResponse({'err': 'not yours'}, status_code=403)
+    if not (hz_ok(key) or (t and t == J.get('token'))): return JSONResponse({'err': 'not yours'}, status_code=403)
     J = dict(J); J.pop('token', None)
     return J
 
@@ -1564,15 +1672,16 @@ def review_audio(rid: str, t: str = None, key: str = None):
     p = review_path(rid)
     if not p: return JSONResponse({'err': 'no such question'}, status_code=404)
     J = json.load(open(p, encoding='utf-8'))
-    if not (key_ok(key) or (t and t == J.get('token'))): return JSONResponse({'err': 'not yours'}, status_code=403)
+    if not (hz_ok(key) or (t and t == J.get('token'))): return JSONResponse({'err': 'not yours'}, status_code=403)
     a = os.path.join(REVIEW_DIR, os.path.basename(J.get('audio') or ''))
     if not os.path.isfile(a): return JSONResponse({'err': 'no audio'}, status_code=404)
-    return FileResponse(a, headers={'Cache-Control': 'no-store'})
+    # always as audio (a .wav since v5.2; questions kept before by their extension), never sniffed into something else
+    return FileResponse(a, media_type=AUDIO_MIME.get(a.rsplit('.', 1)[-1], 'application/octet-stream'), headers={'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff'})
 
 @app.get('/reviews')
 def reviews_list(key: str = None):
-    """the hazzan's queue (with the key): waiting questions first, newest first"""
-    d = need_key(key)
+    """the hazzan's queue (with the hazzan key or the key): waiting questions first, newest first"""
+    d = need_hz(key)
     if d: return d
     items = []
     for fn in os.listdir(REVIEW_DIR):
@@ -1585,17 +1694,29 @@ def reviews_list(key: str = None):
 @app.post('/review/{rid}/reply')
 async def review_reply(rid: str, request: Request, key: str = None):
     """the hazzan's answer: {text, by, words?: {index: 'ok'|'fix'}}"""
-    d = need_key(key)
+    d = need_hz(key)
     if d: return d
     p = review_path(rid)
     if not p: return JSONResponse({'err': 'no such question'}, status_code=404)
-    try: A = await request.json()
+    try: A = jstrict(await request.body())
     except Exception: return JSONResponse({'err': 'bad answer'}, status_code=400)
     text = str((A or {}).get('text') or '').strip()[:4000]
     if not text: return JSONResponse({'err': 'an empty answer'}, status_code=400)
     J = json.load(open(p, encoding='utf-8'))
     J['reply'] = {'text': text, 'by': str(A.get('by') or '')[:80], 't': int(time.time()), 'words': A.get('words') if isinstance(A.get('words'), dict) else None}
     J['state'] = 'answered'; write_json(p, J)
+    return {'ok': True}
+
+@app.post('/review/{rid}/delete')
+def review_delete(rid: str, key: str = None):
+    """the hazzan removes a question (spam, or done with): its JSON, its audio and the mirror's markers, the JSON last
+       (v5.2; a copy already pushed to the GitHub mirror stays there)"""
+    d = need_hz(key)
+    if d: return d
+    if not review_path(rid): return JSONResponse({'err': 'no such question'}, status_code=404)
+    for fn in sorted((f for f in os.listdir(REVIEW_DIR) if f.startswith(rid + '.')), key=lambda f: f.endswith('.json')):
+        try: os.unlink(os.path.join(REVIEW_DIR, fn))
+        except OSError as e: print('review not removed:', fn, e, flush=True)
     return {'ok': True}
 
 @app.post('/follow')
@@ -1605,7 +1726,7 @@ async def follow(request: Request, words: str = Query(...)):
        every 1.5 s while recording, and only on a fast server (the Mac's GPU); it never waits behind a check."""
     W = he_words(words)
     if not W: return JSONResponse({'err': 'no words'}, status_code=400)
-    if queued() > 0: return JSONResponse({'busy': True}, status_code=429)
+    if queued() > 0 or PLAIN[0] > 0: return JSONResponse({'busy': True}, status_code=429)   # (v5.2: nor behind a plain check or a /ref)
     data = await read_body(request, MAX_BODY['check'])
     if data is None: return too_big(MAX_BODY['check'])
     if len(data) < 500: return {'done': 0, 'n': len(W)}
@@ -1621,7 +1742,12 @@ async def follow(request: Request, words: str = Query(...)):
             if end <= got: done += 1
             else: break
         return {'done': done, 'n': len(W), 'tokens': got, 'ms': int((time.time() - t) * 1000)}
-    return await run_in_threadpool(work)
+    # again after the decode, and counted (v5.2: any number of follows ran at once, uncounted, and a page check waited
+    # behind all of them): one follow at a time, and never beside a check or a /ref
+    if queued() > 0 or PLAIN[0] > 0: return JSONResponse({'busy': True}, status_code=429)
+    PLAIN[0] += 1
+    try: return await run_in_threadpool(work)
+    finally: PLAIN[0] -= 1
 
 @app.get('/hazzan', response_class=HTMLResponse)
 def hazzan_page():
@@ -1639,13 +1765,12 @@ def take_paths(tid):
     return jp, (aud[0] if aud else None)
 
 @app.post('/submit')
-async def submit(request: Request, meta: str = Query(...)):
-    """one recording from the booth: body = audio; meta = JSON {set, task, name, text, do, labels, note, mime, device}.
-       Saved at once, checked in the background (the verdicts land in the take's JSON), mirrored to GitHub if set up."""
-    try:
-        M = json.loads(meta)
-    except Exception:
-        return JSONResponse({'err': 'bad meta'}, status_code=400)
+async def submit(request: Request, meta: str = None, key: str = None):
+    """one recording from the booth: body = audio; meta = JSON {set, task, name, text, do, labels, note, mime, device}
+       (in the x-dk-meta header from v5.2 pages, else in the query). Saved at once, checked in the background (the
+       verdicts land in the take's JSON), mirrored to GitHub if set up."""
+    M = meta_of(request, meta)
+    if M is None: return bad_meta()
     if M.get('check', True) and queued(True) >= GRADE_MAX:
         return JSONResponse({'err': 'the server has many recordings to check — try again in a few minutes'}, status_code=503)
     try:
@@ -1655,6 +1780,10 @@ async def submit(request: Request, meta: str = Query(...)):
     if data is None: return too_big(MAX_BODY['submit'])
     if len(data) < 1000:
         return JSONResponse({'err': 'no audio'}, status_code=400)
+    # v5.2: a take was stored as it came, up to 40 MB of any bytes from anyone (checked or not: the grader's failure left
+    # it there): without the key it must decode to sound first. The original bytes are still what is kept (for training).
+    if not key_ok(key) and await sound_of(data) is None:
+        return JSONResponse({'err': 'not audio'}, status_code=400)
     try:
         R = await run_in_threadpool(resolve_text, M.get('text', ''))   # may fetch the site's lyrics: not on the event loop
     except Exception as e:
@@ -1750,7 +1879,7 @@ def take_audio(tid: str, key: str = None):
     if d: return d
     jp, ap = take_paths(tid)
     if not ap: return JSONResponse({'err': 'no such take'}, status_code=404)
-    return FileResponse(ap, media_type={'m4a': 'audio/mp4', 'mp4': 'audio/mp4', 'webm': 'audio/webm', 'wav': 'audio/wav', 'mp3': 'audio/mpeg', 'ogg': 'audio/ogg'}.get(ap.rsplit('.', 1)[-1], 'application/octet-stream'), filename=os.path.basename(ap))
+    return FileResponse(ap, media_type=AUDIO_MIME.get(ap.rsplit('.', 1)[-1], 'application/octet-stream'), filename=os.path.basename(ap), headers={'X-Content-Type-Options': 'nosniff'})
 
 def score_take(J):
     """one take: what the person did (its labels) against what the machine claimed -> verdict lines and tallies"""

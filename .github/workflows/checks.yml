@@ -1,5 +1,5 @@
 # The checks that need no models (numpy and node only, under a minute), on every push and pull request:
-# the live pages' scripts parse, the three copies of the word rule agree, and the measured numbers did not move.
+# every .py compiles, the live pages' scripts parse, the shva rules hold, the three copies of the word rule agree, and the measured numbers did not move.
 name: checks
 on: [push, pull_request]
 permissions:
@@ -16,8 +16,12 @@ jobs:
         with:
           node-version: '22'
       - run: pip install numpy
+      # every top-level .py (app.py imports shva.py and the rest at startup without a try: a file that does not compile
+      # takes the server down after mac/update.sh), and the tools
       - name: python files compile
-        run: python -m compileall -q app.py rule.py order.py vowels.py nikud.py letters.py tools
+        run: python -m compileall -q *.py tools
+      - name: the shva rules and notes (shva.py, no models)
+        run: python -B tools/t_shva_rules.py
       - name: the pages' scripts and the JSON files parse
         run: python -B tools/t_static.py
       - name: the word rule agrees in rule.py, index.html and embed.js

@@ -84,8 +84,11 @@ def marks_of(TW, F, gap, clean, rival=None):
 
 def strict_of(marks, why, clean, cant_hear):
     """the strict check (the page's switch): on a clean take every 'not sure' word counts as not clearly right.
-       Rabbi Alouf's exam: wrong words caught 76% -> 89%, good words marked 0 -> 0.4%. On an unclear take nothing
-       changes — there it would mark a fifth of the good words — and the page asks for a clearer take instead.
+       Rabbi Alouf's exam (his takes checked against his own recording): wrong words caught 76% -> 89%, good words
+       marked 0 -> 0.4%. That 0.4% is his voice only: on clean takes by other voices the committed rows give 4 -> 18
+       of 86 good words marked (21%, the archive) and 13 -> 51 of 537 (9.5%, Israelis reading); without the clean-take
+       requirement it would mark 168 of the archive's 528 good words (32%; 168 of the 383 on takes the head can hear,
+       44%). So only on a clean take: on an unclear one nothing changes and the page asks for a clearer take instead.
        -> (marks, why, on). Kept in step with strictOf in index.html and embed.js"""
     if not clean or cant_hear: return marks, why, False
     return ['off' if m == 'unsure' else m for m in marks], ['unclear' if marks[i] == 'unsure' and w is None else w for i, w in enumerate(why)], True
