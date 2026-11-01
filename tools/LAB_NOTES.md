@@ -896,9 +896,23 @@ not sure 6.2% → 5.2%, ✕ 10 → 10 (one new: תוציא, one gone: נדחי).
 
 **The same on Tawil** (`HEAD_NV_KEEP=tawil:30`, same recipe): head level Tawil 5.8% → 3.9% (Ben Haim 9.9% → 9.7%:
 Tawil's 30 do nothing for him; Rabbi Alouf 1.6%, Be'eri 1.1%). Through the server: 72 (7.1%) → 47 (4.6%) — a third of
-his false notes, not half — not sure 4.2% → 2.8%, ✕ 9 → 8 (מהר gone); ee→eh 30 → 10, but oo→oh 6 → 9. Note the
-table's last row: Ben Haim's 30 alone took Tawil to 4.6% at head level, near his own 30's 3.9% — for Tawil part of
-the gain may be any Syrian voice, not his.
+his false notes, not half — not sure 4.2% → 2.8%, ✕ 9 → 8 (מהר gone); ee→eh 30 → 10, but oo→oh 6 → 9.
+
+**Control — is it his OWN voice?** The table's last row hinted not: Ben Haim's 30 alone took Tawil to 4.6% at head
+level, near his own 30's 3.9%. So the same recipe with the other reader's 30, through the whole server:
+
+| calibrated on | Tawil's exam (notes; not sure; ✕) | Ben Haim's exam |
+|---|---|---|
+| nobody (shipped) | 72 (7.1%); 4.2%; 9 | 104 (9.3%); 6.2%; 10 |
+| **his own 30** | **47 (4.6%); 2.8%; 8** | **53 (4.7%); 5.2%; 10** |
+| the other reader's 30 | 76 (7.5%); 4.3%; 9 | 95 (8.5%); 5.8%; 12 |
+
+The other reader's 30 only swap notes — Tawil: 25 gone, 29 new (oh→oo 4 → 12: Ben Haim's o/u line again);
+Ben Haim: oo→oh 38 → 38 untouched, only the shared ee→eh moved (14 → 8), and 2 more ✕ (אשר, תוציא). The gain is
+the student's own voice, in both readers and both directions. The head-level exam pointed the wrong way here (it
+grades other pesukim — the held-out even perakim — on the vowel ear alone, while the server also compares with the
+hazzan, whom a calibrated head hears differently too; which of these made the difference is not checked): judge
+calibration through the server.
 Rabbi Alouf drifts as the reader's weight grows — which would not matter if the calibrated head heard only that
 student's takes and the shipped head kept hearing the hazzan. The catch: it learns whatever the student says,
 mistakes included, unless only takes the checker already trusts (clean, confident) are used to calibrate.
