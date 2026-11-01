@@ -149,6 +149,24 @@ Also: a nikud vowel note is dropped where the hazzan is heard singing the vowel 
 of his kubutz/holam as each other: 23:2's מְנֻחוֹת no longer gets "oh for oo"); ע/ח/ת notes end with "practice ע ›"
 (`/letters?c=ע`, the embed's `letters` option); the booth has a list `shva` (8 short recordings) scored by `/score`.
 
+v5.0 (Oct 31) takes one idea from each tool we studied (Tarteel, Fahm, Qara'a, Tilawa, Kriah Listener, Iqra'Eval):
+- **What to check** (Tarteel's tashkeel switch): "Notes on: letters ע ח ת / vowels & shva" under the result; `notes`
+  (`words` | `letters` | `all`) in `mount` / `data-notes` sets the start.
+- **Hide a wrong note** (Tarteel): each note has ×; hiding one offers "send this recording, with the note you hid?" —
+  with a yes, `POST /feedback` keeps the take, the hidden note and the server stamp (listed at `/feedback?key=`).
+- **Ask a hazzan** (Qara'a): sends the take and a question to `POST /review`; the hazzan answers on `/hazzan?key=…`;
+  the person's browser keeps the id and a token and shows the answer at the top of the checker.
+- **The hazzan, then you** (Fahm's side by side): one button plays his line, then the take.
+- **Tries on this line** (Tarteel/Tilawa): the last five scores, kept in the browser.
+- **The voice card** (Kriah Listener): read Tehillim 23:1–2 once; the vowel confusions the ear makes on that voice —
+  only kubutz/holam (U↔O) and hiriq/tsere (I↔E), never a dikduk mistake — are sent as `vc=` and those notes are left
+  out (Rabbi Alouf's own 23:1–2 gives `U>O`: his מְנֻחוֹת).
+- **Live follow-along** (Tarteel): `POST /follow` (the take so far → words reached, CTC path free to end anywhere);
+  the line's words light up while recording, only on a fast server (`/health` device mps/cuda) or with `follow: true`.
+- **Report card** (Iqra'Eval): `/report?key=` sums the booth's graded takes per kind of planted mistake and per person.
+Older servers: the new embed hides "Ask a hazzan" and the send-it prompt (no `reviews` in `/health`) and never follows.
+
+
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
 - `GET /letters` — the letter checker; `POST /letter?c=<letter>[&want=…][&strict=1]` with a short take as the body; `GET /letters.json`, `GET /letters/audio/<name>.mp3` — Rabbi Alouf's example words.
 - `GET /health`, `GET /info`, `GET /lyrics` (the site's lyrics.json + the Tehillim perakim, with CORS).

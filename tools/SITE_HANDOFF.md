@@ -151,3 +151,14 @@ Base: `https://davidsitt-pizmonim-dikduk.hf.space`. All JSON, CORS `*`. No keys.
 - Hazzan audio: archive recordings play straight from `https://www.pizmonim.org/MP3/<file>` (seek to `t0`, stop at
   `t1`); Tehillim from `GET /tehillim/audio/tehillim-023.mp3` (144 perakim since Oct 23; when the site hosts the package's
   mp3s, the checker can be pointed at the site's copy).
+
+## v5.0 (Oct 31) — for the site
+- New `mount` options / data attributes: `notes` (`words` | `letters` | `all` — which notes show at first; the person
+  can switch), `follow` (true: words light up while recording even on a slow server; false: never; default: only on a
+  fast server), plus `letters` and `strict` from before.
+- New in the result: × on each note (hide it; with a yes the take is sent to `/feedback` for training), "Ask a hazzan to
+  listen" (a review queue answered at the checker server's `/hazzan?key=…`; answers show at the top of the checker),
+  "The hazzan, then you", the last tries on the line, and "Tune the checker to your voice" (one minute, Tehillim 23).
+- Storage: all of it in the visitor's browser (localStorage keys `dk.*`); nothing needs an account. If the site later
+  has accounts, the reviews' id + token and the voice card are the things worth moving into them.
+- Nothing to change on the site for any of this; an older checker server just doesn't offer the new buttons.

@@ -1,0 +1,73 @@
+<title>Questions for a hazzan</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;500;700&family=Heebo:wght@400;500;700&display=swap">
+<style>
+/* The hazzan's page (v5): the questions people sent with "Ask a hazzan to listen" — each with their recording, the line,
+   what the machine said, and their question. Answer in a few words; the person sees it in the checker. Needs the key
+   (/hazzan?key=…), the same one as the booth's scoreboard. Same look as the letters page. */
+:root{--bg:#2A1317;--panel:#3A1C22;--line:#5A3038;--fg:#F3E6CF;--mute:#C9AE96;--gold:#D8B060;--good:#9BD3A0;--warn:#F2C230;--bad:#EF7B6E;--ink:#2A1317;
+ --he:"Frank Ruhl Libre",Georgia,serif;--ui:"Heebo",system-ui,-apple-system,sans-serif;color-scheme:dark}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#FBF6EC;--panel:#FFFFFF;--line:#E6D7C0;--fg:#2A1317;--mute:#6E5A4C;--gold:#A8782A;--good:#2E8B4A;--warn:#B8860B;--bad:#C0392B;--ink:#FFFFFF;color-scheme:light}}
+:root[data-theme="light"]{--bg:#FBF6EC;--panel:#FFFFFF;--line:#E6D7C0;--fg:#2A1317;--mute:#6E5A4C;--gold:#A8782A;--good:#2E8B4A;--warn:#B8860B;--bad:#C0392B;--ink:#FFFFFF;color-scheme:light}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--ui);font-size:16px;line-height:1.45;margin:0;-webkit-text-size-adjust:100%}
+.wrap{max-width:620px;margin:0 auto;padding:16px 16px 72px;display:flex;flex-direction:column;gap:12px}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+h1{font:700 24px/1.15 var(--ui);margin:0}
+.pill{flex:none;font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--mute);white-space:nowrap;margin-top:4px}
+.pill.ok{border-color:var(--good);color:var(--good)}.pill.bad{border-color:var(--bad);color:var(--bad)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.card.done{opacity:.8}
+.intro{margin:0;color:var(--mute);font-size:15px}
+.line{font-family:var(--he);font-size:24px;line-height:1.5;direction:rtl;text-align:right;margin:4px 0 8px}
+.k{font-size:12px;color:var(--mute);text-transform:uppercase;letter-spacing:.04em;margin:10px 0 2px}
+.q{white-space:pre-wrap;margin:0}
+.notes{margin:4px 0 0;padding:0 0 0 18px;font-size:14px;color:var(--mute)}
+audio{width:100%;margin:8px 0 0}
+textarea,input[type=text],input[type=password]{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;margin:6px 0}
+.btn{font:500 15px var(--ui);color:var(--fg);background:transparent;border:1px solid var(--line);border-radius:999px;padding:10px 16px;min-height:44px;cursor:pointer}
+.btn.gold{background:var(--gold);color:var(--ink);border-color:var(--gold);font-weight:700}.btn:disabled{opacity:.45;cursor:default}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ans{white-space:pre-wrap;border-left:3px solid var(--good);padding:4px 0 4px 10px;margin:8px 0 0}
+.err{color:var(--bad);margin:0}.small{font-size:13px;color:var(--mute)}
+[hidden]{display:none!important}
+</style>
+<div class="wrap">
+ <div class="top"><h1>Questions for a hazzan</h1><span class="pill" id="pill">…</span></div>
+ <p class="intro">People who used the checker and want a person to listen. Play their recording, read what the machine told them, and answer in a few words — they see your answer in the checker.</p>
+ <div class="card" id="keyCard" hidden><p class="intro">This page needs the key. Open it as <b>/hazzan?key=…</b>, or type the key here once (it stays in this browser).</p>
+  <input type="password" id="keyIn" autocomplete="off"><button class="btn gold" id="keyGo" type="button">Open</button></div>
+ <p class="err" id="err"></p>
+ <div id="list"></div>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+const API=location.origin;
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ls=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v);}catch(e){return null;}};
+let KEY=new URLSearchParams(location.search).get('key')||ls('dk.key')||'';
+if(new URLSearchParams(location.search).get('key'))ls('dk.key',KEY);
+const when=t=>t?new Date(t*1000).toLocaleString():'';
+async function load(){$('#err').textContent='';
+ if(!KEY){$('#keyCard').hidden=false;$('#pill').textContent='key needed';return;}
+ let J;try{const r=await fetch(API+'/reviews?key='+encodeURIComponent(KEY),{cache:'no-store'});J=await r.json();if(!r.ok)throw new Error(J.err||r.status);}
+ catch(e){$('#err').textContent='Could not load the questions: '+e.message;$('#keyCard').hidden=false;$('#pill').className='pill bad';$('#pill').textContent='no access';return;}
+ $('#keyCard').hidden=true;$('#pill').className='pill ok';$('#pill').textContent=J.waiting+' waiting';
+ if(!J.items.length){$('#list').innerHTML='<div class="card"><p class="intro">No questions yet.</p></div>';return;}
+ $('#list').innerHTML=J.items.map(q=>`<div class="card${q.state==='answered'?' done':''}" data-id="${esc(q.id)}">
+  <div class="small">${esc(when(q.t))}${q.contact?' · from '+esc(q.contact):''}</div>
+  <p class="line" lang="he">${esc(q.nikud||q.words||'')}</p>
+  ${q.note?`<div class="k">Their question</div><p class="q">${esc(q.note)}</p>`:''}
+  <div class="k">What the machine told them</div><p class="q">${esc(q.say||'')}</p>${(q.notes&&q.notes.length)?`<ul class="notes">${q.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}
+  <audio controls preload="none" src="${esc(API+'/review/'+q.id+'/audio?key='+encodeURIComponent(KEY))}"></audio>
+  ${q.state==='answered'?`<div class="k">Your answer</div><p class="ans">${esc(q.reply.text)}</p><div class="small">${esc(q.reply.by||'')} · ${esc(when(q.reply.t))}</div>`
+   :`<div class="k">Your answer</div><textarea rows="3" placeholder="What was right, what to fix, how to say it"></textarea>
+     <div class="row"><input type="text" class="by" placeholder="Your name (shown to them)" style="flex:1"><button class="btn gold send" type="button">Send answer</button></div><p class="err msg"></p>`}
+ </div>`).join('');
+ const by=ls('dk.hazzan.name')||'';document.querySelectorAll('.by').forEach(i=>i.value=by);
+ document.querySelectorAll('.send').forEach(b=>b.onclick=async()=>{const c=b.closest('.card'),id=c.dataset.id,text=c.querySelector('textarea').value.trim(),who=c.querySelector('.by').value.trim();
+  if(!text){c.querySelector('.msg').textContent='Write an answer first.';return;}ls('dk.hazzan.name',who);b.disabled=true;
+  try{const r=await fetch(API+'/review/'+id+'/reply?key='+encodeURIComponent(KEY),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,by:who})});const j=await r.json();if(!r.ok||j.err)throw new Error(j.err||r.status);load();}
+  catch(e){c.querySelector('.msg').textContent='Not sent: '+e.message;b.disabled=false;}});}
+$('#keyGo').onclick=()=>{KEY=$('#keyIn').value.trim();ls('dk.key',KEY);load();};
+load();
+</script>

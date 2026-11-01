@@ -545,6 +545,19 @@ def phone_line_tokens(lp, words):
     lp_ext = np.concatenate([lp, np.stack([np.logaddexp.reduce(lp[:, [VOCAB[p] for p in alts]], axis=1) for alts in sets], 1)], 1) if sets else lp
     return lp_ext, per_word
 
+def prefix_reached(lp_ext, toks, pad):
+    """CTC Viterbi over the blank-interleaved tokens with the path free to END ANYWHERE (the audio so far may stop in
+       the middle of the line) -> how many tokens it has reached: the end state with the best path score"""
+    T = lp_ext.shape[0]; S = 2 * len(toks) + 1
+    if not toks or T == 0: return 0
+    ext = np.array([pad if s % 2 == 0 else toks[(s - 1) // 2] for s in range(S)])
+    skip_ok = np.array([s > 1 and s % 2 == 1 and ext[s] != ext[s - 2] for s in range(S)])
+    NEG = -1e30; prev = np.full(S, NEG); prev[0] = lp_ext[0, ext[0]]; prev[1] = lp_ext[0, ext[1]]
+    for t in range(1, T):
+        step = np.concatenate(([NEG], prev[:-1])); skip = np.where(skip_ok, np.concatenate(([NEG, NEG], prev[:-2])), NEG)
+        prev = np.maximum(np.maximum(prev, step), skip) + lp_ext[t, ext]
+    return (int(np.argmax(prev)) + 1) // 2
+
 def heard_in(seq, t0, t1):
     return [s['p'] for s in seq if t0 <= s['t'] < t1]
 
@@ -798,7 +811,7 @@ STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'ind
 # URL (empty = always the local files; locally the default).
 PAGE_BASE = os.environ.get('DK_PAGE_BASE', 'https://raw.githubusercontent.com/davidsitt810-ops/dikduk-space/main/static/' if os.environ.get('SPACE_ID') else '')
 _PAGES = {}
-STATIC_OK = {'index.html': '<script>', 'record.html': '<script>', 'letters.html': '<script>', 'scripts.json': '{', 'letters.json': '{', 'embed.js': 'Dikduk'}
+STATIC_OK = {'index.html': '<script>', 'record.html': '<script>', 'letters.html': '<script>', 'hazzan.html': '<script>', 'scripts.json': '{', 'letters.json': '{', 'embed.js': 'Dikduk'}
 
 def static_text(name):
     """a static file by name: GitHub's copy when it answers and looks whole, else the local file"""
@@ -837,7 +850,7 @@ def health():
     return {'ok': True, 'version': VERSION, 'build': {'commit': COMMIT, 'commit_from': COMMIT_FROM, 'files': FILES, 'models': MODEL_REV, 'rule': RULE_HASH, 'ref_tag': REF_TAG},
             'storage': storage(), 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
             'page_from': 'github' if (_PAGES.get('index.html') or {}).get('body') else 'local', 'jobs': {'queued': sum(1 for v in JOBS.values() if v['state'] == 'queued'), 'running': sum(1 for v in JOBS.values() if v['state'] == 'running')},
-            'letters': sorted(LT.BY_C), 'ears': {'letter_head': HEAD is not None, 'vowel_head': FULL is not None, 'fine_tuned': FT is not None, 'classifier_v2': bool(CLF2), 'tehillim_lyrics': len(TEHILLIM_LYR), 'tehillim_audio': os.path.isdir(TEHILLIM_DIR) and len(os.listdir(TEHILLIM_DIR)) or (TEHILLIM_BASE or 0),
+            'letters': sorted(LT.BY_C), 'follow': True, 'reviews': True, 'ears': {'letter_head': HEAD is not None, 'vowel_head': FULL is not None, 'fine_tuned': FT is not None, 'classifier_v2': bool(CLF2), 'tehillim_lyrics': len(TEHILLIM_LYR), 'tehillim_audio': os.path.isdir(TEHILLIM_DIR) and len(os.listdir(TEHILLIM_DIR)) or (TEHILLIM_BASE or 0),
                      'tehillim_perakim': sorted(int(m.group(1)) for m in (re.match(r'tehillim-(\d{3})\.mp3$', f) for f in (os.listdir(TEHILLIM_DIR) if os.path.isdir(TEHILLIM_DIR) else [])) if m)}}
 
 @app.get('/info')
@@ -905,7 +918,7 @@ def lyrics():
     return _LYR['data']
 
 # ---- what this server is: the code, the heads and the models it runs, so every verdict can be traced to them
-VERSION = 4.9
+VERSION = 5.0
 HERE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def file_sha(path, n=12):
@@ -1110,8 +1123,9 @@ def job_status(jid: str):
     return out
 
 @app.post('/check')
-async def check(request: Request, words: str = Query(...), ref: str = None, t0: float = 0, t1: float = 0, emb: int = 0, drill: str = None, nikud: str = None, job: int = 0, pid: str = None, alts: str = None, key: str = None):
+async def check(request: Request, words: str = Query(...), ref: str = None, t0: float = 0, t1: float = 0, emb: int = 0, drill: str = None, nikud: str = None, job: int = 0, pid: str = None, alts: str = None, key: str = None, vc: str = None):
     W = he_words(words)
+    VC = voice_card(vc)
     # a drill take is kept for training: only with the key, so nobody else can add to (or poison) the training data
     drill_err = None
     if drill in ('throat', 'plain') and not key_ok(key):
@@ -1134,7 +1148,7 @@ async def check(request: Request, words: str = Query(...), ref: str = None, t0: 
     if x.shape[0] > SR * 40:
         x = x[:SR * 40].copy()
     def work(progress):
-        out = run_check(x, W, ref, t0, t1, emb, drill, nikud, progress, ALT)
+        out = run_check(x, W, ref, t0, t1, emb, drill, nikud, progress, ALT, VC)
         if drill_err: out['drill_err'] = drill_err
         return out
     if job:
@@ -1144,7 +1158,24 @@ async def check(request: Request, words: str = Query(...), ref: str = None, t0: 
     # the plain path (scripts, older pages): the same work in a thread, so /health and the polls keep answering
     return await run_in_threadpool(work, lambda s: None)
 
-def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None, alts=None):
+# The voice card (v5, after Kriah Listener's "voice card"): a person reads Tehillim 23:1-2 once, carefully; the vowel
+# notes that reading gets against the nikud are the vowel ear mishearing THAT voice, and later checks leave those
+# notes out. Only the ear's own confusions can be calibrated away — kubutz/holam (U<->O) and hiriq/tsere (I<->E), 9
+# of the 12 vowel notes on Rabbi Alouf's own reading — never a real dikduk mistake such as "a" for a kamatz katan.
+VC_PAIRS = {'U>O', 'O>U', 'E>I', 'I>E'}
+def voice_card(vc):
+    return {p for p in re.split(r'[\s,]+', str(vc or '')) if p in VC_PAIRS}
+
+def drop_card(vn, VC):
+    """vowel notes {word: [{you, ref, ...}]} without the pairs the voice card names -> (kept, how many dropped)"""
+    if not VC or not vn: return vn, 0
+    out, n = {}, 0
+    for i, ds in vn.items():
+        keep = [d for d in ds if f"{d['ref']}>{d['you']}" not in VC]; n += len(ds) - len(keep)
+        if keep: out[i] = keep
+    return out, n
+
+def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None, alts=None, VC=None):
     if isinstance(alts, str): alts = other_lines(alts, W)   # the text's id -> its other lines (may fetch the site's lyrics: not on the event loop)
     progress('listening to your take')
     take, lp, spf = analyse(x, W, bool(emb) or bool(drill), alts)
@@ -1200,6 +1231,11 @@ def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None, alt
                 out['shva'] = SH.notes(sv, (out.get('ref') or {}).get('shva'))
         except Exception as e:
             out['shva_err'] = str(e)[:200]
+    if VC:
+        n = 0
+        for k in ('vowels', 'vowels_nikud'):
+            if k in out: out[k], d = drop_card(out[k], VC); n += d
+        out['voice_card'] = {'pairs': sorted(VC), 'dropped': n}
     out['vowel_names'] = VOWEL_NAME
     return out
 
@@ -1213,6 +1249,8 @@ def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None, alt
 # fine-grained token with "Contents: read and write" on that one repo). /health and the booth say which it is.
 import base64, uuid as _uuid
 TAKES_DIR = os.path.join(KEEP_DIR, 'takes')
+FEEDBACK_DIR = os.path.join(KEEP_DIR, 'feedback'); os.makedirs(FEEDBACK_DIR, exist_ok=True)   # v5: hidden notes sent with a yes
+REVIEW_DIR = os.path.join(KEEP_DIR, 'reviews'); os.makedirs(REVIEW_DIR, exist_ok=True)       # v5: 'ask a hazzan'
 os.makedirs(TAKES_DIR, exist_ok=True)
 GH_TOKEN = os.environ.get('GH_TOKEN', '') if os.environ.get('DK_MIRROR', 'github' if os.environ.get('SPACE_ID') else '') == 'github' else ''
 
@@ -1383,7 +1421,7 @@ def mirror_pending():
     global MIRROR_ERR
     if not GH_TOKEN: return 0
     n = 0
-    for base, prefix in ((TAKES_DIR, 'takes/'), (DRILL_DIR, 'drill/')):
+    for base, prefix in ((TAKES_DIR, 'takes/'), (DRILL_DIR, 'drill/'), (FEEDBACK_DIR, 'feedback/'), (REVIEW_DIR, 'reviews/')):
         for root, _, files in os.walk(base):
             for fn in sorted(files):
                 if fn.endswith('.pushed') or fn.endswith('.tmp'): continue
@@ -1425,6 +1463,163 @@ def mirror_loop():
         except Exception as e: print('mirror loop:', e, flush=True)
         time.sleep(60)
 if GH_TOKEN: threading.Thread(target=mirror_loop, daemon=True).start()
+
+# ================================================================= feedback and "ask a hazzan" (v5)
+# Feedback (after Tarteel's "remove a wrong flag"): a person who thinks a note is wrong can hide it, and — only if
+# they say yes — send the recording with the note they hid. That is labelled data where the checker is weakest:
+# a voice it misjudged. Reviews (after Qara'a's "send it to a teacher"): a take with a question, kept until a hazzan
+# with the key answers on /hazzan; the person's browser keeps the id and a token and shows the answer when it is
+# there. Both live beside the booth's takes (KEEP_DIR: /data on the Space when it has it, the Mac's own disk) and go
+# to the GitHub mirror with them when that is set up.
+AUDIO_EXT = ('.m4a', '.mp4', '.webm', '.wav', '.mp3', '.ogg', '.bin')
+def ext_of(mime):
+    mime = str(mime or '')
+    return '.m4a' if 'mp4' in mime or 'm4a' in mime else '.webm' if 'webm' in mime else '.wav' if 'wav' in mime else '.ogg' if 'ogg' in mime else '.mp3' if 'mpeg' in mime else '.bin'
+def clip_meta(M, keys, n=4000):
+    """only the expected fields, each JSON-sized: what a page sends is not trusted to be small or well formed"""
+    out = {}
+    for k in keys:
+        if k in M:
+            v = M[k]; t = json.dumps(v, ensure_ascii=False)
+            out[k] = v if len(t) <= n else t[:n]
+    return out
+def room_ok(d): return shutil.disk_usage(d).free >= (1 << 30)
+FB_KEYS = ('pid', 'line', 'words', 'nikud', 'ref', 't0', 't1', 'dismissed', 'marks', 'notes', 'strict', 'voice_card', 'server', 'device', 'who')
+RV_KEYS = ('pid', 'line', 'words', 'nikud', 'ref', 't0', 't1', 'note', 'contact', 'marks', 'notes', 'say', 'server', 'device', 'who')
+
+@app.post('/feedback')
+async def feedback(request: Request, meta: str = Query(...)):
+    """a hidden note and, with the person's yes, the recording it was about -> kept for the next round of training"""
+    try: M = json.loads(meta)
+    except Exception: return JSONResponse({'err': 'bad meta'}, status_code=400)
+    if not isinstance(M, dict): return JSONResponse({'err': 'bad meta'}, status_code=400)
+    data = await read_body(request, MAX_BODY['check'])
+    if data is None: return too_big(MAX_BODY['check'])
+    if len(data) < 1000: return JSONResponse({'err': 'no audio'}, status_code=400)
+    if not room_ok(FEEDBACK_DIR): return JSONResponse({'err': 'the server is out of room'}, status_code=507)
+    fid = time.strftime('%Y%m/%Y%m%d-%H%M%S-') + uuid.uuid4().hex[:8]; full = os.path.join(FEEDBACK_DIR, fid)
+    os.makedirs(os.path.dirname(full), exist_ok=True); ext = ext_of(request.headers.get('content-type'))
+    open(full + ext, 'wb').write(data)
+    rec = {'id': fid, 't': int(time.time()), 'kind': 'dismissed', **clip_meta(M, FB_KEYS), 'audio': os.path.basename(full + ext), 'bytes': len(data), 'stamp': STAMP}
+    write_json(full + '.json', rec)
+    return JSONResponse({'id': fid, 'saved': True}, status_code=201)
+
+@app.get('/feedback')
+def feedback_list(key: str = None):
+    d = need_key(key)
+    if d: return d
+    items = []
+    for root, _, files in os.walk(FEEDBACK_DIR):
+        for fn in files:
+            if fn.endswith('.json'):
+                try: items.append(json.load(open(os.path.join(root, fn), encoding='utf-8')))
+                except Exception: pass
+    items.sort(key=lambda j: -j.get('t', 0))
+    return {'n': len(items), 'items': items}
+
+def review_path(rid):
+    if not re.fullmatch(r'[0-9a-f]{12}', str(rid or '')): return None
+    p = os.path.join(REVIEW_DIR, rid + '.json')
+    return p if os.path.isfile(p) else None
+
+@app.post('/review')
+async def review_ask(request: Request, meta: str = Query(...)):
+    """'ask a hazzan': the take and the person's question, kept until a hazzan answers -> {id, token}"""
+    try: M = json.loads(meta)
+    except Exception: return JSONResponse({'err': 'bad meta'}, status_code=400)
+    if not isinstance(M, dict): return JSONResponse({'err': 'bad meta'}, status_code=400)
+    data = await read_body(request, MAX_BODY['check'])
+    if data is None: return too_big(MAX_BODY['check'])
+    if len(data) < 1000: return JSONResponse({'err': 'no audio'}, status_code=400)
+    if not room_ok(REVIEW_DIR): return JSONResponse({'err': 'the server is out of room'}, status_code=507)
+    if sum(1 for f in os.listdir(REVIEW_DIR) if f.endswith('.json')) >= int(os.environ.get('DK_REVIEW_MAX', 2000)):
+        return JSONResponse({'err': 'too many questions are waiting — try again later'}, status_code=503)
+    rid = uuid.uuid4().hex[:12]; tok = uuid.uuid4().hex[:16]; ext = ext_of(request.headers.get('content-type'))
+    open(os.path.join(REVIEW_DIR, rid + ext), 'wb').write(data)
+    write_json(os.path.join(REVIEW_DIR, rid + '.json'), {'id': rid, 'token': tok, 't': int(time.time()), 'state': 'waiting', **clip_meta(M, RV_KEYS), 'audio': rid + ext, 'stamp': STAMP})
+    return JSONResponse({'id': rid, 'token': tok}, status_code=201)
+
+@app.get('/review/{rid}')
+def review_get(rid: str, t: str = None, key: str = None):
+    """the person's view (their token) or the hazzan's (the key): the question and, once there, the answer"""
+    p = review_path(rid)
+    if not p: return JSONResponse({'err': 'no such question'}, status_code=404)
+    J = json.load(open(p, encoding='utf-8'))
+    if not (key_ok(key) or (t and t == J.get('token'))): return JSONResponse({'err': 'not yours'}, status_code=403)
+    J = dict(J); J.pop('token', None)
+    return J
+
+@app.get('/review/{rid}/audio')
+def review_audio(rid: str, t: str = None, key: str = None):
+    p = review_path(rid)
+    if not p: return JSONResponse({'err': 'no such question'}, status_code=404)
+    J = json.load(open(p, encoding='utf-8'))
+    if not (key_ok(key) or (t and t == J.get('token'))): return JSONResponse({'err': 'not yours'}, status_code=403)
+    a = os.path.join(REVIEW_DIR, os.path.basename(J.get('audio') or ''))
+    if not os.path.isfile(a): return JSONResponse({'err': 'no audio'}, status_code=404)
+    return FileResponse(a, headers={'Cache-Control': 'no-store'})
+
+@app.get('/reviews')
+def reviews_list(key: str = None):
+    """the hazzan's queue (with the key): waiting questions first, newest first"""
+    d = need_key(key)
+    if d: return d
+    items = []
+    for fn in os.listdir(REVIEW_DIR):
+        if fn.endswith('.json'):
+            try: J = json.load(open(os.path.join(REVIEW_DIR, fn), encoding='utf-8')); J.pop('token', None); items.append(J)
+            except Exception: pass
+    items.sort(key=lambda j: (j.get('state') != 'waiting', -j.get('t', 0)))
+    return {'n': len(items), 'waiting': sum(1 for j in items if j.get('state') == 'waiting'), 'items': items}
+
+@app.post('/review/{rid}/reply')
+async def review_reply(rid: str, request: Request, key: str = None):
+    """the hazzan's answer: {text, by, words?: {index: 'ok'|'fix'}}"""
+    d = need_key(key)
+    if d: return d
+    p = review_path(rid)
+    if not p: return JSONResponse({'err': 'no such question'}, status_code=404)
+    try: A = await request.json()
+    except Exception: return JSONResponse({'err': 'bad answer'}, status_code=400)
+    text = str((A or {}).get('text') or '').strip()[:4000]
+    if not text: return JSONResponse({'err': 'an empty answer'}, status_code=400)
+    J = json.load(open(p, encoding='utf-8'))
+    J['reply'] = {'text': text, 'by': str(A.get('by') or '')[:80], 't': int(time.time()), 'words': A.get('words') if isinstance(A.get('words'), dict) else None}
+    J['state'] = 'answered'; write_json(p, J)
+    return {'ok': True}
+
+@app.post('/follow')
+async def follow(request: Request, words: str = Query(...)):
+    """live follow-along (v5, after Tarteel's real-time reading): the recording so far -> how many of the line's words
+       it has reached (the phone ear and the consonant skeleton only, the path free to end anywhere). The embed asks
+       every 1.5 s while recording, and only on a fast server (the Mac's GPU); it never waits behind a check."""
+    W = he_words(words)
+    if not W: return JSONResponse({'err': 'no words'}, status_code=400)
+    if queued() > 0: return JSONResponse({'busy': True}, status_code=429)
+    data = await read_body(request, MAX_BODY['check'])
+    if data is None: return too_big(MAX_BODY['check'])
+    if len(data) < 500: return {'done': 0, 'n': len(W)}
+    try: x = await run_in_threadpool(decode_audio, data, 41)
+    except Exception: return {'done': 0, 'n': len(W), 'err': 'not decodable yet'}
+    if x.shape[0] < SR * 0.3: return {'done': 0, 'n': len(W)}
+    def work():
+        t = time.time(); lp, spf, _ = run_model(x[:SR * 40]); lp_ext, per = phone_line_tokens(lp, W)
+        toks = [k for p in per for k in p]; got = prefix_reached(lp_ext, toks, PAD)
+        done, end = 0, 0
+        for p in per:
+            end += len(p)
+            if end <= got: done += 1
+            else: break
+        return {'done': done, 'n': len(W), 'tokens': got, 'ms': int((time.time() - t) * 1000)}
+    return await run_in_threadpool(work)
+
+@app.get('/hazzan', response_class=HTMLResponse)
+def hazzan_page():
+    """the hazzan's page: the questions waiting, each with the recording, the line and the machine's notes"""
+    body = static_text('hazzan.html')
+    return ('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
+            '<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>'
+            '</head><body>' + body + '</body></html>')
 
 def take_paths(tid):
     """id -> (json path, audio path); the id is the json's path relative to TAKES_DIR without .json"""
@@ -1622,3 +1817,30 @@ def score(set_: str = Query(None, alias='set'), name: str = None, who: str = Non
             for k, v in sc['tally'].items(): tot[k] += v
         else: tot[sc['state']] += 1
     return {'n': len(rows), 'totals': tot, 'rows': rows}
+
+@app.get('/report')
+def report(set_: str = Query(None, alias='set'), key: str = None):
+    """the report card (after Iqra'Eval's planted-mistake test sets): every graded booth take scored against what the
+       person said they did, summed per kind of take and per person. caught / missed / unsure count the planted
+       mistakes; false alarms count notes on things done right; claims are notes nobody has judged yet."""
+    d = need_key(key)
+    if d: return d
+    by_do, by_who = {}, {}
+    def add(D, k, sc):
+        R = D.setdefault(k, {'takes': 0, 'scored': 0, 'false_alarm': 0, 'caught': 0, 'missed': 0, 'unsure': 0, 'claims': 0})
+        R['takes'] += 1
+        if sc.get('state') == 'scored':
+            R['scored'] += 1
+            for kk, v in sc['tally'].items(): R[kk] = R.get(kk, 0) + v
+    for J in list_takes(set_):
+        if not isinstance(J, dict) or 'id' not in J: continue
+        try: sc = score_take(J)
+        except Exception: continue
+        add(by_do, J.get('do') or 'right', sc); add(by_who, J.get('name') or '?', sc)
+    for D in (by_do, by_who):
+        for R in D.values():
+            planted = R['caught'] + R['missed'] + R['unsure']
+            R['caught_rate'] = round(R['caught'] / planted, 3) if planted else None
+    right = by_do.get('right') or {}
+    return {'set': set_, 'by_do': by_do, 'by_who': by_who,
+            'false_alarms_per_right_take': round(right.get('false_alarm', 0) / right['scored'], 3) if right.get('scored') else None}

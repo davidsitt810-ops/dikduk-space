@@ -1,0 +1,19 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Pizmonim Project — demo page</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=David+Libre:wght@400;500;700&family=Inter:wght@400;600&display=swap">
+<style>
+ body{margin:0;background:#F6F1E7;color:#1F1A17;font-family:Inter,system-ui,sans-serif}
+ header{background:#1F1A17;color:#F6F1E7;padding:18px 20px;font-weight:600;letter-spacing:.02em}
+ main{max-width:720px;margin:0 auto;padding:24px 16px}
+ h1{font:600 26px/1.2 Inter,sans-serif;margin:0 0 6px} .meta{color:#6E6259;margin:0 0 18px}
+ /* the site's own look for the checker: light, its fonts, its accent */
+ #dikduk{--dk-bg:#FFFFFF;--dk-panel:#FBF8F1;--dk-line:#E3D9C6;--dk-fg:#1F1A17;--dk-mute:#6E6259;--dk-accent:#8A5A19;--dk-ink:#FFFFFF;--dk-good:#2E7D4F;--dk-warn:#A66B00;--dk-bad:#B3261E;--dk-he:"David Libre",serif;--dk-ui:Inter,sans-serif}
+</style></head><body>
+<header>The Pizmonim Project (demo)</header>
+<main>
+ <h1>Pizmon 200 · אסיר ביוקשי</h1>
+ <p class="meta">Maqam · recordings · lyrics — and below, the dikduk checker as part of the page.</p>
+ <div id="dikduk" data-dikduk data-api="http://127.0.0.1:7861" data-th="23" data-line="2" data-follow="1"></div>
+</main>
+<script src="embed.js"></script>
+</body></html>

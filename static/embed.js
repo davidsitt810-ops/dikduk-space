@@ -6,12 +6,16 @@
    Options: api (the checker server — or several, an array or a space-separated string: the first one whose /health
    answers is used, so a fast home server can come first and the Space second as the fallback; if a check cannot reach
    the chosen one, the others are asked once more), pz | th (pizmon id | Tehillim perek), line (1-based), rec (hazzan recording file),
-   lyrics (the site's lyrics object or a URL — saves a fetch), archive (base URL of the archive mp3s), strict (1/true: start with the
+   lyrics (the site's lyrics object or a URL — saves a fetch), archive (base URL of the archive mp3s), follow (true: words light up while recording, even on a slow server; false: never; default: on a fast server),
+   notes ('words' | 'letters' | 'all': which notes show at first), strict (1/true: start with the
    strict check on — data-strict="1"; the person can switch it under the result), letters (where the "practice ע ›" links
    go: a URL — default the server's /letters page — or false for no links; data-letters), onResult(result, {pid, line, rec, strict}).
    Styling: everything is under .dk; colours and fonts are CSS variables on the container (--dk-bg, --dk-panel, --dk-line,
    --dk-fg, --dk-mute, --dk-accent, --dk-good, --dk-warn, --dk-bad, --dk-ink, --dk-he, --dk-ui); the site's own fonts are
-   inherited unless --dk-he / --dk-ui are set. Browser storage: only the strict switch's last setting (dk.strict). The same checker as the Space's /try page. */
+   inherited unless --dk-he / --dk-ui are set. Browser storage (this browser only): the strict and notes switches (dk.strict, dk.notes),
+   the voice card (dk.vc), the tries per line (dk.hist.*) and the questions sent to a hazzan (dk.reviews: id + token).
+   v5 also adds: hide a note and, with a yes, send the take (POST /feedback); "Ask a hazzan" (POST /review, answered on
+   the server's /hazzan page); "The hazzan, then you"; the voice card (Tehillim 23:1-2 read once: /check with vc=…). The same checker as the Space's /try page. */
 (function () {
 'use strict';
 const CSS = `
@@ -75,6 +79,13 @@ const CSS = `
 .dk .dk-tr .dk-k{color:var(--mute);flex:none;min-width:84px}.dk .dk-tr .good{color:var(--good)}.dk .dk-tr .bad{color:var(--bad)}.dk .dk-tr .warn{color:var(--warn)}
 .dk .dk-sub{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}
 .dk .dk-prac{color:var(--gold);font-size:14px;white-space:nowrap;text-decoration:none;border-bottom:1px solid currentColor}
+.dk .dk-fw{transition:color .25s}.dk .dk-fw.on{color:var(--gold)}
+.dk .dk-opts{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;font-size:14px;color:var(--mute);margin:-6px 0 12px}.dk .dk-opts .dk-strict{margin:0}
+.dk .dk-x{border:0;background:transparent;color:var(--mute);font-size:18px;line-height:1;padding:0 4px;margin-left:6px;cursor:pointer;vertical-align:middle}.dk .dk-x:hover{color:var(--bad)}
+.dk .dk-share,.dk .dk-ask,.dk .dk-qs{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:12px}.dk .dk-share p,.dk .dk-qs p{margin:0 0 8px}
+.dk .dk-ask{border:0;padding:0}.dk textarea{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;box-sizing:border-box;margin:8px 0}
+.dk .dk-ask input[type=text]{width:100%;box-sizing:border-box;margin:0 0 8px}.dk .dk-qs h4{margin:0 0 6px}.dk .dk-q{border-top:1px solid var(--line);padding:8px 0 4px}.dk .dk-q:first-of-type{border-top:0}
+.dk .dk-q .dk-ans{white-space:pre-wrap;margin:6px 0}.dk .dk-new{color:var(--gold);font-weight:700}
 .dk .dk-strict{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--mute,inherit);margin:-4px 0 12px;cursor:pointer}.dk .dk-strict input{width:18px;height:18px;accent-color:var(--gold);margin:0}
 .dk .dk-after{display:flex;gap:8px;margin-top:14px}.dk .dk-after .dk-btn{flex:1;margin-top:0}
 `;
@@ -110,6 +121,17 @@ const T = {   /* every piece of text, so a site can translate or reword (Dikduk.
  shvaWhy: {start: 'a shva at the start of a word is said', second: 'the second of two shvas in a row is said', twin: 'a shva under the first of two identical letters is said',
   dagesh: 'a shva under a doubled letter (dagesh) is said', short: 'after a short vowel the shva closes the syllable', first: 'the first of two shvas in a row is silent',
   final: 'a shva at the end of a word is silent', hazzan: 'listen to the hazzan here'},
+ notesL: 'Notes on:', notesLetters: 'letters ע ח ת', notesVowels: 'vowels & shva', histL: 'Your tries on this line: ', bothLine: '▶ The hazzan, then you',
+ dismiss: 'Not my mistake — hide this note', shareQ: 'Help fix the checker: send this recording, with the note you hid?', shareYes: 'Send it', shareNo: 'No thanks',
+ shareDone: 'Sent — thank you. It goes into the next round of training.', shareFail: 'Could not send it: ',
+ askBtn: 'Ask a hazzan to listen', askNote: 'What should he listen for? (optional)', askContact: 'Your name or email, so he can reach you (optional)', askSend: 'Send', askCancel: 'Cancel',
+ askSent: 'Sent. His answer will show here, at the top of the checker.', askFail: 'Could not send it: ', askMine: 'Your questions to a hazzan', askWaiting: 'waiting for an answer',
+ askAnswered: 'answered', askGone: 'no longer on the server', askPlay: '▶ your recording',
+ vcLink: 'Tune the checker to your voice (1 minute)', vcOn: 'tuned to your voice ✓', vcForget: 'forget it', vcTitle: 'Tune to your voice',
+ vcIntro: 'Read these two pesukim carefully, at your normal pace, then tap Stop. The checker learns which vowels it mishears in your voice and stops flagging those — never a real mistake, like “a” for a kamatz katan.',
+ vcBusy: 'listening', vcDone: 'Tuned. For your voice the checker will no longer flag: {pairs}.', vcNothing: 'Done: the checker hears your vowels well — there was nothing to tune.',
+ vcUnclear: 'Not clear enough to tune from. Try again a little closer to the phone, in a quiet room.', vcNoText: 'Tuning needs Tehillim 23 from the server.', vcClose: 'Close',
+ vcPair: {'U>O': '“oo” heard as “oh”', 'O>U': '“oh” heard as “oo”', 'E>I': '“eh” heard as “ee”', 'I>E': '“ee” heard as “eh”'},
  noSpeech: 'I did not hear any singing in this recording. Check that the microphone picked you up (hold the phone closer), then record again.'};
 const fmt = (s, o) => s.replace(/\{(\w+)\}/g, (m, k) => o[k] != null ? o[k] : m);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
@@ -125,6 +147,7 @@ function ensureCss() { if (cssDone) return; cssDone = true; const st = document.
 const HTML = `
 <div class="dk-top"><p class="dk-lede"></p><span class="dk-pill wait" data-r="srv"></span></div>
 <p class="dk-err" data-r="err"></p>
+<div class="dk-qs" data-r="qs" hidden></div>
 <section class="dk-step" data-r="s1">
  <div class="dk-sum" hidden><span class="dk-n">1</span><span class="dk-txt" data-r="s1sum"></span><button class="dk-link" type="button" data-change="s1"></button></div>
  <div class="dk-body">
@@ -160,6 +183,7 @@ const HTML = `
    <p class="dk-busy" data-r="busy" hidden></p>
   </div>
   <p class="dk-hint"><label class="dk-link" data-r="fileLab"></label><input type="file" data-r="file" accept="audio/*,video/*" hidden></p>
+  <p class="dk-hint" data-r="vcRow"><button class="dk-link" type="button" data-r="vcOpen"></button><span data-r="vcState"></span></p>
  </div>
 </section>
 <section class="dk-step" data-r="s4" hidden>
@@ -167,11 +191,29 @@ const HTML = `
   <h3><span class="dk-n">4</span><span data-t="s4"></span></h3>
   <p class="dk-say" data-r="say"></p>
   <label class="dk-strict"><input type="checkbox" data-r="strict"><span data-t="strictL"></span></label>
+  <div class="dk-opts"><span data-t="notesL"></span><label class="dk-strict"><input type="checkbox" data-r="nLet"><span data-t="notesLetters"></span></label><label class="dk-strict"><input type="checkbox" data-r="nVow"><span data-t="notesVowels"></span></label></div>
   <div class="dk-words" data-r="res"></div>
   <p class="dk-hint" data-t="tap"></p>
+  <button class="dk-btn" type="button" data-r="bothLine" hidden></button>
   <ul class="dk-notes" data-r="notes"></ul>
+  <div class="dk-share" data-r="share" hidden><p data-r="shareP"></p><div class="dk-row" data-r="shareRow"><button class="dk-btn gold" type="button" data-r="shareYes"></button><button class="dk-btn" type="button" data-r="shareNo"></button></div></div>
+  <p class="dk-hint" data-r="hist"></p>
   <div class="dk-sub" data-r="thP" hidden><h4 style="margin-top:0" data-t="throatH"></h4><div data-r="th"></div></div>
+  <div class="dk-ask"><button class="dk-btn wide" type="button" data-r="askBtn"></button>
+   <div data-r="askForm" hidden><textarea data-r="askNote" rows="2"></textarea><input type="text" data-r="askContact" autocomplete="off"><div class="dk-row"><button class="dk-btn gold" type="button" data-r="askSend"></button><button class="dk-btn" type="button" data-r="askCancel"></button></div></div>
+   <p class="dk-hint" data-r="askMsg"></p></div>
   <div class="dk-after"><button class="dk-btn gold" type="button" data-r="againLine"></button><button class="dk-btn" type="button" data-r="otherLine"></button></div>
+ </div>
+</section>
+<section class="dk-step" data-r="vc" hidden>
+ <div class="dk-body">
+  <h3><span data-t="vcTitle"></span></h3>
+  <p class="dk-hint" data-t="vcIntro"></p>
+  <p class="dk-hero" data-r="vcText" lang="he"></p>
+  <button class="dk-btn wide rec" type="button" data-r="vcRec"></button>
+  <p class="dk-busy" data-r="vcBusy" hidden></p>
+  <p class="dk-say" data-r="vcSay"></p>
+  <button class="dk-btn" type="button" data-r="vcClose"></button>
  </div>
 </section>`;
 
@@ -191,10 +233,20 @@ function mount(root, opts) {
  $('kindPz').textContent = S.pz; $('kindTh').textContent = S.th; $('go').textContent = S.open; $('hearLine').textContent = S.hearLine; $('recBtn').textContent = S.record;
  $('playTake').textContent = S.play; $('again').textContent = S.again; $('check').textContent = S.check; $('fileLab').textContent = S.upload;
  $('againLine').textContent = S.singAgain; $('otherLine').textContent = S.otherLine;
+ $('bothLine').textContent = S.bothLine; $('shareYes').textContent = S.shareYes; $('shareNo').textContent = S.shareNo; $('askBtn').textContent = S.askBtn; $('askSend').textContent = S.askSend; $('askCancel').textContent = S.askCancel;
+ $('askNote').placeholder = S.askNote; $('askContact').placeholder = S.askContact; $('vcOpen').textContent = S.vcLink; $('vcRec').textContent = S.record; $('vcClose').textContent = S.vcClose;
  const fid = 'dkf' + Math.random().toString(36).slice(2, 8); $('file').id = fid; $('fileLab').htmlFor = fid;
  const err = t => { $('err').textContent = t || ''; };
  let STRICT = opts.strict != null ? !!(+opts.strict || opts.strict === true) : (() => { try { return localStorage.getItem('dk.strict') === '1'; } catch (e) { return false; } })();
  let SRV = null, LY = null, P = null, REC = opts.rec || null, LINE = null, TAKE = null, RESULT = null, KIND = opts.th ? 'th' : 'pz', TAKE_URL = null;
+ /* v5 — what to check (Tarteel's tashkeel switch): letter notes, vowel & shva notes; opts.notes = 'words' | 'letters' | 'all' */
+ const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } };
+ const NOTES = (() => { const o = String(opts.notes || '').toLowerCase(); if (o === 'words') return {l: false, v: false}; if (o === 'letters') return {l: true, v: false}; if (o === 'all') return {l: true, v: true};
+  const st = ls('dk.notes'); return st ? {l: st.includes('l'), v: st.includes('v')} : {l: true, v: true}; })();
+ /* v5 — the voice card (Kriah Listener): vowel confusions the ear makes on this voice, learned once from Tehillim 23:1-2 */
+ let VC = (() => { try { return JSON.parse(ls('dk.vc') || 'null'); } catch (e) { return null; } })();
+ /* v5 — notes the person hid (Tarteel: remove a wrong flag), and whether they already sent this take */
+ let HIDDEN = new Set(), SHARED = false, LAST = {ok: 0, n: 0, marks: [], notes: []};
  /* ----- steps ----- */
  const STEPS = ['s1', 's2', 's3', 's4'];
  const fold = (id, html) => { const s = $(id); s.querySelector('.dk-body').hidden = true; const sum = s.querySelector('.dk-sum'); if (sum) { sum.hidden = false; if (html != null) sum.querySelector('.dk-txt').innerHTML = html; } };
@@ -262,8 +314,8 @@ function mount(root, opts) {
  $('recBtn').onclick = async () => { if (MR && MR.state === 'recording') { MR.stop(); return; }
   try { const st = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: false}});
    const mt = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', ''].find(t => !t || MediaRecorder.isTypeSupported(t)); MR = new MediaRecorder(st, mt ? {mimeType: mt} : undefined); CH = []; MR.ondataavailable = e => { if (e.data.size) CH.push(e.data); };
-   MR.onstop = () => { st.getTracks().forEach(t => t.stop()); clearInterval(TK); $('recBtn').textContent = S.record; setTake(new Blob(CH, {type: MR.mimeType || 'audio/mp4'}), 'rec', (Date.now() - T0) / 1000); };
-   MR.start(250); T0 = Date.now(); $('takeRow').hidden = true; $('recBtn').textContent = S.stop + ' · 0.0 s'; $('recNote').textContent = S.recording;
+   MR.onstop = () => { st.getTracks().forEach(t => t.stop()); clearInterval(TK); followStop(); $('recBtn').textContent = S.record; setTake(new Blob(CH, {type: MR.mimeType || 'audio/mp4'}), 'rec', (Date.now() - T0) / 1000); };
+   MR.start(250); T0 = Date.now(); $('takeRow').hidden = true; $('recBtn').textContent = S.stop + ' · 0.0 s'; $('recNote').textContent = S.recording; followStart();
    TK = setInterval(() => { $('recBtn').textContent = S.stop + ' · ' + ((Date.now() - T0) / 1000).toFixed(1) + ' s'; if (Date.now() - T0 > 45000) MR.stop(); }, 200); }
   catch (e) { err(S.micErr + e.message); } };
  $('file').onchange = e => { const f = e.target.files[0]; if (f) setTake(f, f.name, null); e.target.value = ''; };
@@ -283,11 +335,11 @@ function mount(root, opts) {
    misses = 0; busyText((st.stage || S.working) + ' · ' + Math.round((Date.now() - t0) / 1000) + ' s' + (st.queued ? ' · ' + st.queued + S.ahead : ''));
    if (st.state === 'done') return st.result; if (st.state === 'error') throw new Error(st.err || 'error'); if (Date.now() - t0 > 420000) throw new Error(S.tooLong); } }
  $('check').onclick = async () => { if (!TAKE || !LINE) return; busyText(S.sending); $('busy').hidden = false; $('check').disabled = true; err('');
-  try { const q = new URLSearchParams({words: LINE.text, job: 1}); if (REC && LINE.t0 != null) { q.set('ref', REC); q.set('t0', LINE.t0); q.set('t1', LINE.t1); } if (P && P.s.ln && P.s.ln[LINE.k]) q.set('nikud', P.s.ln[LINE.k]); if (P && P.id) q.set('pid', P.id);
+  try { const q = new URLSearchParams({words: LINE.text, job: 1}); if (REC && LINE.t0 != null) { q.set('ref', REC); q.set('t0', LINE.t0); q.set('t1', LINE.t1); } if (P && P.s.ln && P.s.ln[LINE.k]) q.set('nikud', P.s.ln[LINE.k]); if (P && P.id) q.set('pid', P.id); if (VC && VC.pairs && VC.pairs.length) q.set('vc', VC.pairs.join(','));
    const post = () => fetch(url('/check?' + q), {method: 'POST', body: TAKE.blob, headers: {'content-type': TAKE.blob.type || 'application/octet-stream'}});
    let r; try { r = await post(); } catch (e) { if (APIS.length <= 1) throw e; SRV = await pickApi(); r = await post(); }   // the chosen server went away: ask the others once
    let j = await r.json(); if (!r.ok || j.err) throw new Error(j.err || ('server said ' + r.status));
-   if (j.job) j = await waitJob(j.job); RESULT = j; render(j); if (typeof opts.onResult === 'function') { try { opts.onResult(j, {pid: P.id, line: LINE.k, rec: REC, strict: STRICT}); } catch (e) {} } }
+   if (j.job) j = await waitJob(j.job); RESULT = j; HIDDEN = new Set(); SHARED = false; $('share').hidden = true; $('shareP').textContent = S.shareQ; $('shareRow').hidden = false; $('askMsg').textContent = ''; render(j); saveHist(); if (typeof opts.onResult === 'function') { try { opts.onResult(j, {pid: P.id, line: LINE.k, rec: REC, strict: STRICT}); } catch (e) {} } }
   catch (e) { err(S.failed + e.message); }
   $('busy').hidden = true; $('check').disabled = false; };
  /* ----- the verdicts (the same rule as the Space's page) ----- */
@@ -323,24 +375,26 @@ function mount(root, opts) {
   const strictUnclear = STRICT && !CLEAN && !noSpeech && !cantHear && !lineWrong;
   if (!CLEAN) TW.forEach(t => (t.throat || []).forEach(th => { if (th.v === 'plain') { th.raw = 'plain'; th.v = 'unsure'; } })); const LABEL = {ok: S.labelOk, unsure: S.labelUnsure, off: S.labelOff, '': ''};
   const lab = i => why[i] === 'unclear' ? S.labelUnclear : LABEL[marks[i]];
-  $('res').innerHTML = W.map((w, i) => { const t = TW[i]; let n = 0; const ths = (t.throat || []); const cls = () => { const th = ths[n++]; if (!th || marks[i] === 'off' || cantHear || noSpeech) return ''; if (th.v === 'plain') { const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return ''; } if (SON && th.v === 'unsure') return 'bad'; return VCLS[th.v] || ''; };
-   return `<button class="dk-w ${marks[i]}" type="button" data-i="${i}" lang="he"><b>${hiW(w, cls, new Set(((CLEAN && marks[i] !== 'off' && !cantHear && !noSpeech) ? ((j.shva && j.shva[i]) || []) : []).map(d => d.k)))}</b><small>${lab(i)}</small></button>`; }).join('');
+  $('res').innerHTML = W.map((w, i) => { const t = TW[i]; let n = 0; const ths = (t.throat || []); const cls = () => { const th = ths[n++]; if (!th || !NOTES.l || marks[i] === 'off' || cantHear || noSpeech) return ''; if (th.v === 'plain') { const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return ''; } if (SON && th.v === 'unsure') return 'bad'; return VCLS[th.v] || ''; };
+   return `<button class="dk-w ${marks[i]}" type="button" data-i="${i}" lang="he"><b>${hiW(w, cls, new Set(((NOTES.v && CLEAN && marks[i] !== 'off' && !cantHear && !noSpeech) ? ((j.shva && j.shva[i]) || []) : []).map(d => d.k)))}</b><small>${lab(i)}</small></button>`; }).join('');
   $('res').querySelectorAll('.dk-w').forEach(b => b.onclick = () => { const i = +b.dataset.i; $('res').querySelectorAll('.dk-w').forEach(x => x.classList.toggle('sel', x === b)); const r = RW && RW[i], f = F && F[i], t = TW[i];
    const mine = f && f.t0 != null ? [f.t0, f.t1] : t && t.t0 != null ? [t.t0, t.t1] : null;
    if (r && LINE.t0 != null) { playHim(LINE.t0 + r.t0 - .1, LINE.t0 + r.t1 + .1); const wait = (r.t1 - r.t0 + .4) * 1000; setTimeout(() => { if (mine) playYou(Math.max(0, mine[0] - .15), mine[1] + .15); }, wait + 150); }
    else if (mine) playYou(Math.max(0, mine[0] - .15), mine[1] + .15); });
-  const VN = j.vowel_names || {}; const vname = k => esc((VN[k] || k).split(' ')[0]); const lines = [];
+  const VN = j.vowel_names || {}; const vname = k => esc((VN[k] || k).split(' ')[0]); const lines = [], allNotes = [];
   W.forEach((w, i) => { const t = TW[i]; const parts = []; if (cantHear || noSpeech) return;
    if (why[i] === 'swapped') { if (i + 1 < W.length && why[i + 1] === 'swapped' && TW[i].swap != null && TW[i].swap >= RULE.swap) parts.push(fmt(S.swapped, {a: he(w), b: he(W[i + 1])})); }
    else if (why[i] === 'unclear') parts.push(S.wUnclear); else if (marks[i] === 'off') parts.push(S.wOff); else if (marks[i] === 'unsure') parts.push(S.wUnsure);
    if (marks[i] && marks[i] !== 'ok' && t.miss && t.miss.length && t.miss.length < (t.n || 9)) parts.push(he(t.miss.join(' ')) + S.notHeard);
-   if (marks[i] !== 'off') (t.throat || []).forEach(th => { if (th.v !== 'plain') return; const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return; parts.push((th.c === 'ע' ? S.ayinAlef : S.hetPlain) + practice(th.c)); });
-   if (SON && marks[i] !== 'off') (t.throat || []).forEach(th => { if (th.v === 'unsure') parts.push((th.c === 'ע' ? S.ayinUnclear : S.hetUnclear) + practice(th.c)); });
-   (t.notes || []).forEach(nn => { if (nn.say === 'sav') parts.push(S.tavSamekh + practice('ת')); });
-   const vd = (marks[i] === 'off' || !CLEAN) ? [] : ((j.vowels && j.vowels[i]) || []), vn = (marks[i] === 'off' || !CLEAN) ? [] : ((j.vowels_nikud && j.vowels_nikud[i]) || []);
+   if (NOTES.l && marks[i] !== 'off') (t.throat || []).forEach(th => { if (th.v !== 'plain') return; const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return; parts.push((th.c === 'ע' ? S.ayinAlef : S.hetPlain) + practice(th.c)); });
+   if (NOTES.l && SON && marks[i] !== 'off') (t.throat || []).forEach(th => { if (th.v === 'unsure') parts.push((th.c === 'ע' ? S.ayinUnclear : S.hetUnclear) + practice(th.c)); });
+   if (NOTES.l) (t.notes || []).forEach(nn => { if (nn.say === 'sav') parts.push(S.tavSamekh + practice('ת')); });
+   const vOK = NOTES.v && CLEAN && marks[i] !== 'off'; const vd = vOK ? ((j.vowels && j.vowels[i]) || []) : [], vn = vOK ? ((j.vowels_nikud && j.vowels_nikud[i]) || []) : [];
    vd.forEach(d => parts.push(fmt(S.vowHaz, {you: vname(d.you), ref: vname(d.ref)}))); vn.forEach(d => { if (!vd.some(x => x.k === d.k)) parts.push(fmt(S.vowNik, {you: vname(d.you), ref: vname(d.ref)})); });
-   const sv = (marks[i] === 'off' || !CLEAN) ? [] : ((j.shva && j.shva[i]) || []); sv.forEach(d => { const SW = S.shvaWhy || {}, why = SW[d.rule] || SW.hazzan; parts.push(fmt(d.want === 'vowel' ? S.shvaNa : S.shvaNah, {c: he(d.c)}) + (why ? ' — ' + esc(why) : '')); });   /* v4.9 servers */
-   if (parts.length) lines.push(`<li>${he(w)}: ${parts.join('; ')}.</li>`); });
+   const sv = vOK ? ((j.shva && j.shva[i]) || []) : []; sv.forEach(d => { const SW = S.shvaWhy || {}, why = SW[d.rule] || SW.hazzan; parts.push(fmt(d.want === 'vowel' ? S.shvaNa : S.shvaNah, {c: he(d.c)}) + (why ? ' — ' + esc(why) : '')); });   /* v4.9 servers */
+   if (!parts.length) return; const txt = (() => { const d = document.createElement('div'); d.innerHTML = parts.join('; '); return d.textContent; })(), key = i + '|' + txt;
+   allNotes.push({i, w, text: txt}); if (HIDDEN.has(key)) return;
+   lines.push(`<li data-key="${esc(key)}">${he(w)}: ${parts.join('; ')}.<button class="dk-x" type="button" title="${esc(S.dismiss)}" aria-label="${esc(S.dismiss)}">×</button></li>`); });
   const offW = W.filter((w, i) => marks[i] === 'off'), unsW = W.filter((w, i) => marks[i] === 'unsure'), say = $('say');
   if (noSpeech) { say.className = 'dk-say warn'; say.textContent = S.noSpeech; }
   else if (lineWrong) { say.className = 'dk-say bad'; say.textContent = S.wrongLine; }
@@ -352,16 +406,94 @@ function mount(root, opts) {
   else if (unsW.length) { say.className = 'dk-say warn'; say.innerHTML = fmt(S.unsureOnly, {uns: unsW.map(he).join(', ')}); }
   else { say.className = 'dk-say warn'; say.textContent = S.few; }
   $('notes').innerHTML = lines.join('');
+  $('notes').querySelectorAll('.dk-x').forEach(b => b.onclick = () => { const li = b.closest('li'); HIDDEN.add(li.dataset.key); li.remove(); if (!SHARED && TAKE && SRV && SRV.reviews) $('share').hidden = false; });
+  $('askBtn').hidden = !(SRV && SRV.reviews) || !$('askForm').hidden;   /* a server before v5 has no /review or /feedback */
+  LAST = {ok: marks.filter(m => m === 'ok').length, n: W.length, marks: marks.slice(), notes: allNotes};
+  $('bothLine').hidden = !(REC && LINE && LINE.t0 != null && TAKE_URL); showHist();
   const rows = []; TW.forEach((t, i) => { if (marks[i] === 'off' || cantHear || noSpeech) return; (t.throat || []).forEach(th => { const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); rows.push({w: W[i], c: th.c, you: th, him: r}); }); });
-  if (rows.length) { $('th').innerHTML = rows.map(x => `<div class="dk-tr"><div><span class="dk-lt">${esc(x.c)}</span><span>${he(x.w)}</span></div><div><span class="dk-k">${esc(S.you)}</span><span class="${SON && x.you.v === 'unsure' ? 'bad' : VCLS[x.you.v] || ''}">${esc(SON && x.you.v === 'unsure' ? S.thUnclear : thLead(x.you))}</span></div><div><span class="dk-k">${esc(S.hazzan)}</span><span>${esc(thLead(x.him))}</span></div></div>`).join(''); $('thP').hidden = false; } else $('thP').hidden = true;
+  if (rows.length && NOTES.l) { $('th').innerHTML = rows.map(x => `<div class="dk-tr"><div><span class="dk-lt">${esc(x.c)}</span><span>${he(x.w)}</span></div><div><span class="dk-k">${esc(S.you)}</span><span class="${SON && x.you.v === 'unsure' ? 'bad' : VCLS[x.you.v] || ''}">${esc(SON && x.you.v === 'unsure' ? S.thUnclear : thLead(x.you))}</span></div><div><span class="dk-k">${esc(S.hazzan)}</span><span>${esc(thLead(x.him))}</span></div></div>`).join(''); $('thP').hidden = false; } else $('thP').hidden = true;
   fold('s3'); $('s4').hidden = false; $('s4').querySelector('.dk-body').hidden = false; scrollTo('s4'); }
  const sb = $('strict'); sb.checked = STRICT; sb.onchange = () => { STRICT = sb.checked; try { localStorage.setItem('dk.strict', STRICT ? '1' : '0'); } catch (e) {} if (RESULT) render(RESULT); };
  $('againLine').onclick = () => { resetTake(); openStep('s3'); scrollTo('s3'); };
+ /* ----- v5: live follow-along (Tarteel): while recording, the words light up as they are sung — only on a fast server
+    (the Mac's GPU: SRV.device mps/cuda), or when the page asks for it (follow: true); never on a slow one ----- */
+ let FTK = null, FBUSY = false;
+ const followOn = () => opts.follow === true || opts.follow === '1' || (opts.follow !== false && opts.follow !== '0' && SRV && SRV.follow && /mps|cuda/.test(String(SRV.device || '')));
+ function followShow(done) { if (!LINE) return; $('lineWords').innerHTML = heWords(LINE.text).map((w, i) => `<span class="dk-fw${i < done ? ' on' : ''}">${hiTh(w)}</span>`).join(' '); }
+ function followStart() { if (!followOn() || !LINE) return; followShow(0);
+  FTK = setInterval(() => { if (FBUSY || !CH.length || !MR || MR.state !== 'recording') return; FBUSY = true;
+   fetch(url('/follow?' + new URLSearchParams({words: LINE.text})), {method: 'POST', body: new Blob(CH, {type: MR.mimeType || 'audio/mp4'})})
+    .then(r => r.ok ? r.json() : null).then(j => { if (j && j.n && MR && MR.state === 'recording') followShow(j.done); }).catch(() => {}).finally(() => { FBUSY = false; }); }, 1500); }
+ function followStop() { clearInterval(FTK); FTK = null; if (LINE) $('lineWords').innerHTML = hiTh(LINE.text); }
+ /* ----- v5: what to check ----- */
+ $('nLet').checked = NOTES.l; $('nVow').checked = NOTES.v;
+ const saveNotes = () => ls('dk.notes', (NOTES.l ? 'l' : '') + (NOTES.v ? 'v' : '') || '-');
+ $('nLet').onchange = () => { NOTES.l = $('nLet').checked; saveNotes(); if (RESULT) render(RESULT); };
+ $('nVow').onchange = () => { NOTES.v = $('nVow').checked; saveNotes(); if (RESULT) render(RESULT); };
+ /* ----- v5: the hazzan, then you (Fahm's side by side) ----- */
+ $('bothLine').onclick = () => { if (!LINE || LINE.t0 == null) return; playHim(LINE.t0, LINE.t1); setTimeout(() => playYou(0, null), (LINE.t1 - LINE.t0 + .5) * 1000); };
+ /* ----- v5: your tries on this line (kept in this browser) ----- */
+ const histKey = () => P && LINE ? 'dk.hist.' + P.id + '.' + LINE.k : null;
+ function saveHist() { const k = histKey(); if (!k || !LAST.n) return; let H = []; try { H = JSON.parse(ls(k) || '[]'); } catch (e) {} H.push({t: Date.now(), ok: LAST.ok, n: LAST.n}); ls(k, JSON.stringify(H.slice(-20))); showHist(); }
+ function showHist() { const k = histKey(); let H = []; try { H = JSON.parse(ls(k) || '[]'); } catch (e) {} $('hist').textContent = H.length > 1 ? S.histL + H.slice(-5).map(h => h.ok + '/' + h.n).join(' · ') + (H[H.length - 1].ok === H[H.length - 1].n ? ' ✓' : '') : ''; }
+ /* ----- v5: hide a wrong note, and with a yes send the take (Tarteel) ----- */
+ const metaOf = extra => ({pid: P && P.id, line: LINE && LINE.k, words: LINE && LINE.text, nikud: P && P.s.ln && LINE ? P.s.ln[LINE.k] : null, ref: REC, t0: LINE && LINE.t0, t1: LINE && LINE.t1,
+  marks: LAST.marks, notes: LAST.notes.map(x => x.w + ': ' + x.text).slice(0, 30), strict: STRICT, voice_card: VC && VC.pairs, server: RESULT && RESULT.server, device: String(navigator.userAgent || '').slice(0, 120), ...extra});
+ const postMeta = (path, meta) => fetch(url(path + '?meta=' + encodeURIComponent(JSON.stringify(meta))), {method: 'POST', body: TAKE.blob, headers: {'content-type': TAKE.blob.type || 'application/octet-stream'}});
+ $('shareNo').onclick = () => { SHARED = true; $('share').hidden = true; };
+ $('shareYes').onclick = async () => { if (!TAKE) return; $('shareYes').disabled = true;
+  try { const dis = LAST.notes.filter(x => HIDDEN.has(x.i + '|' + x.text)).map(x => ({i: x.i, word: x.w, text: x.text})); const r = await postMeta('/feedback', metaOf({dismissed: dis})); const jj = await r.json(); if (!r.ok || jj.err) throw new Error(jj.err || r.status);
+   SHARED = true; $('shareP').textContent = S.shareDone; $('shareRow').hidden = true; }
+  catch (e) { $('shareP').textContent = S.shareFail + e.message; }
+  $('shareYes').disabled = false; };
+ /* ----- v5: ask a hazzan (Qara'a): the take and a question, answered on the server's /hazzan page ----- */
+ const qsLoad = () => { try { return JSON.parse(ls('dk.reviews') || '[]'); } catch (e) { return []; } };
+ $('askBtn').onclick = () => { $('askForm').hidden = false; $('askBtn').hidden = true; $('askMsg').textContent = ''; $('askNote').focus(); };
+ $('askCancel').onclick = () => { $('askForm').hidden = true; $('askBtn').hidden = false; };
+ $('askSend').onclick = async () => { if (!TAKE || !LINE || !RESULT) return; $('askSend').disabled = true;
+  try { const r = await postMeta('/review', metaOf({note: $('askNote').value.slice(0, 1000), contact: $('askContact').value.slice(0, 200), say: $('say').textContent})); const jj = await r.json(); if (!r.ok || jj.err) throw new Error(jj.err || r.status);
+   const Q = qsLoad(); Q.unshift({id: jj.id, token: jj.token, api: API, words: LINE.text, t: Date.now()}); ls('dk.reviews', JSON.stringify(Q.slice(0, 20)));
+   $('askMsg').textContent = S.askSent; $('askForm').hidden = true; $('askBtn').hidden = false; $('askNote').value = ''; refreshQs(); }
+  catch (e) { $('askMsg').textContent = S.askFail + e.message; }
+  $('askSend').disabled = false; };
+ async function refreshQs() { const Q = qsLoad(); if (!Q.length) { $('qs').hidden = true; return; }
+  const got = await Promise.all(Q.map(async q => { try { const r = await fetch(q.api + '/review/' + q.id + '?t=' + encodeURIComponent(q.token), {cache: 'no-store'}); if (r.status === 404) return {q, gone: true}; return {q, j: await r.json()}; } catch (e) { return {q}; } }));
+  const ans = got.filter(g => g.j && g.j.state === 'answered').length;
+  $('qs').innerHTML = `<h4>${esc(S.askMine)}${ans ? ` · <span class="dk-new">${ans} ${esc(S.askAnswered)}</span>` : ''}</h4>` + got.map(g => `<div class="dk-q"><div>${he(g.q.words)}</div>`
+   + (g.gone ? `<small>${esc(S.askGone)}</small>` : g.j && g.j.state === 'answered' ? `<p class="dk-ans">${esc(g.j.reply.text)}</p><small>${esc(g.j.reply.by || '')}</small>` : `<small>${esc(S.askWaiting)}</small>`)
+   + ` <a class="dk-prac" href="${esc(g.q.api + '/review/' + g.q.id + '/audio?t=' + encodeURIComponent(g.q.token))}" target="_blank" rel="noopener">${esc(S.askPlay)}</a></div>`).join('');
+  $('qs').hidden = false; }
+ refreshQs();
+ /* ----- v5: the voice card ----- */
+ function vcShow() { $('vcState').innerHTML = VC ? ' · ' + esc(S.vcOn) + ` <button class="dk-link" type="button" data-r="vcForget">${esc(S.vcForget)}</button>` : '';
+  const f = $('vcForget'); if (f) f.onclick = () => { VC = null; ls('dk.vc', null); vcShow(); }; }
+ vcShow(); let VCT = null, VMR = null, VCH = [], VT0 = 0, VTK = null;
+ $('vcOpen').onclick = async () => { await loadLyrics(); const t = LY && LY.s && LY.s.t23; if (!t || !t.ln || t.ln.length < 2) { err(S.vcNoText); return; }
+  VCT = {words: t.l[0] + ' ' + t.l[1], nikud: t.ln[0] + ' ' + t.ln[1]}; $('vcText').innerHTML = esc(t.ln[0]) + '<br>' + esc(t.ln[1]); $('vcSay').textContent = ''; $('vcSay').className = 'dk-say'; $('vc').hidden = false; scrollTo('vc'); };
+ $('vcClose').onclick = () => { $('vc').hidden = true; };
+ $('vcRec').onclick = async () => { if (VMR && VMR.state === 'recording') { VMR.stop(); return; }
+  try { const st = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: false}});
+   const mt = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', ''].find(x => !x || MediaRecorder.isTypeSupported(x)); VMR = new MediaRecorder(st, mt ? {mimeType: mt} : undefined); VCH = []; VMR.ondataavailable = e => { if (e.data.size) VCH.push(e.data); };
+   VMR.onstop = () => { st.getTracks().forEach(x => x.stop()); clearInterval(VTK); $('vcRec').textContent = S.record; vcCheck(new Blob(VCH, {type: VMR.mimeType || 'audio/mp4'})); };
+   VMR.start(250); VT0 = Date.now(); $('vcSay').textContent = ''; $('vcRec').textContent = S.stop + ' · 0.0 s';
+   VTK = setInterval(() => { $('vcRec').textContent = S.stop + ' · ' + ((Date.now() - VT0) / 1000).toFixed(1) + ' s'; if (Date.now() - VT0 > 40000) VMR.stop(); }, 200); }
+  catch (e) { err(S.micErr + e.message); } };
+ async function vcCheck(blob) { if (!VCT) return; const b = $('vcBusy'); b.hidden = false; b.innerHTML = '<span class="dk-spin"></span><span>' + esc(S.vcBusy) + '…</span>'; $('vcRec').disabled = true;
+  try { const r = await fetch(url('/check?' + new URLSearchParams({words: VCT.words, nikud: VCT.nikud, job: 1})), {method: 'POST', body: blob, headers: {'content-type': blob.type || 'application/octet-stream'}});
+   let j = await r.json(); if (!r.ok || j.err) throw new Error(j.err || r.status);
+   for (let i = 0; j.job && i < 300; i++) { await new Promise(z => setTimeout(z, 1500)); const st = await (await fetch(url('/job/' + j.job), {cache: 'no-store'})).json(); if (st.state === 'done') j = st.result; else if (st.state === 'error' || st.state === 'gone') throw new Error(st.err || 'error'); }
+   const hm = headMedian(j.take.words); const say = $('vcSay');
+   if (hm == null || hm < .7) { say.className = 'dk-say warn'; say.textContent = S.vcUnclear; }
+   else { const ok = new Set(['U>O', 'O>U', 'E>I', 'I>E']), pairs = new Set(); Object.values(j.vowels_nikud || {}).forEach(ds => ds.forEach(d => { const p = d.ref + '>' + d.you; if (ok.has(p)) pairs.add(p); }));
+    VC = {pairs: [...pairs], head: Math.round(hm * 100) / 100, t: Date.now()}; ls('dk.vc', JSON.stringify(VC)); vcShow();
+    say.className = 'dk-say ok'; say.textContent = VC.pairs.length ? fmt(S.vcDone, {pairs: VC.pairs.map(p => (S.vcPair || {})[p] || p).join(', ')}) : S.vcNothing; } }
+  catch (e) { $('vcSay').className = 'dk-say bad'; $('vcSay').textContent = S.failed + e.message; }
+  b.hidden = true; $('vcRec').disabled = false; }
  $('otherLine').onclick = () => { openStep('s2'); scrollTo('s2'); };
  health();
  return {open: id => { LY ? openP(id) : null; }, get result() { return RESULT; }};
 }
-window.Dikduk = Object.assign(window.Dikduk || {}, {mount, strings: (window.Dikduk && window.Dikduk.strings) || {}, version: '4.9'});
-function auto() { document.querySelectorAll('[data-dikduk]').forEach(el => { if (el.dataset.dkMounted) return; el.dataset.dkMounted = '1'; mount(el, {api: el.dataset.api, pz: el.dataset.pz, th: el.dataset.th, line: el.dataset.line, rec: el.dataset.rec, archive: el.dataset.archive, strict: el.dataset.strict, letters: el.dataset.letters}); }); }   // data-api may hold several servers, space-separated
+window.Dikduk = Object.assign(window.Dikduk || {}, {mount, strings: (window.Dikduk && window.Dikduk.strings) || {}, version: '5.0'});
+function auto() { document.querySelectorAll('[data-dikduk]').forEach(el => { if (el.dataset.dkMounted) return; el.dataset.dkMounted = '1'; mount(el, {api: el.dataset.api, pz: el.dataset.pz, th: el.dataset.th, line: el.dataset.line, rec: el.dataset.rec, archive: el.dataset.archive, strict: el.dataset.strict, letters: el.dataset.letters, follow: el.dataset.follow, notes: el.dataset.notes}); }); }   // data-api may hold several servers, space-separated
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', auto); else auto();
 })();
