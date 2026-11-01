@@ -790,3 +790,12 @@ a fake microphone in Chromium (`flow_letters.py`): record → post → ✓ with 
   .86–.91 on every perek, Tehillim 119 included (25.6 min, 6,213 units). Phone ear 95 min for 237 min of audio on 2 CPUs
   (8 blocks of 30 min). Throat letters, Arabic-letter ear, 14 perakim: Be'eri ע→ع 91%, ח→ح 92% (5% heard as ه);
   Rabbi Alouf on the same 14: 84% / 98%.
+- Be'eri exam (exam_voice.py, 200 pesukim from 19 held-out perakim, hazzan = Rabbi Alouf, the perek's other pesukim as
+  rivals): 190 clean takes, no line called wrong. Words 1,751: ✕ 6 (0.3%), not sure 20 (1.1%); strict ✕ 24 (1.4%).
+  ע throat 97% / not sure 3% / plain 0; ח 93 / 7 / 0. Vowel notes 52 (3.1% of clean words), shva notes 14.
+- 4 of the 6 ✕ were the Name with a prefix (ביהוה, ליהוה) "left out": he_read/skeleton turned only the bare Name into
+  adonay, so ליהוה was expected letter by letter (l-y-h-w-h) and a reader saying "ladonai" lost the word. Every
+  prefixed Name in the exam was flagged (10 of 10: 4 ✕, 6 not sure). Fixed (v5.1, app.py name_prefix: one of ו ב כ ל מ ש,
+  or ו/ש + ב כ ל מ, before יהוה or יי; חיי, עניי, והיי, גויי stay as they are). Re-check: 10 of 10 ✓, nothing else moved.
+  Tehillim has 97 such words, the pizmonim lyrics 54 (ליי 42, כיי 7, ביי 4, ומיי 1). Be'eri after the fix: ✕ 2 (0.1%),
+  not sure 14 (0.8%). The two left: רב (31:20, a short word in a melisma) and למנצח (19:1, the perek's first word).

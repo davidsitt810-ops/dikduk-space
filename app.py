@@ -300,19 +300,28 @@ def he_letters(w):
     w = NIK.sub('', str(w or ''))
     return ''.join(FIN.get(c, c) for c in w if 'א' <= c <= 'ת')
 
+NAME_RE = re.compile('^((?:[וש][בכלמ])|[ובכלמש])?(?:יהוה|יי)$')
+def name_prefix(hl):
+    """the prefix letters before the Name (יי / יהוה) — '' for the bare Name, None when the word is not the Name.
+       (v5.1) With a prefix (לַיהוָה, בַּיהוָה, וַיהוָה, כַּיהוָה, מֵיהוָה, וּבַיהוָה, ליי, כיי, ומיי) the word was read letter by
+       letter, so a reader saying "ladonai" lost the whole word: on a voice it never heard (Be'eri, 200 pesukim) 4 of
+       its 6 false ✕ were ליהוה/ביהוה "left out". Tehillim has 97 such words, the pizmonim 54."""
+    m = NAME_RE.match(hl)
+    return (m.group(1) or '') if m else None
+
 def he_read(w):
-    """the letters as they are READ: the Name (יי / יהוה) is said אדני"""
-    hl = he_letters(w)
-    return 'אדני' if hl in ('יי', 'יהוה') else hl
+    """the letters as they are READ: the Name (יי / יהוה) is said אדני, also after a prefix (ליהוה -> לאדני)"""
+    hl = he_letters(w); p = name_prefix(hl)
+    return p + 'אדני' if p is not None else hl
 
 def he_words(text):
     return [w for w in re.split(r"[\s,.;:!?\"'״׳()\[\]{}|/\\־-]+", str(text or '')) if he_letters(w)]
 
 def skeleton(w):
     """[(letter index, letter, [its possible sounds])] for the word's consonants; the Name reads adonay -> d n"""
-    hl = he_letters(w)
-    if hl in ('יי', 'יהוה'):
-        return [(0, 'ד', ALT['ד']), (1, 'נ', ALT['נ'])]
+    hl = he_letters(w); p = name_prefix(hl)
+    if p is not None:   # the Name, with or without a prefix: the prefix's consonants, then adonay's d n
+        return [(k, c, ALT[c]) for k, c in enumerate(p) if c in ALT and ALT[c]] + [(len(p), 'ד', ALT['ד']), (len(p) + 1, 'נ', ALT['נ'])]
     out = []
     for k, c in enumerate(hl):
         if c == 'ה' and (k == 0 or k == len(hl) - 1):
