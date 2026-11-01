@@ -786,3 +786,7 @@ a fake microphone in Chromium (`flow_letters.py`): record → post → ✓ with 
   O→U (מְשִׁיחוֹ, בּוֹ) and E→I (יֶהְגּוּ) on his voice — the voice card's O>U / E>I. Shva notes 5, all "the hazzan is
   silent, you said a vowel" (after a long vowel 2, after a short one 2, after וּ 1): his reading differs from Rabbi
   Alouf's there (after a long vowel the Sephardic rule itself says na) — not clear checker faults.
+- Be'eri's whole file: all 87 perakim found in order (1–49, 113–150), back to back with ~2 s gaps, mean unit probability
+  .86–.91 on every perek, Tehillim 119 included (25.6 min, 6,213 units). Phone ear 95 min for 237 min of audio on 2 CPUs
+  (8 blocks of 30 min). Throat letters, Arabic-letter ear, 14 perakim: Be'eri ע→ع 91%, ח→ح 92% (5% heard as ه);
+  Rabbi Alouf on the same 14: 84% / 98%.
