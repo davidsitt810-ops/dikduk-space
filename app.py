@@ -918,7 +918,7 @@ def lyrics():
     return _LYR['data']
 
 # ---- what this server is: the code, the heads and the models it runs, so every verdict can be traced to them
-VERSION = 5.0
+VERSION = 5.1
 HERE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def file_sha(path, n=12):
@@ -1220,6 +1220,16 @@ def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None, alt
                     vn[i] = [d for d in vn[i] if hv.get(d['k']) != d['you']]
                     if not vn[i]: del vn[i]
                 out['vowels_nikud'] = vn
+                # (v5.1) and the other way round: a vowel said as the nikud writes it is not a mistake, whatever the
+                # hazzan is heard saying there. A reader the checker never heard (Shmuelof, Tehillim 1, 2, 23): 3 of his
+                # 6 vowel notes were "the hazzan says otherwise" on vowels said exactly as written (מְנֻחוֹת,
+                # וּמִשְׁעַנְתֶּךָ, שִׁבְטְךָ) — the vowel ear hearing the hazzan's vowel wrong, not the student's
+                for i in list(out.get('vowels') or {}):
+                    sl = take['words'][i].get('vow', []) if i < len(take['words']) else []; ev = exp.get(i) or []
+                    if len(ev) != len(sl): continue
+                    pos = {s['k']: j for j, s in enumerate(sl)}
+                    out['vowels'][i] = [d for d in out['vowels'][i] if not (d['k'] in pos and ev[pos[d['k']]]['heard'] == d['you'])]
+                    if not out['vowels'][i]: del out['vowels'][i]
         except Exception as e:
             out['nikud_err'] = str(e)[:200]
     if nikud:

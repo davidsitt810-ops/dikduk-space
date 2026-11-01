@@ -752,3 +752,37 @@ a fake microphone in Chromium (`flow_letters.py`): record → post → ✓ with 
 - Vowel notes vs the nikud are now dropped where the hazzan's own vowel (same slot) is heard as the take's: the vowel
   ear's kubutz/holam confusion on his reading (exam2v7: 7 of 12 nikud notes were U↔O) no longer reaches a student who
   sings it as he does.
+
+## 30. Vocal separation before the check — not worth it (Oct 31)
+- The archive exam (15 pizmonim, 226 takes) run twice: on the original audio, and with every take and reference
+  first passed through Demucs htdemucs (vocals only). space_test/exam_archive_sep.py, SEP=0 / SEP=1.
+- Right words ✕ 1.7% → 1.9% (9 → 10 of 518), not sure 53% → 53%. Skipped words caught 4/15 → 9/15; swapped words
+  caught 15/30 → 12/30 (passed 2 → 4); wrong line caught 4% → 3%. Throat verdicts on right takes the same (ח throat
+  23 → 22, ע 33 → 35). 19% slower.
+- No clear gain (the skip gain is 5 words of 15, the swap loss 3 of 30). Not shipped. A student's phone take has no
+  instruments to remove anyway; only the archive references do.
+
+## 31. Readers the checker never heard: Be'eri and Shmuelof (Oct 31)
+- Sources (open, downloaded): Rabbi Dan Be'eri's Tehillim (archive.org "TanakhAudioRecordingByRabbiDanBeeri",
+  CC BY-SA 3.0) — chanted "according to the musical tradition of the Jews of Aleppo, as taught by Rabbi Mordecai
+  Attiya"; one 237-minute file with perakim 1–49 and 113–150. Abraham Shmuelof's Hebrew Bible (archive.org
+  "HebBible_AShmuelof", CC BY-NC-ND 4.0: testing here, training only with permission) — plain careful reading, one
+  file per perek, 929 files.
+- tools/voice_register.py: the Alouf method (both ears, the pointed text force-aligned) for any reader. For one file
+  holding a whole book, each perek (or 25 pesukim of a long one) is aligned LOCALLY in a window starting where the last
+  one ended: free states before and after the text, scored as each frame's best symbol minus 0.05. With a 0.5 penalty
+  the path preferred to stretch Tehillim 1:6 over all of perek 2 (CTC blanks are cheap; "תאבד ... דרך" matched 2:12)
+  — nearly free ends fixed it: perakim 1–4 found at 0.0/1.5/3.5/5.1 min, pasuk starts on the pauses, mean unit
+  probability .87–.91 (Rabbi Alouf's own perakim: .75–.80). The phone ear runs in 30-minute blocks kept on disk.
+- Throat letters, the Arabic-letter ear on the same perakim: Be'eri (1–4) ע→ع 95%, ח→ح 96%; Shmuelof (1, 2, 23)
+  ע→ع 88%, ח→ح 90%; Rabbi Alouf (same perakim) 76–82% / 95–100%. Both read ע and ח from the throat; neither merges
+  them with א/כ. Vowels: both say every class as written (A a 97–99%, O o 100%).
+- tools/exam_voice.py: each of his pesukim as the student's take, Rabbi Alouf's pasuk as the hazzan, the perek's other
+  pesukim as rival lines, through /check and rule.summarize — every word is right, so every ✕ is a false alarm.
+- Shmuelof, 24 pesukim of perakim 1, 2, 23: 22 clean takes; words 216: ✕ 0, not sure 2 (0.9%); no line called wrong;
+  ע throat 70% / not sure 30% / plain 0; ח 90 / 10 / 0. Vowel notes 9 — 3 of them "the hazzan says otherwise" on vowels
+  said exactly as written (מְנֻחוֹת's נֻ, וּמִשְׁעַנְתֶּךָ's וּ, שִׁבְטְךָ's ךָ: the vowel ear hearing Rabbi Alouf's vowel wrong)
+  → v5.1: a hazzan vowel note is dropped when the take's vowel is the nikud's. Re-run: 6 notes, all the vowel ear's
+  O→U (מְשִׁיחוֹ, בּוֹ) and E→I (יֶהְגּוּ) on his voice — the voice card's O>U / E>I. Shva notes 5, all "the hazzan is
+  silent, you said a vowel" (after a long vowel 2, after a short one 2, after וּ 1): his reading differs from Rabbi
+  Alouf's there (after a long vowel the Sephardic rule itself says na) — not clear checker faults.
