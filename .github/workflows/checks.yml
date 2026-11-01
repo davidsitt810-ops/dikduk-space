@@ -24,5 +24,7 @@ jobs:
         run: python -B tools/t_parity.py tools/exam_rows.json tools/exam_archive_rows.json tools/exam2v7_rows.json tools/exam_israeli_all_rows.json
       - name: the same on synthetic edge cases
         run: python -B tools/review/fuzz3.py 7 20000
+      - name: the line score agrees in rule.py and embed.js
+        run: python -B tools/t_score.py 3 20000
       - name: the measured numbers did not move (tools/rule_baseline.json)
         run: python -B tools/rule_baseline.py

@@ -32,6 +32,9 @@ for f in sorted(os.listdir(AL)):
         if p['p'] < .45 or p['t1'] - p['t0'] > 30: continue      # the alignment itself is doubtful / too long for one take
         jobs.append((n, i))
 random.seed(SEED); random.shuffle(jobs); jobs = jobs[:N]
+if os.environ.get('ONLY_PS'):   # re-check just these pesukim (perek:pasuk from 1), e.g. after a fix
+    want_ps = {tuple(int(x) for x in s.split(':')) for s in os.environ['ONLY_PS'].split(',')}
+    jobs = [(n, i) for n, i in jobs if (n, i + 1) in want_ps]
 print(f'{NAME}: {len(jobs)} pesukim', flush=True)
 CACHE = {}
 def align(n):

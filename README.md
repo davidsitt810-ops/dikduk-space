@@ -166,8 +166,15 @@ v5.0 (Oct 31) takes one idea from each tool we studied (Tarteel, Fahm, Qara'a, T
 - **Report card** (Iqra'Eval): `/report?key=` sums the booth's graded takes per kind of planted mistake and per person.
 Older servers: the new embed hides "Ask a hazzan" and the send-it prompt (no `reviews` in `/health`) and never follows.
 
-v5.1 (Oct 31, server only): on a pointed line, a "the hazzan says otherwise" vowel note is dropped when the student
-said the vowel the nikud writes (the mirror of v4.9's rule). Found by testing on readers the checker never heard
+v5.1 (Oct 31 – Nov 1): on a pointed line, a "the hazzan says otherwise" vowel note is dropped when the student
+said the vowel the nikud writes (the mirror of v4.9's rule). The Name with a prefix (ליהוה, ביהוה, ויהוה, ליי, כיי…) is
+read as adonay with its prefix — before, every one of them was expected letter by letter and flagged. Every checked
+line now gets **a score out of 100 and how sure** ("Score 92/100 · how sure: 85%", under the summary; the tries history
+shows the scores): throat letters 30, vowels 25, shva 15, words 20 (✓ = 1, not sure = ½), clarity 10, over the parts
+the line has; "how sure" falls on an unclear take and on very short lines. The server sends `score` and `score_parts`
+(rule.score_parts / score_of); the embed recomputes the words part from the marks it shows, so the strict switch moves
+it (embed.js scoreOf, checked against rule.py by tools/t_score.py in CI). No score on no speech, can't hear, or
+another line. Found by testing on readers the checker never heard
 (`tools/voice_register.py` aligns a new reader's Tehillim, one file per perek or one file for the whole book;
 `tools/exam_voice.py` checks every pasuk against Rabbi Alouf's as the site does; LAB_NOTES §31).
 

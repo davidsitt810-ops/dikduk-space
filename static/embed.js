@@ -66,7 +66,7 @@ const CSS = `
 .dk .dk-spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--gold);border-radius:50%;animation:dksp .8s linear infinite;flex:none}
 @keyframes dksp{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion: reduce){.dk .dk-spin{animation:none}}
-.dk .dk-say{font-size:17px;line-height:1.4;margin:0 0 12px}.dk .dk-say.ok{color:var(--good)}.dk .dk-say.bad{color:var(--bad)}.dk .dk-say.warn{color:var(--warn)}.dk .dk-say .dk-he{font-size:20px}
+.dk .dk-say{font-size:17px;line-height:1.4;margin:0 0 12px}.dk .dk-score{display:inline-block;font-size:14px;font-weight:600;margin:-4px 0 12px;padding:4px 12px;border-radius:999px;border:1px solid var(--line);color:var(--fg)}.dk .dk-say.ok{color:var(--good)}.dk .dk-say.bad{color:var(--bad)}.dk .dk-say.warn{color:var(--warn)}.dk .dk-say .dk-he{font-size:20px}
 .dk .dk-words{display:flex;flex-wrap:wrap;gap:8px;direction:rtl;justify-content:flex-start}
 .dk .dk-w{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:68px;padding:8px 10px 6px;border-radius:12px;border:2px solid var(--line);background:transparent;color:var(--fg);cursor:pointer;font-family:var(--he);font-size:26px;line-height:1.15}
 .dk .dk-w b{font-weight:500}
@@ -121,7 +121,7 @@ const T = {   /* every piece of text, so a site can translate or reword (Dikduk.
  shvaWhy: {start: 'a shva at the start of a word is said', second: 'the second of two shvas in a row is said', twin: 'a shva under the first of two identical letters is said',
   dagesh: 'a shva under a doubled letter (dagesh) is said', short: 'after a short vowel the shva closes the syllable', first: 'the first of two shvas in a row is silent',
   final: 'a shva at the end of a word is silent', hazzan: 'listen to the hazzan here'},
- notesL: 'Notes on:', notesLetters: 'letters ע ח ת', notesVowels: 'vowels & shva', histL: 'Your tries on this line: ', bothLine: '▶ The hazzan, then you',
+ notesL: 'Notes on:', notesLetters: 'letters ע ח ת', notesVowels: 'vowels & shva', histL: 'Your tries on this line: ', bothLine: '▶ The hazzan, then you', scoreLine: 'Score {s}/100 · how sure: {sure}%',
  dismiss: 'Not my mistake — hide this note', shareQ: 'Help fix the checker: send this recording, with the note you hid?', shareYes: 'Send it', shareNo: 'No thanks',
  shareDone: 'Sent — thank you. It goes into the next round of training.', shareFail: 'Could not send it: ',
  askBtn: 'Ask a hazzan to listen', askNote: 'What should he listen for? (optional)', askContact: 'Your name or email, so he can reach you (optional)', askSend: 'Send', askCancel: 'Cancel',
@@ -190,6 +190,7 @@ const HTML = `
  <div class="dk-body">
   <h3><span class="dk-n">4</span><span data-t="s4"></span></h3>
   <p class="dk-say" data-r="say"></p>
+  <p class="dk-score" data-r="score" hidden></p>
   <label class="dk-strict"><input type="checkbox" data-r="strict"><span data-t="strictL"></span></label>
   <div class="dk-opts"><span data-t="notesL"></span><label class="dk-strict"><input type="checkbox" data-r="nLet"><span data-t="notesLetters"></span></label><label class="dk-strict"><input type="checkbox" data-r="nVow"><span data-t="notesVowels"></span></label></div>
   <div class="dk-words" data-r="res"></div>
@@ -365,6 +366,13 @@ function mount(root, opts) {
  /* strict: on a clean take every 'not sure' word counts as not clearly right. Alouf exam: wrong words caught 76% -> 89%,
     good words ✕ 0 -> 0.4%. On an unclear take nothing changes (there it would put ✕ on a fifth of good words): the page asks for a clearer take. Server: app.strict_of */
  function strictOf(marks, why, clean, cantHear) { if (!clean || cantHear) return {marks, why, on: false}; return {marks: marks.map(m => m === 'unsure' ? 'off' : m), why: why.map((w, i) => marks[i] === 'unsure' && w == null ? 'unclear' : w), on: true}; }
+ /* the line's score out of 100 and how sure (v5.1): the server sends every part but the words (score_parts); the words part
+    comes from the marks shown, so the strict switch moves it. Kept in step with rule.score_of (tools/t_score.py) */
+ const SCORE_W = {throat: .30, vowels: .25, shva: .15, words: .20, clarity: .10};
+ function scoreOf(parts, marks) { if (!parts || parts.skip) return null; const m = marks.filter(x => x); const words = m.length ? (m.filter(x => x === 'ok').length + .5 * m.filter(x => x === 'unsure').length) / m.length : null;
+  const p = Object.assign({}, parts.p, {words}); let num = 0, den = 0; for (const k of ['throat', 'vowels', 'shva', 'clarity', 'words']) { const v = p[k]; if (v == null) continue; num += SCORE_W[k] * v; den += SCORE_W[k]; }
+  if (!den) return null; const sure = parts.sure * (m.length && m.filter(x => x === 'unsure').length / m.length > .3 ? .8 : 1);
+  return {score: Math.round(100 * num / den), sure: Math.round(100 * sure)}; }
  const VCLS = {throat: 'good', plain: 'bad', unsure: 'warn'};
  const thLead = t => !t || !t.v ? '–' : t.v === 'throat' ? S.thThroat : t.v === 'plain' ? (t.c === 'ע' ? S.thAlef : S.thPlain) : S.thUnsure;
  function render(j) { const W = j.words, TW = j.take.words, RW = j.ref ? j.ref.words : null, F = (j.fit && j.fit.length) ? j.fit : null;
@@ -408,7 +416,8 @@ function mount(root, opts) {
   $('notes').innerHTML = lines.join('');
   $('notes').querySelectorAll('.dk-x').forEach(b => b.onclick = () => { const li = b.closest('li'); HIDDEN.add(li.dataset.key); li.remove(); if (!SHARED && TAKE && SRV && SRV.reviews) $('share').hidden = false; });
   $('askBtn').hidden = !(SRV && SRV.reviews) || !$('askForm').hidden;   /* a server before v5 has no /review or /feedback */
-  LAST = {ok: marks.filter(m => m === 'ok').length, n: W.length, marks: marks.slice(), notes: allNotes};
+  const SC = scoreOf(j.score_parts, marks); $('score').hidden = !SC; if (SC) $('score').textContent = fmt(S.scoreLine, {s: SC.score, sure: SC.sure});   /* none from a server before v5.1 */
+  LAST = {ok: marks.filter(m => m === 'ok').length, n: W.length, marks: marks.slice(), notes: allNotes, score: SC ? SC.score : null};
   $('bothLine').hidden = !(REC && LINE && LINE.t0 != null && TAKE_URL); showHist();
   const rows = []; TW.forEach((t, i) => { if (marks[i] === 'off' || cantHear || noSpeech) return; (t.throat || []).forEach(th => { const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); rows.push({w: W[i], c: th.c, you: th, him: r}); }); });
   if (rows.length && NOTES.l) { $('th').innerHTML = rows.map(x => `<div class="dk-tr"><div><span class="dk-lt">${esc(x.c)}</span><span>${he(x.w)}</span></div><div><span class="dk-k">${esc(S.you)}</span><span class="${SON && x.you.v === 'unsure' ? 'bad' : VCLS[x.you.v] || ''}">${esc(SON && x.you.v === 'unsure' ? S.thUnclear : thLead(x.you))}</span></div><div><span class="dk-k">${esc(S.hazzan)}</span><span>${esc(thLead(x.him))}</span></div></div>`).join(''); $('thP').hidden = false; } else $('thP').hidden = true;
@@ -434,8 +443,8 @@ function mount(root, opts) {
  $('bothLine').onclick = () => { if (!LINE || LINE.t0 == null) return; playHim(LINE.t0, LINE.t1); setTimeout(() => playYou(0, null), (LINE.t1 - LINE.t0 + .5) * 1000); };
  /* ----- v5: your tries on this line (kept in this browser) ----- */
  const histKey = () => P && LINE ? 'dk.hist.' + P.id + '.' + LINE.k : null;
- function saveHist() { const k = histKey(); if (!k || !LAST.n) return; let H = []; try { H = JSON.parse(ls(k) || '[]'); } catch (e) {} H.push({t: Date.now(), ok: LAST.ok, n: LAST.n}); ls(k, JSON.stringify(H.slice(-20))); showHist(); }
- function showHist() { const k = histKey(); let H = []; try { H = JSON.parse(ls(k) || '[]'); } catch (e) {} $('hist').textContent = H.length > 1 ? S.histL + H.slice(-5).map(h => h.ok + '/' + h.n).join(' · ') + (H[H.length - 1].ok === H[H.length - 1].n ? ' ✓' : '') : ''; }
+ function saveHist() { const k = histKey(); if (!k || !LAST.n) return; let H = []; try { H = JSON.parse(ls(k) || '[]'); } catch (e) {} H.push({t: Date.now(), ok: LAST.ok, n: LAST.n, s: LAST.score}); ls(k, JSON.stringify(H.slice(-20))); showHist(); }
+ function showHist() { const k = histKey(); let H = []; try { H = JSON.parse(ls(k) || '[]'); } catch (e) {} $('hist').textContent = H.length > 1 ? S.histL + H.slice(-5).map(h => h.s != null ? h.s : h.ok + '/' + h.n).join(' · ') + (H[H.length - 1].ok === H[H.length - 1].n ? ' ✓' : '') : ''; }
  /* ----- v5: hide a wrong note, and with a yes send the take (Tarteel) ----- */
  const metaOf = extra => ({pid: P && P.id, line: LINE && LINE.k, words: LINE && LINE.text, nikud: P && P.s.ln && LINE ? P.s.ln[LINE.k] : null, ref: REC, t0: LINE && LINE.t0, t1: LINE && LINE.t1,
   marks: LAST.marks, notes: LAST.notes.map(x => x.w + ': ' + x.text).slice(0, 30), strict: STRICT, voice_card: VC && VC.pairs, server: RESULT && RESULT.server, device: String(navigator.userAgent || '').slice(0, 120), ...extra});

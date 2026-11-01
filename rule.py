@@ -119,3 +119,47 @@ def summarize(out):
            for i, ds in ((out.get('shva') or {}).items() if clean else ()) if int(i) < len(W) and marks[int(i)] != 'off' for d in ds]
     if cant_hear or no_speech: throat, vow, miss, shv = [], [], {}, []   # the words were not made out: no claims about the letters inside them
     return {'marks': marks, 'why': why, 'line_wrong': line_wrong, 'cant_hear': cant_hear, 'no_speech': no_speech, 'rival': out['take'].get('rival'), 'gap': out['take'].get('gap'), 'throat': throat, 'vowels': vow, 'shva': shv, 'miss': miss, 'clean': clean, 'head': head_median(TW), 'hazzan': bool(F), 'dur': out['take'].get('dur')}
+
+# ---------------------------------------------------------------- the line's score (v5.1)
+# A score out of 100 for a take, and how sure the checker is of it (the reader scores of LAB_NOTES §31, per line):
+# throat letters 30, vowels 25, shva 15, words 20, clarity 10 — over the parts the line has (no ע/ח, no nikud: those
+# parts drop out and the rest are weighed up). The words part is computed from the marks the page shows (so the
+# strict switch moves it); everything else comes from the server once (score_parts). Kept in step with scoreOf in
+# static/embed.js (tools/t_score.py).
+SCORE_W = {'throat': .30, 'vowels': .25, 'shva': .15, 'words': .20, 'clarity': .10}
+
+def score_parts(out, sm, n_shva=0):
+    """the parts of the line score other than the words, from a /check result and its summarize(): None = not judged"""
+    skip = bool(sm['no_speech'] or sm['cant_hear'] or sm['line_wrong'])
+    th = [t for t in sm['throat'] if t['c'] in 'עח']
+    throat = (sum(1.0 if t['v'] == 'throat' else .5 if t['v'] == 'unsure' else 0.0 for t in th) / len(th)) if th else None
+    n_vow = sum(len(w.get('vow') or []) for w in out['take']['words'])
+    has_vow = out.get('vowels') is not None or out.get('vowels_nikud') is not None
+    vowels = max(0.0, 1 - len({(v['w'], v['k']) for v in sm['vowels']}) / n_vow) if (sm['clean'] and has_vow and n_vow) else None
+    shva = max(0.0, 1 - len(sm['shva']) / n_shva) if (sm['clean'] and n_shva and out.get('shva') is not None) else None
+    h = head_median(out['take']['words'])
+    clarity = min(1.0, h / .85) if h is not None else None
+    n_words = len(out['words'])
+    base = 1.0 if sm['clean'] else (min(.9, .9 * h / .7) if h is not None else .3)
+    sure = base * min(1.0, (max(1, n_words) / 6) ** .35)
+    return {'skip': skip, 'p': {'throat': throat, 'vowels': vowels, 'shva': shva, 'clarity': clarity}, 'sure': round(sure, 4)}
+
+def js_round(x):
+    """Math.round: the nearest integer, halves up (int(x + .5) is off by one when x + .5 rounds up in floating point)"""
+    import math
+    f = math.floor(x); return int(f + 1 if x - f >= .5 else f)
+
+def score_of(parts, marks):
+    """-> {'score': 0-100 or None (not scored: no speech, can't hear, another line), 'sure': 0-100}"""
+    if not parts or parts.get('skip'): return {'score': None, 'sure': 0}
+    m = [x for x in marks if x]
+    words = (sum(x == 'ok' for x in m) + .5 * sum(x == 'unsure' for x in m)) / len(m) if m else None
+    p = dict(parts['p'], words=words)
+    num = den = 0.0
+    for k in ('throat', 'vowels', 'shva', 'clarity', 'words'):   # plain additions in a fixed order, as the page does (Python's sum() compensates)
+        if p.get(k) is None: continue
+        num += SCORE_W[k] * p[k]; den += SCORE_W[k]
+    if not den: return {'score': None, 'sure': 0}
+    score = 100 * num / den
+    sure = parts['sure'] * (.8 if m and sum(x == 'unsure' for x in m) / len(m) > .3 else 1.0)
+    return {'score': js_round(score), 'sure': js_round(100 * sure)}

@@ -16,6 +16,7 @@ LETTERS = list('אבגדהוזחטיכלמנסעפצקרשת'); VOWELS = list('A
 SYM = ['<b>', ' '] + LETTERS + (VOWELS if MODE == 'full' else []); S2I = {s: i for i, s in enumerate(SYM)}
 rows = [json.loads(l) for l in open(os.path.join(HERE, 'manifest.jsonl'), encoding='utf-8')]
 rows += [json.loads(l) for l in open(os.path.join(HERE, 'manifest_alouf.jsonl'), encoding='utf-8')] if os.path.exists(os.path.join(HERE, 'manifest_alouf.jsonl')) else []
+rows += [json.loads(l) for l in open(os.path.join(HERE, 'manifest_voices.jsonl'), encoding='utf-8')] if os.path.exists(os.path.join(HERE, 'manifest_voices.jsonl')) else []   # readers the heads never heard (Be'eri, Ben Haim, Tawil: voice_register / perek_to_manifest)
 ar = [r for r in rows if r['src'] == 'ar' and r['skel'] >= .35 and r['good'] >= .5 and r['T'] >= 20]
 al = [r for r in rows if r['src'] == 'al' and r['skel'] >= .5 and r['T'] >= 20]
 il = [r for r in rows if r['src'] == 'il']
@@ -23,19 +24,25 @@ eg = [r for r in rows if r['src'] == 'eg' and r['skel'] >= .4 and r['T'] >= 20] 
 EG_W = int(os.environ.get('HEAD_EG', '0'))
 il2 = [r for r in rows if r['src'] == 'il2' and r['skel'] >= .3 and r['T'] >= 20]   # Israeli read speech, ayin/het written as alef/khaf (HEAD_IL=1 to train on it)
 IL_W = int(os.environ.get('HEAD_IL', '0')); il2_hold = set(r['rec'] for r in il2[::10])
+nv = [r for r in rows if r['src'] == 'nv' and r['skel'] >= .5 and r['T'] >= 20]   # new voices, pointed Tehillim (HEAD_NV=k: k copies in training)
+NV_W = int(os.environ.get('HEAD_NV', '0'))
 if MAXN: ar = ar[:MAXN]; il = il[:MAXN // 4]   # smoke tests
 pids = sorted(set(r['pid'] for r in ar)); random.shuffle(pids); hold = set(pids[:max(1, len(pids) // 10)])
 pers = sorted(set(r['pid'] for r in al), key=lambda s: int(s[2:])); random.shuffle(pers); hold_al = set(pers[:max(1, len(pers) // 10)])
 eg_hold = set(r['rec'] for r in eg[::10])   # every 10th Egyptian clip held out for its own exam
+nvp = sorted(set(r['pid'] for r in nv)); random.shuffle(nvp); hold_nv = set(nvp[:max(1, len(nvp) // 10)]) if nvp else set()   # 10% of their perakim (the exams' perakim are never in the manifest)
 if MODE == 'letters':
-    train = [r for r in ar if r['pid'] not in hold] + [r for r in al if r['pid'] not in hold_al] * AL_W + [r for r in eg if r['rec'] not in eg_hold] * EG_W + [r for r in il2 if r['rec'] not in il2_hold] * IL_W
+    train = [r for r in ar if r['pid'] not in hold] + [r for r in al if r['pid'] not in hold_al] * AL_W + [r for r in eg if r['rec'] not in eg_hold] * EG_W + [r for r in il2 if r['rec'] not in il2_hold] * IL_W + [r for r in nv if r['pid'] not in hold_nv] * NV_W
 else:
-    train = [r for r in al if r['pid'] not in hold_al]
-test_ar = [r for r in ar if r['pid'] in hold]; test_al = [r for r in al if r['pid'] in hold_al]
-print(f'mode {MODE}: archive lines {len(ar)}, Alouf pesukim {len(al)} (weight {AL_W}), israeli {len(il)}, egyptian {len(eg)} (weight {EG_W}), israeli train {len(il2)} (weight {IL_W}); train items {len(train)}; held out {len(test_ar)} hazzan lines of {len(hold)} pizmonim, {len(test_al)} Alouf pesukim of {len(hold_al)} perakim')
+    train = [r for r in al if r['pid'] not in hold_al] + [r for r in nv if r['pid'] not in hold_nv] * NV_W
+test_ar = [r for r in ar if r['pid'] in hold]; test_al = [r for r in al if r['pid'] in hold_al]; test_nv = [r for r in nv if r['pid'] in hold_nv]
+print(f'mode {MODE}: archive lines {len(ar)}, Alouf pesukim {len(al)} (weight {AL_W}), israeli {len(il)}, egyptian {len(eg)} (weight {EG_W}), israeli train {len(il2)} (weight {IL_W}); train items {len(train)}; held out {len(test_ar)} hazzan lines of {len(hold)} pizmonim, {len(test_al)} Alouf pesukim of {len(hold_al)} perakim; new voices {len(nv)} (weight {NV_W}), held out {len(test_nv)} of {len(hold_nv)} perakim')
 
 def feats(r):
-    d = np.load(os.path.join(HERE, 'feat', r['id'] + '.npz')); return torch.from_numpy(d['h12'].astype(np.float32))
+    d = np.load(os.path.join(HERE, 'feat', r['id'] + '.npz'))
+    if 'h12q' in d.files:   # int8 with a scale per frame (perek_to_manifest.py)
+        return torch.from_numpy(d['h12q'].astype(np.float32) * (d['h12s'].astype(np.float32)[:, None] / 127))
+    return torch.from_numpy(d['h12'].astype(np.float32))
 def target(r):
     src = r['pron'] if MODE == 'full' else r['text']
     out = [S2I[c] for c in src if c in S2I]
@@ -118,7 +125,7 @@ def exam(name, items, src_key, pairs):
         for c in pair:
             tot = sum(conf.get((c, o), 0) for o in pair)
             if tot: print(f'   {c} heard as: ' + ', '.join(f'{o} {100 * conf.get((c, o), 0) / tot:.0f}%' for o in pair) + f'  (n={tot})')
-def exam_vowel_ear(items):
+def exam_vowel_ear(items, title='held-out Alouf'):
     """the vowel ear as the server will use it: the optional-slot template (no nikud) aligned on the head, the vowels
        found per word compared with the nikud's; a correct reader (Rabbi Alouf) should raise no flags"""
     sys.path.insert(0, os.path.join(HERE, '..', 'space'))
@@ -139,7 +146,7 @@ def exam_vowel_ear(items):
                         conf[(e['heard'], s_['heard'])] = conf.get((e['heard'], s_['heard']), 0) + 1
                         if clear(s_, 2.0): n_clear += 1; n_clear_ok += (s_['heard'] == e['heard'])
             n_flag += sum(len(v) for v in compare_vowels(slots, ref).values())
-    print(f'\nvowel ear on held-out Alouf: {n_words} words, vowel count matched the nikud in {100 * n_same / max(1, n_words):.0f}%; '
+    print(f'\nvowel ear on {title}: {n_words} words, vowel count matched the nikud in {100 * n_same / max(1, n_words):.0f}%; '
           f'clear slots {n_clear} of which right {100 * n_clear_ok / max(1, n_clear):.0f}%; words flagged (false alarms on a correct reader) {n_flag} = {100 * n_flag / max(1, n_words):.1f}%')
     for e in VOWELS:
         tot = sum(conf.get((e, o), 0) for o in VOWELS)
@@ -148,7 +155,11 @@ exam('held-out hazzan lines', test_ar, 'text', [('ע', 'א'), ('ח', 'כ')])
 exam('held-out Alouf pesukim', test_al, 'pron' if MODE == 'full' else 'text', [('ע', 'א'), ('ח', 'כ')] + ([('A', 'E', 'I', 'O', 'U')] if MODE == 'full' else []))
 exam('Israeli read speech (ע said like א, ח like כ)', il, 'text', [('ע', 'א'), ('ח', 'כ')])
 if eg: exam('held-out Egyptian Arabic clips (ع ح said from the throat)', [r for r in eg if r['rec'] in eg_hold], 'text', [('ע', 'א'), ('ח', 'כ')])
-if MODE == 'full': exam_vowel_ear(test_al)
+for vname in sorted(set(r['voice'] for r in test_nv)):
+    exam(f'held-out {vname} pesukim', [r for r in test_nv if r['voice'] == vname], 'pron' if MODE == 'full' else 'text', [('ע', 'א'), ('ח', 'כ')] + ([('A', 'E', 'I', 'O', 'U')] if MODE == 'full' else []))
+if MODE == 'full':
+    exam_vowel_ear(test_al)
+    for vname in sorted(set(r['voice'] for r in test_nv)): exam_vowel_ear([r for r in test_nv if r['voice'] == vname], f'held-out {vname}')
 out = HEAD_OUT or os.path.join(HERE, '..', 'space', 'letter_head.pt' if MODE == 'letters' else 'full_head.pt')
 torch.save({'state': model.state_dict(), 'sym': SYM, 'layer': 'h12', 'd_in': 1024, 'mode': MODE, 'n_train': len(train)}, out)
 print('saved', out, os.path.getsize(out) // 1024, 'KB')

@@ -17,6 +17,10 @@ async def main():
         c = await b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2); P = await c.new_page(); errs = []; P.on('pageerror', lambda e: errs.append(str(e)))
         await P.goto('http://127.0.0.1:8099/demo_th23_2.html'); await P.evaluate("()=>{localStorage.clear()}"); await P.reload(); await P.wait_for_timeout(2500)
         await check(P, 'take_alouf_23_2_shvadrop.wav'); n0 = await P.evaluate(notes); print('notes:', n0)
+        # v5.1: the line's score out of 100 and how sure, under the summary
+        sc = await P.evaluate("()=>{const e=document.querySelector('.dk [data-r=score]');return e.hidden?null:e.textContent}"); print('score:', sc)
+        import re as _re
+        if not sc or not _re.match(r'^Score \d{1,3}/100 · how sure: \d{1,3}%$', sc): fails.append(('no score line', sc))
         if 'shva na' not in n0: fails.append(('no shva note to work with', n0))
         # what to check: vowels & shva off -> the note and the underline go; on -> back
         await P.click('.dk [data-r=nVow]'); n1 = await P.evaluate(notes); und = await P.evaluate("()=>document.querySelectorAll('.dk .dk-sv').length"); print('vowels off:', repr(n1), 'underlines', und)
@@ -36,6 +40,7 @@ async def main():
         # the same take again: the history line, and the hidden note is back for a new result
         await check(P, 'take_alouf_23_2_shvadrop.wav'); hist = await P.evaluate("()=>document.querySelector('.dk [data-r=hist]').textContent"); print('history:', hist)
         if '·' not in hist: fails.append(('no history', hist))
+        if '/' in hist.split(':')[-1]: fails.append(('history still shows words, not the score', hist))
         el = await P.query_selector('.dk [data-r=s4]'); await el.screenshot(path=os.path.join(H, '..', 'shots', 'v5_result.png'))
         # ask a hazzan
         await P.click('.dk [data-r=askBtn]'); await P.fill('.dk [data-r=askNote]', 'Is my shva right in ינהלני?'); await P.click('.dk [data-r=askSend]'); await P.wait_for_timeout(1500)

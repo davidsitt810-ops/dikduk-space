@@ -162,3 +162,10 @@ Base: `https://davidsitt-pizmonim-dikduk.hf.space`. All JSON, CORS `*`. No keys.
 - Storage: all of it in the visitor's browser (localStorage keys `dk.*`); nothing needs an account. If the site later
   has accounts, the reviews' id + token and the voice card are the things worth moving into them.
 - Nothing to change on the site for any of this; an older checker server just doesn't offer the new buttons.
+
+## v5.1 (Nov 1)
+- The embed shows a score line under the summary: "Score 92/100 · how sure: 85%" (string `scoreLine`, element
+  `data-r=score`, class `dk-score`); the tries history shows the scores. Nothing to change on the site; with a server
+  older than v5.1 the line stays hidden.
+- Server: the Name with a prefix is read as adonay (ליהוה, ביהוה, ליי…); a hazzan vowel note is dropped when the student
+  said the nikud's vowel.

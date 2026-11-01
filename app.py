@@ -211,10 +211,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from vowels import vowel_place, compare_vowels, letters_kept, VOWEL_NAME, VOWELS
 from order import order_evidence, order_from_tokens, rival_evidence
 import shva as SH
-from rule import RULE, mark_of, head_median, no_speech_in, clean_of, marks_of, strict_of, summarize   # the word rule (rule.py)
+from rule import RULE, mark_of, head_median, no_speech_in, clean_of, marks_of, strict_of, summarize, score_parts, score_of   # the word rule (rule.py)
 FULL = None; FULL_SYM = []; FULL_LAYER = 12
 try:
-    ck = torch.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'full_head.pt'), map_location='cpu')
+    ck = torch.load(os.environ.get('DK_FULL_HEAD') or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'full_head.pt'), map_location='cpu')   # DK_FULL_HEAD: another vowel head (experiments)
     FULL_SYM = ck['sym']; FULL_LAYER = int(str(ck.get('layer', 'h12')).replace('h', ''))
     FULL = LetterHead(d_in=ck.get('d_in', 1024), n=len(FULL_SYM)); FULL.load_state_dict(ck['state']); FULL.eval()
     FULL_S2I = {c: i for i, c in enumerate(FULL_SYM)}
@@ -972,7 +972,7 @@ def build_commit():
     return None, None
 
 _FILES = {'app.py': 'app.py', 'rule.py': 'rule.py', 'order.py': 'order.py', 'vowels.py': 'vowels.py', 'nikud.py': 'nikud.py', 'shva.py': 'shva.py', 'letters.py': 'letters.py',
-          'letter_head': os.environ.get('DK_LETTER_HEAD') or 'letter_head.pt', 'full_head': 'full_head.pt', 'throat_models.json': 'throat_models.json', 'throat_models_v2.json': 'throat_models_v2.json'}
+          'letter_head': os.environ.get('DK_LETTER_HEAD') or 'letter_head.pt', 'full_head': os.environ.get('DK_FULL_HEAD') or 'full_head.pt', 'throat_models.json': 'throat_models.json', 'throat_models_v2.json': 'throat_models_v2.json'}
 if FT is not None: _FILES['ft_heads'] = os.path.join(FT_PATH, 'heads.pt')
 FILES = {}
 for k, p in _FILES.items():
@@ -1256,6 +1256,14 @@ def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None, alt
             if k in out: out[k], d = drop_card(out[k], VC); n += d
         out['voice_card'] = {'pairs': sorted(VC), 'dropped': n}
     out['vowel_names'] = VOWEL_NAME
+    # (v5.1) the line's score out of 100 and how sure: the parts other than the words here, the words part from the
+    # marks the page shows (strict moves it) — rule.score_parts / score_of, embed.js scoreOf
+    try:
+        sm = summarize(out)
+        out['score_parts'] = score_parts(out, sm, (nikud or '').count('\u05b0'))
+        out['score'] = score_of(out['score_parts'], sm['marks'])
+    except Exception as e:
+        out['score_err'] = str(e)[:200]
     return out
 
 # ================================================================= the recording booth (/record)
