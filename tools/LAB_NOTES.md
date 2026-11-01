@@ -799,3 +799,92 @@ a fake microphone in Chromium (`flow_letters.py`): record → post → ✓ with 
   or ו/ש + ב כ ל מ, before יהוה or יי; חיי, עניי, והיי, גויי stay as they are). Re-check: 10 of 10 ✓, nothing else moved.
   Tehillim has 97 such words, the pizmonim lyrics 54 (ליי 42, כיי 7, ביי 4, ומיי 1). Be'eri after the fix: ✕ 2 (0.1%),
   not sure 14 (0.8%). The two left: רב (31:20, a short word in a melisma) and למנצח (19:1, the perek's first word).
+
+## 32. Three Syrian readers, a score per reader, and the vowel ear raised on new voices (Oct 31 – Nov 1, night)
+
+**The readers.** Miqra al pi ha-Mesorah's per-perek Tehillim (fetched with the checker's own user agent, with David's
+OK): Ben Haim and Tawil (all 150), Riahi, Daya, Shrem (a few perakim). Ben Haim and Tawil aligned on the 19 held-out
+perakim (`voice_register.py`), the others on what they recorded. Riahi sings with repeats (a perek takes 3x a
+reading; unit probability .05–.40) — no truth to grade against, left out. Exams (`exam_voice.py`, hazzan = Rabbi
+Alouf, the perek's other pesukim as rivals, seed 7):
+
+| reader | takes | clean | ✕ | not sure | ע throat / unsure / plain | ח | vowel notes (word-slots, % of clean words) |
+|---|---|---|---|---|---|---|---|
+| Ben Haim | 150 | 86% | 0.8% | 6.2% | 82 / 15 / 2 | 94 / 6 / 0 | 104 (9.3%): oo→oh 38, oh→ah 30, ee→eh 14 |
+| Tawil | 150 | 79% | 0.7% | 4.2% | 76 / 20 / 4 | 90 / 9 / 1 | 72 (7.1%): ee→eh 30, ee→ah 11 |
+| Daya | 75 | 15% | 0.7% | 30% | 57 / 42 / 1 | 71 / 29 / 0 | (11 clean takes) |
+| Shrem | 5 | 0 | 0 | 64% | | | |
+
+(`exam_voice.py`'s own summary counts a vowel noted against the hazzan AND against the nikud twice — 196 = 17.4% for
+Ben Haim and 130 = 12.7% for Tawil as first reported; once per word-slot it is the table's. `compare_exams.py` counts once.)
+
+**A score per reader** (`score_voice.py`): throat 30%, vowels 25% (1 − notes per vowel said), shva 15%, words 20%
+(share ✓), clarity 10% (the alignment's mean unit probability); "how sure" = share of clean takes x a size factor x
+the alignment's shakiness. Be'eri 96.7 (sure 96), Shmuelof 91.0 (47 — 24 pesukim), Ben Haim 90.5 (82), Tawil 90.1 (75),
+Daya 78.1 (10), Shrem 67.4 (0). The same parts per line are the page's new score (v5.1: `rule.score_parts / score_of`,
+`embed.js scoreOf`; `t_score.py` checks the two agree on 20,000 random lines).
+
+**Training items, one ear** (`perek_to_manifest.py`): per perek, the Arabic-letter model over the recording (log-probs +
+layer 12, 20 s windows with 1 s context), the perek's letters aligned LOCALLY (free states before and after), the
+pesukim cut from their letters' frames, layer 12 kept as int8 + a scale per frame. Ben Haim and Tawil: the even
+perakim 2–120 (1,029 + 1,039 pesukim); Be'eri: his 68 perakim outside the exams' set, cut by his alignment's spans
+(1,107 pesukim). The exams' perakim are never written.
+- **Bug on the way:** the first Be'eri pass kept 21 pesukim of ~1,100. This Arabic model writes the vowels out (harakat,
+  long vowels as ا و ي ى, the word bar |); the text path has no such tokens and could only sit in blank there, while
+  the free states took each frame's best symbol — on a reader who says every vowel clearly, the free states won and
+  the perek's whole text was squeezed into its last seconds (perek 4: text at 70–102 s of 104, letter probability
+  .15–.22). Fix: the blank carries the mass of every vowel-like token (`blank_merge`); perek 4 then lands within 0.1 s
+  of the phone ear's alignment on all 9 pesukim (.82–.95). Ben Haim re-cut with the fix (26, 62): the same spans (one
+  first pasuk 1.5 s longer), so his and Tawil's items stand. (`voice_register.py` is not affected: its local alignment
+  runs on the phone ear, whose tokens include the vowels.)
+- **Held out so the exams stay honest:** 10% of the new voices' perakim (18 perakim, 505 pesukim) for the heads' own
+  exams; and the new voices never train on the TEXT of Rabbi Alouf's 14 held-out perakim (7, 12, 18, 21, 23, 32, 35,
+  40, 46, 94, 118, 123, 126, 140), so his held-out exams stay unseen in voice and text.
+
+**The vowel ear (`full_head.pt`, raised on Rabbi Alouf only) raised again** — `train_head2.py full 5 full_head.pt`
+warm, LR 3e-4, new voices x1 (`HEAD_NV=1`); nv1 = Alouf x1, nv2 = Alouf x2 (`HEAD_AL_FULL=2`). Head-level exam
+(held-out perakim; % of a correct reading's words the vowel ear would flag):
+
+| | shipped | nv1 | **nv2** | nv2 without Ben Haim (`HEAD_NV_SKIP`) |
+|---|---|---|---|---|
+| Ben Haim | 9.9% (U heard U 68%, O→A 11%, I→E 10%) | 1.8% | **2.0%** (U 95%) | 8.1% (U 70%, O→A 9%, I→E 4%) |
+| Tawil | 5.8% | 1.9% | **1.9%** | 2.2% |
+| Be'eri | 1.0% | 0.2% | **0.2%** | 0.2% |
+| Rabbi Alouf | 0.9% | 1.5% | **1.2%** | 1.4% |
+
+nv1's 15 new flags on Rabbi Alouf: 7 his E heard as I, 6 his O heard as U — the very boundaries moved to hear Ben
+Haim's u (the old ear: o) and Tawil's i (the old ear: e). Alouf x2 won back half.
+
+Through the whole server, on the exams' held-out perakim (word-slots with a vowel note, % of clean words):
+
+| reader | shipped | nv2 | nv2 without Ben Haim |
+|---|---|---|---|
+| Ben Haim (150) | 104 (9.3%); not sure 6.2%; ✕ 10 | **29 (2.6%)**; not sure 4.2%; ✕ 10 | 103 (9.2%); not sure 5.3%; ✕ 13 |
+| Tawil (150) | 72 (7.1%); not sure 4.2%; ✕ 9 | **23 (2.3%)**; not sure 2.8%; ✕ 8 | |
+| Shmuelof (24, never trained on) | 3 (1.5%) | **9 (4.5%)** | |
+
+Shmuelof's 6 new notes are all O→U and E→I (יוֹמָם, בְאַפּוֹ, וּבַחֲרוֹנוֹ, יְבַהֲלֵמוֹ, חֹק, יֶהְגֶּה); on three of them the phone
+ear hears "o" (יבהלמו "m o", חק "h o k a") or "o u" (באפו) — the new ear calls his o a u. Reader scores (`score_voice.py`):
+Ben Haim 90.5 → 91.5, Tawil 90.1 → 90.8, Shmuelof 91.0 → 90.7 (vowels are 25% and were already 96–99 per vowel
+said; the gap left is the throat part, 30%: Ben Haim's ע 15% not sure, Tawil's 20%).
+
+**What it means.** The head learned the VOICES, not the vowels: on a voice it heard, notes drop by three quarters;
+on a voice it never heard — Ben Haim left out — nothing (9.3% → 9.2% through the server, and 3 more ✕ from the word
+score, which leans on the vowel ear's `vskel`), and on Shmuelof it got worse. What transfers is what voices share:
+Tawil's i-like-e taught the head Ben Haim's I→E too (10% → 4%), but Ben Haim's own u-like-o (U heard U 68% → 70%)
+did not move. Every student is a voice the head never heard, so nv2 would not help them — **not shipped.** Three
+readers are not enough; it takes many voices of the community (the outreach), or the head learning each student.
+
+**Calibration — a reader's first K pesukim** (`HEAD_NV_KEEP=benhaim:K`, x W, + 300 of Rabbi Alouf's pesukim to anchor
+it, 6 epochs from the shipped head; Ben Haim's held-out perakim, head level):
+
+| K (x W) | 0 (shipped) | 10 (x10) | 30 (x5) | 100 (x2) | all 728 (nv2) |
+|---|---|---|---|---|---|
+| Ben Haim flagged | 9.9% | 6.2% | 5.0% | 3.7% | 2.0% |
+| Rabbi Alouf flagged | 0.9% | 1.1% | 1.5% | 1.7% | 1.2% |
+| Tawil (not in the K runs) | 5.8% | 4.4% | 4.6% | 4.6% | (trained on: 1.9%) |
+
+Ten pesukim of his own voice take out about 40% of his false notes, thirty about half, a hundred about two thirds.
+Rabbi Alouf drifts as the reader's weight grows — which would not matter if the calibrated head heard only that
+student's takes and the shipped head kept hearing the hazzan. The catch: it learns whatever the student says,
+mistakes included, unless only takes the checker already trusts (clean, confident) are used to calibrate.
