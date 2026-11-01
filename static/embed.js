@@ -299,7 +299,7 @@ function mount(root, opts) {
   const k = parseInt(opts.line || '', 10); if (k >= 1) { const b = $('lines').querySelector(`.dk-ln[data-k="${k - 1}"]`); if (b) b.click(); } }
  /* ----- step 2 → 3 ----- */
  const PREF = new Set();
- function prefetchRef(l) { if (!REC || l.t0 == null) return; const nk = P && P.s.ln && P.s.ln[l.k]; const k = REC + '|' + l.t0 + '|' + l.t1 + '|' + l.text + '|' + (nk || ''); if (PREF.has(k)) return; PREF.add(k); const q = new URLSearchParams({f: REC, words: l.text, t0: l.t0, t1: l.t1}); if (nk) q.set('nikud', nk); fetch(url('/ref?' + q), {cache: 'no-store'}).catch(() => PREF.delete(k)); }
+ function prefetchRef(l) { if (!REC || l.t0 == null) return; const nk = P && P.s.ln && P.s.ln[l.k]; const k = REC + '|' + l.t0 + '|' + l.t1 + '|' + l.text + '|' + (nk || ''); if (PREF.has(k)) return; PREF.add(k); const q = new URLSearchParams({f: REC, words: l.text, t0: l.t0, t1: l.t1}); if (nk) q.set('nikud', nk); fetch(url('/ref?' + q), {cache: 'no-store'}).then(r => { if (!r.ok) PREF.delete(k); }).catch(() => PREF.delete(k)); }   /* refused (busy): a later pick tries again */
  const hiTh = (w, cls) => esc(w).replace(/[עח]/g, c => `<span class="dk-th${cls ? ' ' + cls(c) : ''}">${c}</span>`);
  /* the throat letters as above, and the letters a shva note is about (sv: their letter indices) underlined */
  const hiW = (w, cls, sv) => { if (!sv || !sv.size) return hiTh(w, cls); let k = -1; return [...String(w)].map(c => { if (/[א-ת]/.test(c)) k++; if (/[א-ת]/.test(c) && sv.has(k)) return `<span class="dk-sv">${esc(c)}</span>`; return /[עח]/.test(c) ? `<span class="dk-th${cls ? ' ' + cls(c) : ''}">${c}</span>` : esc(c); }).join(''); };

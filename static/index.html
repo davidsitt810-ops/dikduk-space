@@ -269,7 +269,7 @@ const PREF=new Set();
 /* the hazzan's line is analysed on the server the moment a line is picked (and cached there), so by the time the
    person has recorded, the check only has to listen to the take */
 function prefetchRef(l){if(!REC||l.t0==null)return;const nk=P&&P.s.ln&&P.s.ln[l.k];const k=REC+'|'+l.t0+'|'+l.t1+'|'+l.text+'|'+(nk||'');if(PREF.has(k))return;PREF.add(k);
- const q=new URLSearchParams({f:REC,words:l.text,t0:l.t0,t1:l.t1});if(nk)q.set('nikud',nk);fetch(url('/ref?'+q),{cache:'no-store'}).catch(()=>PREF.delete(k));}
+ const q=new URLSearchParams({f:REC,words:l.text,t0:l.t0,t1:l.t1});if(nk)q.set('nikud',nk);fetch(url('/ref?'+q),{cache:'no-store'}).then(r=>{if(!r.ok)PREF.delete(k);}).catch(()=>PREF.delete(k));}   /* refused (busy): a later pick tries again */
 const hiTh=(w,cls)=>esc(w).replace(/[עח]/g,c=>`<span class="th${cls?' '+cls(c):''}">${c}</span>`);
 function pickLine(l){LINE=l;TAKE=null;RESULT=null;prefetchRef(l);$('#lines').querySelectorAll('.ln').forEach(b=>b.classList.toggle('on',+b.dataset.k===l.k));
  foldStep('s2','Line '+(l.k+1)+' · '+he(l.text));

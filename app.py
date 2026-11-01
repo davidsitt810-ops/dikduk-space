@@ -1006,7 +1006,9 @@ print('build:', COMMIT and COMMIT[:12], COMMIT_FROM, '· ref tag', REF_TAG, '· 
 REF_MAX = 60   # seconds of the hazzan's recording analysed at most (a line is 3-20 s; t1=0 used to mean the whole file)
 REF_KEEP = int(os.environ.get('DK_REF_KEEP', '50000'))   # hazzan analyses kept at most (one a line, ~8 KB each)
 def ref_touch(p):
-    try: os.utime(p)   # a hit marks the entry as used, so the trim below keeps the lines people sing
+    # a hit marks the entry as used, so the trim below keeps the lines people sing (a millisecond ahead: a write in the
+    # same clock tick must not tie with it)
+    try: t = time.time_ns() + 1_000_000; os.utime(p, ns=(t, t))
     except OSError: pass
 def ref_trim():
     """past REF_KEEP entries the least recently used go, down to 90% (v5.2: the key holds the raw t0/t1, so anyone could
@@ -1107,15 +1109,21 @@ JOB_MAX = int(os.environ.get('DK_JOB_MAX', '40'))   # checks waiting at most: on
 # At most DK_PLAIN_MAX of the plain ones run at once and the rest WAIT for a turn here, on the event loop, holding no
 # thread (40 of them waiting in the pool froze /health, the job polls and every other route); refusing them at once
 # instead made the letters page answer "busy" while one person clicked through lines. /ref has its own budget (DK_REF_CONC).
-PLAIN = [0]; PLAIN_MAX = int(os.environ.get('DK_PLAIN_MAX', '4')); PLAIN_SEM = asyncio.Semaphore(PLAIN_MAX)
+# And at most DK_PLAIN_WAIT more wait, so plain calls from one script cannot take every place the pages' checks need.
+PLAIN = [0]; PLAIN_MAX = max(1, int(os.environ.get('DK_PLAIN_MAX', '4'))); PLAIN_SEM = asyncio.Semaphore(PLAIN_MAX)
+PLAIN_WAIT = max(0, int(os.environ.get('DK_PLAIN_WAIT', '8')))
 REFN = [0]; REF_CONC = int(os.environ.get('DK_REF_CONC', '2'))
 def busy(): return JSONResponse({'err': 'the server is busy — try again in a minute'}, status_code=503)
-def too_busy(): return queued() + PLAIN[0] + REFN[0] >= JOB_MAX
-async def plain_run(fn, *a):
-    """fn(*a) in the thread pool, counted in PLAIN from now on; at most PLAIN_MAX run at once, the others wait their turn"""
+def too_busy(plain=False): return queued() + PLAIN[0] + REFN[0] >= JOB_MAX or (plain and PLAIN[0] >= PLAIN_MAX + PLAIN_WAIT)
+def gone(): return JSONResponse({'err': 'the connection was closed'}, status_code=499)
+async def plain_run(fn, *a, request=None):
+    """fn(*a) in the thread pool, counted in PLAIN from now on; at most PLAIN_MAX run at once, the others wait their turn;
+       None when the caller hung up while it waited (its work is not done for nobody)"""
     PLAIN[0] += 1
     try:
-        async with PLAIN_SEM: return await run_in_threadpool(fn, *a)
+        async with PLAIN_SEM:
+            if request is not None and await request.is_disconnected(): return None
+            return await run_in_threadpool(fn, *a)
     finally: PLAIN[0] -= 1
 
 GRADE_MAX = int(os.environ.get('DK_GRADE_MAX', '200'))   # booth takes waiting to be graded at most (beyond that /submit asks to try again)
@@ -1184,7 +1192,7 @@ async def check(request: Request, words: str = Query(...), ref: str = None, t0: 
     ALT = [he_words(a) for a in alts.split('|') if he_words(a) and he_words(a) != W] if alts else pid   # a list of lines, or the text's id (its lines are looked up in the worker, off the event loop)
     if not W:
         return JSONResponse({'err': 'no words'}, status_code=400)
-    if too_busy(): return busy()   # v5.2: both paths (the plain one was not counted)
+    if too_busy(not job): return busy()   # v5.2: both paths (the plain one was not counted)
     data = await read_body(request, MAX_BODY['check'])
     if data is None: return too_big(MAX_BODY['check'])
     if len(data) < 1000:
@@ -1201,12 +1209,12 @@ async def check(request: Request, words: str = Query(...), ref: str = None, t0: 
         out = run_check(x, W, ref, t0, t1, emb, drill, nikud, progress, ALT, VC)
         if drill_err: out['drill_err'] = drill_err
         return out
-    if too_busy():   # again: others were let in while this one was read and decoded (no await between here and new_job / PLAIN)
+    if too_busy(not job):   # again: others were let in while this one was read and decoded (no await between here and new_job / PLAIN)
         return busy()
     if job:
         return JSONResponse({'job': new_job(work)}, status_code=202)
     # the plain path (scripts, older pages): the same work in a thread, so /health and the polls keep answering
-    return await plain_run(work, lambda s: None)
+    return await plain_run(work, lambda s: None, request=request) or gone()
 
 # The voice card (v5, after Kriah Listener's "voice card"): a person reads Tehillim 23:1-2 once, carefully; the vowel
 # notes that reading gets against the nikud are the vowel ear mishearing THAT voice, and later checks leave those
@@ -1432,15 +1440,16 @@ async def letter(request: Request, c: str = Query(...), want: str = None, strict
        the verdict on its opening sound, what was heard, and the ears' numbers (letters.py)"""
     c = he_letters(c)[:1]
     if c not in LT.BY_C: return JSONResponse({'err': 'not a letter I check'}, status_code=400)
-    if too_busy(): return busy()   # v5.2: it runs the models under the LOCK too, so it counts with the plain checks
+    if too_busy(True): return busy()   # v5.2: it runs the models under the LOCK too, so it counts with the plain checks
     data = await read_body(request, MAX_BODY['letter'])
     if data is None: return too_big(MAX_BODY['letter'])
     if len(data) < 500: return JSONResponse({'err': 'no audio'}, status_code=400)
     try: x = await run_in_threadpool(decode_audio, data, 7)
     except Exception as e: return JSONResponse({'err': 'decode: ' + str(e)[:200]}, status_code=400)
     if x.shape[0] > SR * 6: x = x[:SR * 6]
-    if too_busy(): return busy()   # again after the decode, then counted (no await in between)
-    P = await plain_run(letter_probe, x, c)
+    if too_busy(True): return busy()   # again after the decode, then counted (no await in between)
+    P = await plain_run(letter_probe, x, c, request=request)
+    if P is None: return gone()
     V = LT.verdict(c, want, P, bool(strict))
     P.update(V); P['c'] = c; P['want'] = want
     return P
@@ -1590,8 +1599,13 @@ def client_of(request):
     """the sender as well as the server can tell: Cloudflare's header when the request came through the Mac's tunnel (cloudflared
        on this machine), else the proxy's (a Space), else the connection; an IPv6 address by its /64 (one home line has a whole
        /64 to rotate through). Best effort: where no Cloudflare sits in front, a client can send x-forwarded-for itself."""
-    h = request.headers; peer = request.client.host if request.client else ''
-    a = (h.get('cf-connecting-ip') if peer in ('127.0.0.1', '::1') else None) or (h.get('x-forwarded-for') or '').split(',')[0].strip() or peer
+    h = request.headers; peer = request.client.host if request.client else ''; LOOP = ('127.0.0.1', '::1')
+    xs = [x.strip() for x in (h.get('x-forwarded-for') or '').split(',') if x.strip()]
+    # through the tunnel, the peer is cloudflared on this machine, or the visitor uvicorn already took from cloudflared's
+    # x-forwarded-for (it trusts a loopback proxy): then Cloudflare's header names the visitor, and nobody can forge it.
+    # Otherwise the nearest proxy's entry (the last one; the first is whatever the visitor wrote), else the peer.
+    tunnel = peer in LOOP or peer in xs
+    a = (h.get('cf-connecting-ip') if tunnel else None) or next((x for x in reversed(xs) if x not in LOOP), '') or peer
     try:
         ip = ipaddress.ip_address(a)
         if ip.version == 6 and not ip.ipv4_mapped: return str(ipaddress.ip_network(f'{a}/64', strict=False))

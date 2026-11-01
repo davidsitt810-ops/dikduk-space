@@ -229,8 +229,9 @@ Settings (environment variables) new in v5.2, beside `DK_KEY`, `DK_PUBLIC`, `DK_
   connection. So a class on one school Wi-Fi shares the 20 (raise it for such a class), and where no Cloudflare is in
   front (a Space) a client can forge the header: the per-sender caps are best effort, the totals are the real limit. It
   is counted in memory only (no address is written to disk; a restart forgets it).
-- `DK_PLAIN_MAX` (default 4) — plain `/check`s and `/letter`s running at once; more wait their turn (they still count
-  against `DK_JOB_MAX`, so past it they get 503 "busy").
+- `DK_PLAIN_MAX` (default 4, at least 1) — plain `/check`s and `/letter`s running at once; up to `DK_PLAIN_WAIT`
+  (default 8) more wait their turn, and past that they get 503 "busy" (so one script cannot take the places the pages'
+  checks need; all of them count against `DK_JOB_MAX` too). One that waited for a client who has hung up is skipped.
 - `DK_REF_CONC` (default 2) — uncached `/ref` analyses at once; more get 503 at once (the page's prefetch just skips;
   the check analyses the line itself). A `/ref` already in the cache is always answered.
 - `DK_REF_KEEP` (default 50000) — hazzan analyses kept in the cache at most (~8 KB each); past it the least recently
