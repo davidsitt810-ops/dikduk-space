@@ -210,8 +210,8 @@ for job in JOBS:
         elif os.path.exists(fp):
             z = np.load(fp); ph_lp, spf, dur = z['ph_lp'], float(z['spf']), float(z['dur'])
         else:                                                 # the phone ear over the whole book (the Arabic ear later, per perek),
-            dur = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', path],
-                                       capture_output=True, text=True).stdout.strip())
+            dur = decode(path).shape[0] / 16000              # the decoded length: ffprobe's guess can be minutes off on an mp3 without a
+                                                              # length header (Azrak's Esther: 33.6 min said, 26.6 min of audio)
             say(f'{base}: {dur / 60:.1f} min of audio'); BLOCK = float(os.environ.get('BLOCK', 1800)); blocks = []; k = 0
             while k * BLOCK < dur:                            # in 30-minute blocks kept on disk, so a stopped run picks up where it was
                 fb = os.path.join(OUT, 'feat', f'{base}.ph.{k:02d}.npy')
@@ -219,6 +219,7 @@ for job in JOBS:
                 b0 = k * BLOCK; b1 = min(dur, b0 + BLOCK); a0 = max(0.0, b0 - 1.0); a1 = min(dur, b1 + 1.0)
                 xr = subprocess.run(['ffmpeg', '-v', 'error', '-ss', f'{a0:.3f}', '-i', path, '-t', f'{a1 - a0:.3f}', '-ac', '1', '-ar', '16000', '-f', 'f32le', '-'],
                                     capture_output=True, timeout=1800).stdout
+                if len(xr) < 4 * 16000: break                 # nothing left to hear
                 lpb, spf_b = run_long(np.frombuffer(xr, dtype=np.float32).copy(), 'ph', note=f'{base} block {k}')
                 f0 = int(round((b0 - a0) / spf_b)); f1 = min(lpb.shape[0], f0 + int(round((b1 - b0) / spf_b)))
                 np.save(fb, lpb[f0:f1]); blocks.append(lpb[f0:f1]); k += 1
