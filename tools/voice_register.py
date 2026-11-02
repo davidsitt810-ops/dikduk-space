@@ -28,6 +28,7 @@ PH_ID = 'facebook/wav2vec2-xlsr-53-espeak-cv-ft'; AR_ID = 'jonatasgrosman/wav2ve
 FE = Wav2Vec2FeatureExtractor.from_pretrained(PH_ID); PH = Wav2Vec2ForCTC.from_pretrained(PH_ID).eval()
 PH_V = json.load(open(hf_hub_download(PH_ID, 'vocab.json'), encoding='utf-8')); PH_PAD = PH_V['<pad>']
 AR_PROC = Wav2Vec2Processor.from_pretrained(AR_ID); AR = Wav2Vec2ForCTC.from_pretrained(AR_ID).eval()
+DEV = os.environ.get('DK_DEVICE', 'cpu'); PH.to(DEV); AR.to(DEV)   # DK_DEVICE=mps: the Mac's GPU (the night batch)
 AR_V = AR_PROC.tokenizer.get_vocab(); AR_PAD = AR_PROC.tokenizer.pad_token_id
 AR_ALT = {'א': ['ع', 'ا', 'أ', 'ء'], 'ב': ['ب'], 'ג': ['ج', 'غ'], 'ד': ['د', 'ذ'], 'ה': ['ه'], 'ו': ['و'], 'ז': ['ز'], 'ח': ['ح', 'خ', 'ه'], 'ט': ['ط', 'ت'],
           'י': ['ي'], 'כ': ['ك', 'خ'], 'ל': ['ل'], 'מ': ['م'], 'נ': ['ن'], 'ס': ['س'], 'ע': ['ع', 'ا', 'أ', 'ء'], 'פ': ['ف', 'ب'], 'צ': ['ص', 'س'],
@@ -50,11 +51,11 @@ def run_long(x, which, win=20.0, pad=1.0, note=None):
         if seg.shape[0] < SR * 0.5: break
         if which == 'ph':
             inp = FE(seg, sampling_rate=SR, return_tensors='pt')
-            with torch.inference_mode(): o = PH(inp.input_values)
+            with torch.inference_mode(): o = PH(inp.input_values.to(DEV))
         else:
             inp = AR_PROC(seg, sampling_rate=SR, return_tensors='pt')
-            with torch.inference_mode(): o = AR(inp.input_values)
-        lp = torch.log_softmax(o.logits[0], -1).numpy()
+            with torch.inference_mode(): o = AR(inp.input_values.to(DEV))
+        lp = torch.log_softmax(o.logits[0].float(), -1).cpu().numpy()
         spf = (b - a) / lp.shape[0]
         f0 = int(round((t0 - a) / spf)); f1 = int(round((min(t0 + win, n / SR) - a) / spf))
         lps.append(lp[f0:f1].astype(np.float16))

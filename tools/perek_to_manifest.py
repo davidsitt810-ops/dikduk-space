@@ -25,6 +25,7 @@ T_ALL = json.load(open(os.environ.get('TEXT') or os.path.join(S, 'tehillim', 'te
 BOOK = os.environ.get('BOOK', '')   # another book (TEXT = its {chapter: [verses]}): ids <voice>_<book><chapter>; the Tehillim exam perakim (TEST) only matter for Tehillim
 AR_ID = 'jonatasgrosman/wav2vec2-large-xlsr-53-arabic'
 PROC = Wav2Vec2Processor.from_pretrained(AR_ID); AR = Wav2Vec2ForCTC.from_pretrained(AR_ID).eval()
+DEV = os.environ.get('DK_DEVICE', 'cpu'); AR.to(DEV)   # DK_DEVICE=mps: the Mac's GPU (the night batch)
 V = PROC.tokenizer.get_vocab(); PAD = PROC.tokenizer.pad_token_id; NV = len(V)
 ALT = {'א': ['ع', 'ا', 'أ', 'ء', 'إ', 'ئ', 'ؤ'], 'ב': ['ب'], 'ג': ['ج', 'غ'], 'ד': ['د', 'ذ'], 'ה': ['ه'], 'ו': ['و'], 'ז': ['ز'], 'ח': ['ح', 'خ', 'ه'], 'ט': ['ط', 'ت'],
        'י': ['ي'], 'כ': ['ك', 'خ'], 'ל': ['ل'], 'מ': ['م'], 'נ': ['ن'], 'ס': ['س'], 'ע': ['ع', 'ا', 'أ', 'ء', 'إ', 'ئ', 'ؤ'], 'פ': ['ف', 'ب'], 'צ': ['ص', 'س'],
@@ -54,8 +55,8 @@ def ear(x, win=20.0, pad=1.0):
         a = max(0.0, t0 - pad); b = min(n / SR, t0 + win + pad); seg = x[int(a * SR):int(b * SR)]
         if seg.shape[0] < SR * 0.5: break
         inp = PROC(seg, sampling_rate=SR, return_tensors='pt')
-        with torch.inference_mode(): o = AR(inp.input_values, output_hidden_states=True)
-        lp = torch.log_softmax(o.logits[0], -1).numpy(); h = o.hidden_states[12][0].numpy()
+        with torch.inference_mode(): o = AR(inp.input_values.to(DEV), output_hidden_states=True)
+        lp = torch.log_softmax(o.logits[0].float(), -1).cpu().numpy(); h = o.hidden_states[12][0].float().cpu().numpy()
         spf = (b - a) / lp.shape[0]; f0 = int(round((t0 - a) / spf)); f1 = int(round((min(t0 + win, n / SR) - a) / spf))
         lps.append(lp[f0:f1]); hs.append(h[f0:f1])
         if t0 + win >= n / SR: break
