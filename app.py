@@ -209,7 +209,7 @@ except Exception as e:
 # and reads which vowel class was sung in each slot; the student's vowels are compared with the hazzan's (or with the
 # nikud when the line has it). Loaded when the file is there.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from vowels import vowel_place, compare_vowels, letters_kept, VOWEL_NAME, VOWELS
+from vowels import vowel_place, compare_vowels, vowel_notes, letters_kept, VOWEL_NAME, VOWELS
 from order import order_evidence, order_from_tokens, rival_evidence
 import shva as SH
 from rule import RULE, mark_of, head_median, no_speech_in, clean_of, marks_of, strict_of, summarize, score_parts, score_of   # the word rule (rule.py)
@@ -928,7 +928,7 @@ def lyrics():
     return _LYR['data']
 
 # ---- what this server is: the code, the heads and the models it runs, so every verdict can be traced to them
-VERSION = 5.2
+VERSION = 5.3
 HERE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def file_sha(path, n=12):
@@ -1212,34 +1212,29 @@ def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None, alt
             out['ref'] = R
             out['fit'] = fit_against(lp, spf, R['words'])
             if FULL is not None or FT is not None:
-                out['vowels'] = compare_vowels({i: w.get('vow', []) for i, w in enumerate(take['words'])}, {i: w.get('vow', []) for i, w in enumerate(R['words'])})
+                # (v5.3) the take's vowel slots lined up with the hazzan's by the letter each follows (vowels.vowel_notes)
+                out['vowels'], _ = vowel_notes({i: w.get('vow', []) for i, w in enumerate(take['words'])}, {i: w.get('vow', []) for i, w in enumerate(R['words'])},
+                                               None, {i: he_read(w) for i, w in enumerate(W)})
         except Exception as e:
             out['ref_err'] = str(e)[:300]
     if nikud and (FULL is not None or FT is not None):
-        # a pointed line (Tehillim): the vowels expected from the nikud, word by word
+        # a pointed line (Tehillim): the vowels expected from the nikud, word by word, each with the letter it follows.
+        # (v5.3) vowels.vowel_notes lines the take's slots up with the nikud's vowels (and with the hazzan's) by those
+        # letters, so a shva heard as a vowel or a vowel heard after a mater (holam male, hiriq male) no longer leaves
+        # the whole word unchecked; and it keeps the two cross-checks: a nikud note where the hazzan is heard saying
+        # the same vowel there is dropped (v4.9: the ear hears some of Rabbi Alouf's vowels as others, and the student
+        # who sings as he does is right), and a hazzan note where the student said the nikud's vowel is dropped (v5.1).
+        # Readers' correct pesukim and a planted "o for u" (tools/vowel_rules.py, LAB_NOTES §35): planted mistakes told
+        # 79-85% -> 83-96%, false notes 139 -> 131 words on 5 readers.
         try:
-            exp = {i: [{'heard': u['c']} for u in us if u['kind'] == 'vowel'] for i, (_, _, us) in enumerate(parse_verse(nikud))}
+            pv = parse_verse(nikud)
+            exp = {i: [{'heard': u['c'], 'k': u['k']} for u in us if u['kind'] == 'vowel'] for i, (_, _, us) in enumerate(pv)}
             if len(exp) == len(W):
-                vn = compare_vowels({i: w.get('vow', []) for i, w in enumerate(take['words'])}, exp)
-                # (v4.9) a vowel the hazzan himself is heard saying the same way is not the student's mistake: the
-                # vowel ear hears some of Rabbi Alouf's kubutz/holam as each other (the top false alarm on his own
-                # reading — e.g. מְנֻחוֹת "oh for oo"), and the student who sings it as he does is right
                 RW = (out.get('ref') or {}).get('words') or []
-                for i in list(vn):
-                    hv = {v['k']: v['heard'] for v in (RW[i].get('vow') or [])} if i < len(RW) else {}
-                    vn[i] = [d for d in vn[i] if hv.get(d['k']) != d['you']]
-                    if not vn[i]: del vn[i]
+                haz = {i: w.get('vow', []) for i, w in enumerate(RW)} if RW else None
+                vh, vn = vowel_notes({i: w.get('vow', []) for i, w in enumerate(take['words'])}, haz, exp, {i: l for i, (_, l, _) in enumerate(pv)})
                 out['vowels_nikud'] = vn
-                # (v5.1) and the other way round: a vowel said as the nikud writes it is not a mistake, whatever the
-                # hazzan is heard saying there. A reader the checker never heard (Shmuelof, Tehillim 1, 2, 23): 3 of his
-                # 6 vowel notes were "the hazzan says otherwise" on vowels said exactly as written (מְנֻחוֹת,
-                # וּמִשְׁעַנְתֶּךָ, שִׁבְטְךָ) — the vowel ear hearing the hazzan's vowel wrong, not the student's
-                for i in list(out.get('vowels') or {}):
-                    sl = take['words'][i].get('vow', []) if i < len(take['words']) else []; ev = exp.get(i) or []
-                    if len(ev) != len(sl): continue
-                    pos = {s['k']: j for j, s in enumerate(sl)}
-                    out['vowels'][i] = [d for d in out['vowels'][i] if not (d['k'] in pos and ev[pos[d['k']]]['heard'] == d['you'])]
-                    if not out['vowels'][i]: del out['vowels'][i]
+                if haz is not None and 'vowels' in out: out['vowels'] = vh
         except Exception as e:
             out['nikud_err'] = str(e)[:200]
     if nikud:

@@ -126,6 +126,69 @@ def compare_vowels(student, ref, ratio=2.0):
     return out
 
 
+def compat(a, b, letters):
+    """a vowel slot after letter a and one after letter b can be the same vowel: the same letter, or neighbours where
+       the later letter is a mater (ו י א) or a final ה, which the ear may pass over (holam male, hiriq male...)"""
+    if a == b: return True
+    hi = max(a, b)
+    return abs(a - b) == 1 and hi < len(letters) and (letters[hi] in 'ויא' or (letters[hi] == 'ה' and hi == len(letters) - 1))
+
+def compare_aligned(student, ref, letters, ratio=2.0, with_pairs=False, skip=0.5, sub=0.9):
+    """(v5.3) student: slots per word (vowel_place); ref: per word the expected vowels with the letter each follows (k):
+       the hazzan's slots, or the nikud's vowels. Each word's two lists are lined up in order — a slot may pair only
+       with a vowel after a compatible letter, passing over one costs `skip`, a pair of different vowels `sub` (less
+       than two skips) — so an extra vowel heard (a shva said as a vowel) or one not heard no longer leaves the whole
+       word unchecked, as compare_vowels does when the counts differ. Every pair of different vowels whose slot is
+       clear (and, for the hazzan, his slot too) is a note. letters: {word: its letters as read}.
+       -> {word: [{k, you, ref, m}]} (and {word: {student k: the vowel it was paired with}} if with_pairs)"""
+    out, pairs = {}, {}
+    for i, sl in student.items():
+        r = ref.get(i)
+        if not r or not sl: continue
+        L = letters.get(i, '')
+        n, m = len(sl), len(r); INF = 1e9
+        D = [[INF] * (m + 1) for _ in range(n + 1)]; B = [[None] * (m + 1) for _ in range(n + 1)]; D[0][0] = 0.0
+        for a in range(n + 1):
+            for b in range(m + 1):
+                if D[a][b] >= INF: continue
+                if a < n and D[a][b] + skip < D[a + 1][b]: D[a + 1][b] = D[a][b] + skip; B[a + 1][b] = (a, b, 's')
+                if b < m and D[a][b] + skip < D[a][b + 1]: D[a][b + 1] = D[a][b] + skip; B[a][b + 1] = (a, b, 'r')
+                if a < n and b < m and compat(sl[a]['k'], r[b]['k'], L):
+                    c = D[a][b] + (0.0 if sl[a]['heard'] == r[b]['heard'] else sub)
+                    if c <= D[a + 1][b + 1]: D[a + 1][b + 1] = c; B[a + 1][b + 1] = (a, b, 'm')
+        a, b = n, m; got = []
+        while (a, b) != (0, 0):
+            pa, pb, t = B[a][b]
+            if t == 'm': got.append((pa, pb))
+            a, b = pa, pb
+        for a, b in reversed(got):
+            st, rs = sl[a], r[b]; pairs.setdefault(i, {})[st['k']] = rs['heard']
+            if st['heard'] == rs['heard'] or not clear(st, ratio): continue
+            if rs.get('mass') is not None and not clear(rs, ratio): continue
+            mm = st['mass']; out.setdefault(i, []).append({'k': st['k'], 'you': st['heard'], 'ref': rs['heard'], 'm': round(mm[st['heard']] / max(1e-6, sum(mm.values())), 2)})
+    return (out, pairs) if with_pairs else out
+
+def vowel_notes(student, hazzan, expected, letters):
+    """(v5.3) the take's vowel notes against the hazzan and against the nikud, with the two cross-checks:
+       a nikud note where the hazzan is heard saying the same vowel there is dropped (v4.9: the ear mishears some of
+       the hazzan's vowels the same way, and the student who sings as he does is right), and a hazzan note where the
+       student said the vowel the nikud writes is dropped (v5.1). hazzan / expected may be None.
+       -> (notes against the hazzan or None, notes against the nikud or None)"""
+    vh = compare_aligned(student, hazzan, letters) if hazzan is not None else None
+    if expected is None: return vh, None
+    vn, pair = compare_aligned(student, expected, letters, with_pairs=True)
+    for i in list(vn):
+        hv = (hazzan or {}).get(i) or []
+        vn[i] = [d for d in vn[i] if not any(h['heard'] == d['you'] and compat(h['k'], d['k'], letters.get(i, '')) for h in hv)]
+        if not vn[i]: del vn[i]
+    if vh:
+        for i in list(vh):
+            pm = pair.get(i, {})
+            vh[i] = [d for d in vh[i] if not (d['k'] in pm and pm[d['k']] == d['you'])]
+            if not vh[i]: del vh[i]
+    return vh, vn
+
+
 def letters_kept(lp, words, s2i, he_read, skip_cost=4.0, pairs=(('ע', 'א'), ('ח', 'כ'))):
     """Which letters of the line were actually heard: the line's letters aligned on the head with EVERY letter
        optional at a cost, so a letter is kept only where the head's evidence for it beats the cost of skipping it.
