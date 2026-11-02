@@ -41,6 +41,7 @@ print(f'{NAME}: {len(jobs)} pesukim', flush=True)
 # NO_REF=1: the reader says those vowels exactly as the hazzan does, and the hazzan comparison (and the v4.9 rule that
 # drops a nikud note the hazzan shares) would hide every planted mistake. Rows get 'planted' (word indices) and 'nw'.
 PLANT = os.environ.get('PLANT'); NO_REF = bool(os.environ.get('NO_REF'))
+RAW = bool(os.environ.get('RAW'))   # RAW=1: each row also keeps the vowel ear's slots (take and hazzan) and the server's notes, to try other note rules offline
 if PLANT:
     assert PLANT == 'OU', 'only PLANT=OU'
     import nikud as NK
@@ -100,7 +101,10 @@ for done, (n, i) in enumerate(jobs, 1):
                  'line_wrong': sm['line_wrong'], 'cant_hear': sm['cant_hear'], 'no_speech': sm['no_speech'], 'clean': sm['clean'], 'head': rule.head_median(out['take']['words']),
                  'throat': sm['throat'], 'vowels': sm['vowels'], 'shva': sm['shva'], 'rival': sm['rival'], 'gap': sm['gap'],
                  'strict': rule.strict_of(sm['marks'], sm['why'], sm['clean'], sm['cant_hear'])[0],
-                 **({'planted': planted, 'nw': nw} if PLANT else {})})
+                 **({'planted': planted, 'nw': nw} if PLANT else {}),
+                 **({'raw': {'nikud': nik, 'tw': [[(v['k'], v['heard'], v['mass'], v['p']) for v in (w.get('vow') or [])] for w in out['take']['words']],
+                             'rw': [[(v['k'], v['heard'], v['mass'], v['p']) for v in (w.get('vow') or [])] for w in ((out.get('ref') or {}).get('words') or [])],
+                             'sv': out.get('vowels'), 'svn': out.get('vowels_nikud')}} if RAW else {})})
     if done % 10 == 0: print(f'  {done}/{len(jobs)}  [{int(time.time() - t_start)} s]', flush=True)
 jl.close(); want = set(jobs); rows = [r for r in rows if (r['per'], r['ps']) in want]
 json.dump(rows, open(os.path.join(HERE, f'exam_{NAME}.json'), 'w', encoding='utf-8'), ensure_ascii=False)

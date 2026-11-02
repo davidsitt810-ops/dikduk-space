@@ -12,6 +12,7 @@ import sys, os, json, time, subprocess
 import numpy as np, torch
 S = '/tmp/claude-0/-home-claude/13b8b04f-7b29-591b-ba7b-28708cdbf43a/scratchpad'
 sys.path.insert(0, os.path.join(S, 'tehillim')); sys.path.insert(0, os.path.join(S, 'voices'))
+if os.environ.get('DK_LAB_CODE'): sys.path.insert(0, os.environ['DK_LAB_CODE'])   # nikud.py, ctcutil.py, ctclocal.py elsewhere (the Mac night batch)
 from nikud import parse_verse, clean_verse
 from ctcutil import with_virtual_columns
 from ctclocal import ctc_local
@@ -19,7 +20,7 @@ from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 torch.set_num_threads(int(os.environ.get('THREADS', '2')))
 TAG = sys.argv[1]; JOBS = sys.argv[2:]
 TEST = {3, 7, 11, 15, 19, 23, 27, 31, 35, 39, 43, 47, 115, 123, 127, 131, 135, 143, 147}
-FEAT = os.path.join(S, 'space_test', 'feat'); MAN = os.path.join(S, 'space_test', 'manifest_voices.jsonl')
+FEAT = os.environ.get('DK_LAB_FEAT') or os.path.join(S, 'space_test', 'feat'); MAN = os.environ.get('DK_LAB_MAN') or os.path.join(S, 'space_test', 'manifest_voices.jsonl')
 T_ALL = json.load(open(os.environ.get('TEXT') or os.path.join(S, 'tehillim', 'tehillim_nikud.json'), encoding='utf-8'))
 BOOK = os.environ.get('BOOK', '')   # another book (TEXT = its {chapter: [verses]}): ids <voice>_<book><chapter>; the Tehillim exam perakim (TEST) only matter for Tehillim
 AR_ID = 'jonatasgrosman/wav2vec2-large-xlsr-53-arabic'

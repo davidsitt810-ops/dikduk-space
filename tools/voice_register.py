@@ -14,7 +14,7 @@ usage: voice_register.py <out dir> <job> [<job> ...]
 writes <out dir>/align/<perek>.json (same shape as tehillim/align) and <out dir>/log.txt"""
 import sys, os, json, time, subprocess
 import numpy as np, torch
-TEH = '/tmp/claude-0/-home-claude/13b8b04f-7b29-591b-ba7b-28708cdbf43a/scratchpad/tehillim'
+TEH = os.environ.get('DK_LAB_CODE') or '/tmp/claude-0/-home-claude/13b8b04f-7b29-591b-ba7b-28708cdbf43a/scratchpad/tehillim'   # DK_LAB_CODE: nikud.py + ctcutil.py elsewhere (the Mac night batch)
 sys.path.insert(0, TEH)
 from nikud import parse_verse, clean_verse
 from ctcutil import ctc_align, with_virtual_columns
