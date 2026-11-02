@@ -1079,3 +1079,56 @@ Lekha, Vayera, full: 2.4 hours), Eli Cabasso (Behar, Behuqotai, Nissabim-Vayelek
 part of Eqeb), Amerique Ashear (1989; part of Shofetim) — each file lined up against its parasha's text alone; a full
 Iyob and Mishle by one reader the archive does not name (an album "qeri'ah nusah eres", tracks 07–08: 2.6 hours);
 Moshe Dwek's Shir HaShirim, Rabia's Esther ("from Syria"), Eli Cabasso's Esther sample.
+
+## 35. Real mistakes in a new voice, and the vowels lined up by letter (Nov 1, evening → v5.3)
+
+**David's takes** (Voice Memos on his phone, 6–9 s each; through the v5.2 server as the site checks Tehillim, hazzan =
+Rabbi Alouf; `david_takes/check_takes.py`):
+
+| take | said | the checker | |
+|---|---|---|---|
+| 1 | 23:1 right | clean, 100/100, ע ח from the throat | ✓ |
+| 2 | "lo **ah**sar" | "ah for eh" on אחסר, against the hazzan and the nikud (also: ח plain) | ✓ |
+| 3 | 23:2 right | not clean (head median .56): no vowel check; not sure on דשא, על | |
+| 4 | "yar**be**tseni", "me**no**hot" | not clean (.54): neither told | ✗ |
+| 5 | ע like א, ח like כ | both plain | ✓ |
+
+Inside take 4 the server had the menohot note (his O .97 against the hazzan's U .86) and the page's rule hid it: vowel
+notes come on clean takes only. v5.2's ear hears Rabbi Alouf's מְנֻחוֹת as u — v5's voice card notes that the old ear
+heard it o, which through the v4.9 rule would have hidden exactly this mistake. "yarbetseni" was never compared: the
+ear placed five slots (the shva after ר heard as I) against the nikud's four, and `compare_vowels` leaves a word alone
+when the counts differ. His 23:2 takes are quieter than his 23:1 takes and their ע / ח come out unsure; whether the
+reading or the recording made them unclear is open (he will record them again). The voice card (23:1 + 23:2 in one
+take, no hazzan): from his correct takes, unclear (.69), no card; with take 4's mistakes, no pair learned — but only
+because menohot was passed over for the same count reason (an extra E heard after מ): luck, not design.
+
+**Two rules tried offline** (`tools/vowel_rules.py` on the exams re-run on v5.2 with `RAW=1`, which keeps the vowel
+ear's slots; its base rule reproduces the server's notes on all 789 takes):
+- **A** — each word's slots and the reference's vowels (the hazzan's slots, or the nikud's vowels, each with the
+  letter it follows) lined up in order: a slot pairs only with a vowel after the same letter, or the neighbouring one
+  when the later letter is a mater (ו י א) or a final ה; an unpaired slot or vowel is passed over (cost .5; a pair of
+  different vowels .9). The v4.9 and v5.1 cross-checks kept.
+- **B** — also on an unclear take: a note the hazzan and the nikud comparisons both make on a slot placed with score
+  ≥ .9 (without a hazzan, the nikud note alone); "@.6" only on takes with head median ≥ .6.
+
+| | base (v5.2) | A | A + B@.6 |
+|---|---|---|---|
+| planted o→u told: Faraj / Ben Haim / Tawil (80 each) | 84.5 / 82.3 / 79.0% | 96.1 / 89.5 / 83.4% | 97.8 / 95.0 / 94.5% |
+| other words noted in those runs | 5.3 / 2.3 / 2.5% | 5.3 / 2.1 / 2.1% | 5.7 / 2.3 / 2.3% |
+| correct readers, words with a note: Faraj 150 / Ben Haim 150 / Tawil 150 | 71 / 30 / 27 | 70 / 27 / 22 | 75 / 29 / 23 |
+| … Daya 75 (11 clean) / Shmuelof 24 | 7 / 4 | 9 / 3 | 22 / 3 |
+
+(Ben Haim's and Tawil's are low because v5.2's ear was trained on their other perakim.) B by the take's clarity, on
+unclear takes only: head .6–.7 — 2.1% of a correct reader's words noted (A+B 3.1%), a planted mistake told 77–85%;
+head .5–.6 — 6.2% (8.8%). David's takes 3–4 sit at .54–.56: B at .6 would not have told him, and below .6 it gives
+too many false notes. On his takes, A on a clear take would tell yarbetseni and menohot (and one doubtful "el" for
+על); B@.9 told menohot with no false note on take 3.
+
+**Through the real server** (v5.3 = A, `step_v53.sh`): Faraj's planted takes — told 86.0% → **97.8%** on clean takes,
+other words 5.7% → 5.7%; Ben Haim's correct reading — word-slots with a note 32 → **27**, ✕ / not sure / throat
+unchanged; Rabbi Alouf's 60 held-out pesukim — notes against the nikud 3 → 4 in 1,029 vowels (no hazzan to cross-check
+here), word marks unchanged.
+
+**What it means.** A tells more of a real mistake with fewer false notes: **v5.3**. B tells more on near-clear takes,
+but its false notes come mostly from poor recordings (Daya +13), the kind a student's phone makes — held back until
+there are real student takes to judge it by. Only one kind of mistake is planted (o for u) besides David's two.

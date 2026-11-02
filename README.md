@@ -186,6 +186,13 @@ of his correct words, Ben Haim left out of training 9.3% → 8.4%) and a planted
 Israelis reading get fewer "not sure" marks (21% → 18%). With three readers the same recipe had made new voices worse:
 it takes many voices (LAB_NOTES §32, §34).
 
+v5.3 (Nov 1–2): vowel notes line the take's vowels up with the nikud's and the hazzan's by the letter each vowel
+follows (`vowels.compare_aligned` / `vowel_notes`), so a shva heard as a vowel, or a vowel heard after a mater (holam
+male, hiriq male), no longer leaves the whole word unchecked. A planted "o for u" in three readers' pesukim is told
+79–85% → 83–96% of the time (Faraj through the server: 86% → 98%), with fewer false notes on five correct readers
+(139 → 131 words); Rabbi Alouf's own reading gets 3 → 4 notes in 1,029 vowels against the nikud. Found with real
+mistakes: David's "yarbetseni" was never compared, because the ear heard one extra vowel in the word (LAB_NOTES §35).
+
 
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
 - `GET /letters` — the letter checker; `POST /letter?c=<letter>[&want=…][&strict=1]` with a short take as the body; `GET /letters.json`, `GET /letters/audio/<name>.mp3` — Rabbi Alouf's example words.
