@@ -7,6 +7,8 @@ per frame (h12q, h12s) — half the disk of fp16. The exams' held-out perakim (T
 usage: perek_to_manifest.py <tag> <job> [<job> ...]
   job = path:perek            (one perek per file)
   job = path:perek:t0-t1      (a stretch of a longer file, in seconds — Be'eri's book)
+  ... :text=<file>:book=<tag> (this job's own text and book tag instead of TEXT and BOOK: a haftarah or an aliyah,
+                               whose text keeps only the verses read, the others empty, so one run does many files)
 appends to space_test/manifest_voices.jsonl (resumes: a perek with items already written is skipped)"""
 import sys, os, json, time, subprocess
 import numpy as np, torch
@@ -63,59 +65,72 @@ def ear(x, win=20.0, pad=1.0):
         t0 += win
     lp = np.concatenate(lps); return lp, np.concatenate(hs), (n / SR) / lp.shape[0]
 
-t_start = time.time(); n_items = 0
+t_start = time.time(); n_items = 0; TEXTS = {}; EAR_LAST = [None, None, None]
 for job in JOBS:
-    parts = job.split(':'); path, n = parts[0], int(parts[1]); rng = parts[2] if len(parts) > 2 else None
-    pid = f'{TAG}_{BOOK}{n}' if BOOK else f'{TAG}{n}'
-    if (n in TEST and not BOOK) or pid in have or str(n) not in T_ALL: continue
-    t0, t1 = (float(v) for v in rng.split('-')) if rng else (None, None)
-    x = decode(path, t0, t1)
-    if x.shape[0] < 16000: continue
-    lp, h12, spf = ear(x)
-    verses = T_ALL[str(n)]
-    toks, meta, alt_list, sets, P = [], [], [], {}, []
-    for vi, v in enumerate(verses):
-        pw = parse_verse(v); P.append(pw)
-        for wi, (w, letters, us) in enumerate(pw):
-            for k, c in enumerate(letters):
-                if c == 'ה' and k == len(letters) - 1: continue
-                alts = ALT.get(c)
-                if not alts: continue
-                key = ','.join(alts)
-                if key not in sets: sets[key] = len(alt_list); alt_list.append(alts)
-                toks.append(sets[key]); meta.append((vi, wi, k, c))
-    lp2, ids = with_virtual_columns(lp.astype(np.float32), alt_list, V); lp2 = blank_merge(lp2)
-    if lp2.shape[0] < 2 * len(toks) + 1: print(f'{pid}: audio too short for the text', flush=True); continue
-    al, fa, fb = ctc_local(lp2, [ids[t] for t in toks], PAD, NV)
-    if fa < 0: print(f'{pid}: not found', flush=True); continue
-    by_v = {}
-    for (vi, wi, k, c), a in zip(meta, al): by_v.setdefault(vi, []).append((wi, k, c, a))
-    T = lp.shape[0]; m = int(round(0.25 / spf)); kept = 0
-    for vi, v in enumerate(verses):
-        L = by_v.get(vi, []); placed = [x for x in L if x[3]['f0'] >= 0]
-        if not placed: continue
-        pv = float(np.mean([x[3]['score'] for x in placed]))
-        words_hit = {x[0] for x in placed}; n_words = len(P[vi])
-        if pv < .5 or len(words_hit) < n_words: continue                  # the stretch does not match this pasuk well
-        f0 = max(0, min(x[3]['f0'] for x in placed) - m); f1 = min(T, max(x[3]['f1'] for x in placed) + m)
-        if f1 - f0 < 20 or (f1 - f0) * spf > 40: continue
-        align = []
-        for wi, k, c, a in L:
-            r = {'w': wi, 'k': k, 'c': c, 'f0': a['f0'] - f0 if a['f0'] >= 0 else -1, 'f1': a['f1'] - f0 if a['f0'] >= 0 else -1, 'p': round(a['score'], 3)}
-            if a['f0'] >= 0:
-                mass = {mm: float(np.exp(lp[a['f0']:a['f1'], V[mm]]).sum()) for mm in ALT[c]}
-                r['heard'] = max(mass, key=mass.get); r['mass'] = {mm: round(val, 3) for mm, val in mass.items()}
-            align.append(r)
-        h = h12[f0:f1]; sc = np.maximum(np.abs(h).max(1), 1e-6)
-        cid = f'{TAG}_{BOOK}{n}_{vi + 1}' if BOOK else f'{TAG}_{n}_{vi + 1}'
-        np.savez(os.path.join(FEAT, cid + '.npz'), lp=lp[f0:f1].astype(np.float16), h12q=np.round(h / sc[:, None] * 127).astype(np.int8), h12s=sc.astype(np.float16))
-        text = ' '.join(letters for _, letters, _ in P[vi])
-        pron = ' '.join(''.join(u['c'] for u in us) for _, _, us in parse_verse(clean_verse(v)))
-        row = {'id': cid, 'src': 'nv', 'voice': TAG, 'pid': pid, 'book': BOOK or 'tehillim', 'rec': os.path.basename(path), 'line': vi + 1, 'text': text, 'pron': pron,
-               'dur': round((f1 - f0) * spf, 3), 'T': int(f1 - f0), 'spf': spf, 'skel': round(pv, 3), 'good': 1.0, 'align': align,
-               't0': round((t0 or 0.0) + f0 * spf, 3), 't1': round((t0 or 0.0) + f1 * spf, 3)}
-        with open(MAN, 'a', encoding='utf-8') as fo: fo.write(json.dumps(row, ensure_ascii=False) + '\n')
-        kept += 1; n_items += 1
-    have.add(pid)
-    print(f'{pid}: {kept} of {len(verses)} pesukim kept ({x.shape[0] / 16000:.0f} s audio) [{int(time.time() - t_start)} s, {n_items} items]', flush=True)
+    try:
+        parts = job.split(':'); path, n = parts[0], int(parts[1]); rng = None; T_JOB = T_ALL; bk = BOOK
+        for extra in parts[2:]:
+            if extra.startswith('text='):
+                if extra[5:] not in TEXTS: TEXTS[extra[5:]] = json.load(open(extra[5:], encoding='utf-8'))
+                T_JOB = TEXTS[extra[5:]]
+            elif extra.startswith('book='): bk = extra[5:]
+            elif extra: rng = extra
+        pid = f'{TAG}_{bk}{n}' if bk else f'{TAG}{n}'
+        if (n in TEST and not bk) or pid in have or str(n) not in T_JOB: continue
+        if not any(v.strip() for v in T_JOB[str(n)]): continue
+        t0, t1 = (float(v) for v in rng.split('-')) if rng else (None, None)
+        if EAR_LAST[0] != (path, t0, t1):                                    # the same stretch as the job before (a haftarah's next chapter): heard once
+            x = decode(path, t0, t1)
+            EAR_LAST[:] = [(path, t0, t1), x, ear(x) if x.shape[0] >= 16000 else None]
+        x = EAR_LAST[1]
+        if EAR_LAST[2] is None: continue
+        lp, h12, spf = EAR_LAST[2]
+        verses = T_JOB[str(n)]
+        toks, meta, alt_list, sets, P = [], [], [], {}, []
+        for vi, v in enumerate(verses):
+            pw = parse_verse(v); P.append(pw)
+            for wi, (w, letters, us) in enumerate(pw):
+                for k, c in enumerate(letters):
+                    if c == 'ה' and k == len(letters) - 1: continue
+                    alts = ALT.get(c)
+                    if not alts: continue
+                    key = ','.join(alts)
+                    if key not in sets: sets[key] = len(alt_list); alt_list.append(alts)
+                    toks.append(sets[key]); meta.append((vi, wi, k, c))
+        lp2, ids = with_virtual_columns(lp.astype(np.float32), alt_list, V); lp2 = blank_merge(lp2)
+        if lp2.shape[0] < 2 * len(toks) + 1: print(f'{pid}: audio too short for the text', flush=True); continue
+        al, fa, fb = ctc_local(lp2, [ids[t] for t in toks], PAD, NV)
+        if fa < 0: print(f'{pid}: not found', flush=True); continue
+        by_v = {}
+        for (vi, wi, k, c), a in zip(meta, al): by_v.setdefault(vi, []).append((wi, k, c, a))
+        T = lp.shape[0]; m = int(round(0.25 / spf)); kept = 0
+        for vi, v in enumerate(verses):
+            L = by_v.get(vi, []); placed = [x for x in L if x[3]['f0'] >= 0]
+            if not placed: continue
+            pv = float(np.mean([x[3]['score'] for x in placed]))
+            words_hit = {x[0] for x in placed}; n_words = len(P[vi])
+            if pv < .5 or len(words_hit) < n_words: continue                  # the stretch does not match this pasuk well
+            f0 = max(0, min(x[3]['f0'] for x in placed) - m); f1 = min(T, max(x[3]['f1'] for x in placed) + m)
+            if f1 - f0 < 20 or (f1 - f0) * spf > 40: continue
+            align = []
+            for wi, k, c, a in L:
+                r = {'w': wi, 'k': k, 'c': c, 'f0': a['f0'] - f0 if a['f0'] >= 0 else -1, 'f1': a['f1'] - f0 if a['f0'] >= 0 else -1, 'p': round(a['score'], 3)}
+                if a['f0'] >= 0:
+                    mass = {mm: float(np.exp(lp[a['f0']:a['f1'], V[mm]]).sum()) for mm in ALT[c]}
+                    r['heard'] = max(mass, key=mass.get); r['mass'] = {mm: round(val, 3) for mm, val in mass.items()}
+                align.append(r)
+            h = h12[f0:f1]; sc = np.maximum(np.abs(h).max(1), 1e-6)
+            cid = f'{TAG}_{bk}{n}_{vi + 1}' if bk else f'{TAG}_{n}_{vi + 1}'
+            np.savez(os.path.join(FEAT, cid + '.npz'), lp=lp[f0:f1].astype(np.float16), h12q=np.round(h / sc[:, None] * 127).astype(np.int8), h12s=sc.astype(np.float16))
+            text = ' '.join(letters for _, letters, _ in P[vi])
+            pron = ' '.join(''.join(u['c'] for u in us) for _, _, us in parse_verse(clean_verse(v)))
+            row = {'id': cid, 'src': 'nv', 'voice': TAG, 'pid': pid, 'book': bk or 'tehillim', 'rec': os.path.basename(path), 'line': vi + 1, 'text': text, 'pron': pron,
+                   'dur': round((f1 - f0) * spf, 3), 'T': int(f1 - f0), 'spf': spf, 'skel': round(pv, 3), 'good': 1.0, 'align': align,
+                   't0': round((t0 or 0.0) + f0 * spf, 3), 't1': round((t0 or 0.0) + f1 * spf, 3)}
+            with open(MAN, 'a', encoding='utf-8') as fo: fo.write(json.dumps(row, ensure_ascii=False) + '\n')
+            kept += 1; n_items += 1
+        if kept: have.add(pid)   # a perek that kept nothing may be tried again (the same file under another perek: Mishlei's mislabelled 3 and 4)
+        print(f'{pid}: {kept} of {len(verses)} pesukim kept ({x.shape[0] / 16000:.0f} s audio) [{int(time.time() - t_start)} s, {n_items} items]', flush=True)
+    except Exception as e:   # one bad file (a text the parser cannot read, a broken mp3) does not stop the batch
+        print(f'{job}: FAILED {type(e).__name__}: {e}', flush=True)
 print(f'{TAG}: done, {n_items} new items [{int(time.time() - t_start)} s]', flush=True)

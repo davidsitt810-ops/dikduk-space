@@ -177,3 +177,7 @@ Base: `https://davidsitt-pizmonim-dikduk.hf.space`. All JSON, CORS `*`. No keys.
 ## v5.3 (Nov 2)
 - Server only: vowel notes catch more real mistakes (the take's vowels are lined up with the nikud's by letter).
   Nothing to change on the site.
+
+## v5.4 (Nov 2)
+- Server only: the vowel ear is raised on 23 readers (the Torah, Mishle and Iyob added), so fewer false vowel notes
+  for a voice it never heard. Nothing to change on the site.

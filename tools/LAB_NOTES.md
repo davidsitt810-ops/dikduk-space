@@ -1132,3 +1132,64 @@ here), word marks unchanged.
 **What it means.** A tells more of a real mistake with fewer false notes: **v5.3**. B tells more on near-clear takes,
 but its false notes come mostly from poor recordings (Daya +13), the kind a student's phone makes — held back until
 there are real student takes to judge it by. Only one kind of mistake is planted (o for u) besides David's two.
+
+## 36. Six more voices in the vowel ear (v5.4), and LearnTefillah's recordings: who reads what (Nov 2)
+
+LearnTefillah (learntefillah.com, Syrian communities of Brazil, Brooklyn and Panama) let us use its recordings, on
+condition that the checker credits it. Ten folders from its Drive — 714 mp3 files, 4.6 GB: the Tehillim (150), the
+five megillot, Mishlei 1–5, Iyov 1–20, the Torah by aliyot (54 parashiyot × 7, plus the holidays), the haftarot (78)
+and three ta'amim lessons. The download sat in ~/Downloads, where a nightly cleanup runs at 1:40; the three zip parts
+were hard-linked into `SephardicHazzanut/learntefillah/` (no copy, no extra disk), checked (`unzip -t`: no errors)
+and unpacked there.
+
+**Who reads what.** The files carry almost no names, so every folder was compared with the voices we have, with a
+speaker-recognition model (SpeechBrain ECAPA, VoxCeleb; 45-s snippets, cosine of the embeddings; `tools/spk_check.py`,
+`tools/spk_archive.py`). Yardstick: two recordings of the same reader score .78–.94, two different readers below .45.
+
+| LearnTefillah folder | nearest known voice | verdict |
+|---|---|---|
+| Tehillim 1–150 | Ben Haim (Miqra) .89–.93 | **Ben Haim** — left out: his Tehillim are already in training and his held-out perakim are an exam |
+| Shir HaShirim | Ben Haim (archive) .89 | Ben Haim |
+| Esther (one file, tagged) | Ben Haim (Miqra) .73 | Ben Haim |
+| Ruth, Eikha, Esther 1–10 ("Mac Tawil"), Kohelet, Mishlei 1–5, Iyov 1–20 | Tawil (Miqra) .75–.88; the archive's "Job NN — Max E Tawil" .90–.91 | **Rabbi Max Tawil** |
+| Torah aliyot (tagged Abe Zami in 3 books) | Abe Zami (archive) .96 | Abe Zami |
+| Torah, holidays (Pesach, Shavuot) | **Faraj Samra .82 / .87** | **Hazzan Faraj Samra — left out: he is the reader the checker is tested on as never heard** |
+| Haftarot (78, one reader: .81–.91 among themselves) | nothing above .44 (51 archive hazzanim, every known voice) | **a new voice** (the files are named in Portuguese: Brazil) |
+| Esther, Hacham Sion Levy (one recording in three encodings) | nothing above .42 | **a new voice** |
+
+Without the check, Faraj's holiday readings would have gone into training and his exam would have stopped meaning
+"a reader it never heard".
+
+**Batch 2** (`dikduk_lab/run2.sh` on the Mac's GPU, built by `tools/lt_build.py`): every file goes straight to the
+cutter (`perek_to_manifest.py`), which aligns the letters locally — so a file needs only the text of what it holds.
+New in the cutter: a job may carry its own text and book tag (`...:text=<file>:book=<tag>`), the ear is not run twice
+on one file, a perek that kept nothing may be tried again, and one bad file no longer stops the run.
+- the haftarot: the Sephardic haftarah of each parasha (Sefaria's calendar, custom=sephardi, five years of Shabbatot;
+  where a special Shabbat or a joined parasha always took its place, the Sephardic custom's); where customs or years
+  differ, a second passage that does not overlap the first (Vayishlach: Obadiah or Hosea 12; Pinhas: I Kings 18 or
+  Jeremiah 1 ...) — the wrong one finds nothing; for the holidays, the verses every custom reads.
+- Tawil: one perek per file; Mishlei's folders 3 and 4 hold "Daleth" and "Ghimel", so both files are tried as 3 and 4.
+- Abe Zami: nine parashiyot the archive did not have, by Sefaria's aliyot, one verse trimmed at each inner end (the
+  Sephardic aliyot can move a verse).
+- Sion Levy and Ben Haim's Esther: one file for the book, lined up by `voice_register.py` first, as in batch 1.
+
+**nv4 — the vowel ear on 23 voices** (`voices/step_nv4.sh`): nv3's 17 plus the six that came after it — Abe Zami's and
+Eli Cabasso's Torah (the archive, §34), and the Mac night batch's (`dikduk_lab/run.sh` on the Mac's GPU, imported with
+`voices/mac_import.py`): a whole Mishle and Iyob by one unnamed reader (pizmonim.com's), Moshe Dwek's Shir HaShirim,
+Rabia's and Cabasso's Esther, Ashear's Shofetim. 5,726 pesukim (4,765 in training, 10% of their perakim held out);
+the same recipe and starting point as nv3 (the Alouf-only head, 5 epochs, `HEAD_NV=1 HEAD_AL_FULL=2`), so the
+difference is only the added voices. Through the v5.3 server, `RAW=1`, scored with `tools/vowel_rules.py` (rule A =
+the server's):
+
+| | shipped (nv3) | **nv4** |
+|---|---|---|
+| Faraj, correct (150 takes, 145 clean), words with a vowel note | 70 / 1,300 (5.4%) | **50 (3.8%)** |
+| Faraj, planted "o for u" (80 takes): told / other words noted | 96.1% / 5.3% | **96.7% / 4.2%** |
+| Shmuelof (24), words with a note | 3 / 216 | **2** |
+| Rabbi Alouf, 60 held-out pesukim: vowel notes (base / A) | 3 / 4 in 1,029 vowels | 1 / 4 in 1,035 |
+| … word marks: wrong word caught / not sure / passed | 42 / 13 / 5 of 60 | 44 / 12 / 4 |
+| held-out Alouf at head level, words flagged | 26 (1.3%) | 27 (1.4%) |
+
+Every other word mark of Rabbi Alouf's exam is the same (intact 455 right, none red; skips and swaps caught 95%).
+**v5.4** = nv4. Fewer false notes for a voice it never heard, with the planted mistake told as often: more voices
+keep helping (§34: 3 voices made it worse, 17 better, 23 better again).

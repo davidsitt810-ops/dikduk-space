@@ -204,8 +204,8 @@ try:
 except Exception as e:
     print('no letter head:', e, flush=True)
 # The vowel ear: the same head shape, trained on Rabbi Alouf's pointed Tehillim with letters AND vowel classes
-# (A E I O U) as targets (space_test/train_head2.py full); since v5.2 also on 17 more correct readers of the community
-# (Tehillim and the megillot, tools/LAB_NOTES.md §32, §34). vowels.py aligns a line as letter [vowel?] letter [vowel?] …
+# (A E I O U) as targets (space_test/train_head2.py full); since v5.2 also on more correct readers of the community
+# (v5.2: 17 — Tehillim and the megillot; v5.4: 23 — the Torah, Mishle, Iyob; tools/LAB_NOTES.md §32, §34, §36). vowels.py aligns a line as letter [vowel?] letter [vowel?] …
 # and reads which vowel class was sung in each slot; the student's vowels are compared with the hazzan's (or with the
 # nikud when the line has it). Loaded when the file is there.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -928,7 +928,7 @@ def lyrics():
     return _LYR['data']
 
 # ---- what this server is: the code, the heads and the models it runs, so every verdict can be traced to them
-VERSION = 5.3
+VERSION = 5.4
 HERE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def file_sha(path, n=12):
