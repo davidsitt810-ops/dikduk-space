@@ -1193,3 +1193,16 @@ the server's):
 Every other word mark of Rabbi Alouf's exam is the same (intact 455 right, none red; skips and swaps caught 95%).
 **v5.4** = nv4. Fewer false notes for a voice it never heard, with the planted mistake told as often: more voices
 keep helping (§34: 3 voices made it worse, 17 better, 23 better again).
+
+**The haftarot, cut in the cloud** (`voices/lt/cloud_cut.sh`, while the Mac waited): 1,613 pesukim of the 1,660 the
+78 haftarot hold (97%). Where two passages were tried, the right one kept all its verses and the wrong one 0–3: the
+reader follows the Sephardic custom every time (Vayetzei Hosea 11:7, Vayishlach Obadiah, Shemot Jeremiah 1, Vayakhel
+I Kings 7:13, Pekudei 7:40, Kedoshim Ezekiel 20, Pinhas I Kings 18:46, Matot Jeremiah 1, Masei Jeremiah 2, Vayelekh
+Hosea 14 + Micah 7 without Joel). One file matched nothing (Hayye Sara: not I Kings 1, perhaps another haftarah).
+**A wrong text can slip through the cutter's filter:** the 9 verses a losing passage kept (skel .50–.64, 8–25 s) were
+dropped (`tools/drop_losers.py`); of the real items 98.6% have skel ≥ .6, so a .6 floor for the new voices would
+cost little — not changed yet (it would move every voice).
+**Hacham Sion Levy's Esther gave nothing:** the phone ear found perakim 1–7 in order but at mean unit probability
+.37–.43 (a good reader: .7+), 8–10 not at all, and the cutter kept 0 pesukim, in the cloud and on the Mac alike — an old
+recording the ears cannot follow (or read with something besides the text). Left for now.
+
