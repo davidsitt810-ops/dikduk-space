@@ -102,8 +102,8 @@ textarea{width:100%;min-height:80px;font:12px/1.4 ui-monospace,Menlo,monospace;c
   <div class="sum" hidden><span class="n">1</span><span class="txt" id="s1sum"></span><button class="link" data-change="s1">Change</button></div>
   <div class="body">
    <h2><span class="n">1</span>What will you sing?</h2>
-   <div class="seg" role="group" aria-label="Kind of text"><button class="on" id="kindPz" type="button">A pizmon</button><button id="kindTh" type="button">Tehillim</button></div>
-   <div class="row"><input type="text" id="pid" placeholder="Pizmon number, e.g. 200" style="flex:1" aria-label="Pizmon number, Tehillim perek, or a few words" autocomplete="off"><button class="btn gold" id="go">Open</button></div>
+   <div class="seg" role="group" aria-label="Kind of text"><button class="on" id="kindPz" type="button">A pizmon</button><button id="kindTh" type="button">Tehillim</button><button id="kindAny" type="button">Any line</button></div>
+   <div class="row"><input type="text" id="pid" dir="auto" placeholder="Pizmon number, e.g. 200" style="flex:1" aria-label="Pizmon number, Tehillim perek, a pasuk, or a line to read" autocomplete="off"><button class="btn gold" id="go">Open</button></div>
    <p class="hint" id="pidHint">You can also type a few words of the pizmon.</p>
    <div class="chips" id="hits"></div>
   </div>
@@ -143,7 +143,7 @@ textarea{width:100%;min-height:80px;font:12px/1.4 ui-monospace,Menlo,monospace;c
    <p class="say" id="say"></p>
    <label class="strict"><input type="checkbox" id="strict"><span>Strict check: only what is clearly right counts</span></label>
    <div class="words" id="res"></div>
-   <p class="hint">Tap a word to hear the hazzan sing it, then you.</p>
+   <p class="hint" id="tapHint">Tap a word to hear the hazzan sing it, then you.</p>
    <ul class="notes" id="notes"></ul>
    <div class="sub" id="thP" hidden><h3 style="margin-top:0">Throat letters ע and ח</h3><div id="th"></div></div>
    <div class="after"><button class="btn gold" id="againLine" type="button">Sing it again</button><button class="btn" id="otherLine" type="button">Another line</button></div>
@@ -206,7 +206,9 @@ async function health(){const el=$('#srv');if(!API){el.className='pill bad';el.t
  catch(e){el.className='pill bad';el.textContent='Server not reachable';err('The server did not answer. It may be waking up — try again in a minute.');}}
 /* a link can open the page on a text, and on a line: /try?pz=200&line=3 (pizmon 200, line 3), /try?th=23&line=1
    (Tehillim 23:1), &rec=<file> picks the hazzan recording — this is how the site sends a visitor to one line */
-function fromUrl(){const q=new URLSearchParams(location.search);const pz=q.get('pz'),th=q.get('th');if(!pz&&!th)return;
+function fromUrl(){const q=new URLSearchParams(location.search);const pz=q.get('pz'),th=q.get('th'),any=q.get('q');
+ if(any){setKind('any');$('#pid').value=any;openAny(any);return;}
+ if(!pz&&!th)return;
  if(th){KIND='th';$('#kindTh').classList.add('on');$('#kindPz').classList.remove('on');}
  const id=th?'t'+String(th).replace(/\D/g,''):String(pz).replace(/[^\dA-Za-z]/g,'');$('#pid').value=th?String(th).replace(/\D/g,''):id;
  if(q.get('rec'))REC=q.get('rec');openP(id);
@@ -220,11 +222,13 @@ document.querySelectorAll('[data-change]').forEach(b=>b.onclick=()=>{const id=b.
 /* ---------- step 1: what to sing ---------- */
 let KIND='pz';
 const TH_AUDIO=[1,23,117,121,130,133,134,150];   /* perakim with Rabbi Alouf's recording on the server (the server lists its own when it can) */
-function kindHint(){const th=KIND==='th';$('#pid').placeholder=th?'Perek number, e.g. 23':'Pizmon number, e.g. 200';
+function kindHint(){const th=KIND==='th',any=KIND==='any';$('#pid').placeholder=any?'Bereshit 1:1, or paste a line':th?'Perek number, e.g. 23':'Pizmon number, e.g. 200';
  const have=(SRV&&SRV.ears&&SRV.ears.tehillim_perakim)||TH_AUDIO;
- $('#pidHint').textContent=th?'Perakim with Rabbi Alouf’s recording to compare with: '+have.join(', ')+'. Other perakim are checked against the nikud only.':'You can also type a few words of the pizmon.';}
-$('#kindPz').onclick=()=>{KIND='pz';$('#kindPz').classList.add('on');$('#kindTh').classList.remove('on');kindHint();$('#pid').focus();};
-$('#kindTh').onclick=()=>{KIND='th';$('#kindTh').classList.add('on');$('#kindPz').classList.remove('on');kindHint();$('#pid').focus();};
+ $('#pidHint').textContent=any?'Any pasuk by name (Bereshit 1:1, Tehillim 23, Yeshayahu 40:1-5), or paste a line from a siddur. There is no hazzan here: your words, your vowels (when the line has nikud) and ע ח are checked.':th?'Perakim with Rabbi Alouf’s recording to compare with: '+have.join(', ')+'. Other perakim are checked against the nikud only.':'You can also type a few words of the pizmon.';}
+function setKind(k){KIND=k;$('#kindPz').classList.toggle('on',k==='pz');$('#kindTh').classList.toggle('on',k==='th');$('#kindAny').classList.toggle('on',k==='any');kindHint();$('#pid').focus();}
+$('#kindPz').onclick=()=>setKind('pz');
+$('#kindTh').onclick=()=>setKind('th');
+$('#kindAny').onclick=()=>setKind('any');
 /* ---------- lyrics ---------- */
 let LY=null,P=null,REC=null,LINE=null,TAKE=null,RESULT=null;let STRICT=false;try{STRICT=localStorage.getItem('dk.strict')==='1';}catch(e){}
 const NIK=/[֑-ׇ]/g,FIN={'ך':'כ','ם':'מ','ן':'נ','ף':'פ','ץ':'צ'};
@@ -256,7 +260,9 @@ function openP(pid){P=null;const s=LY&&LY.s[String(pid)];if(!s){err(isTh(pid)?'N
  $('#lines').querySelectorAll('.ln').forEach(b=>b.onclick=()=>pickLine(L[+b.dataset.k]));
  $('#lines').querySelectorAll('[data-hear]').forEach(b=>b.onclick=()=>{const l=L[+b.dataset.hear];playHim(l.t0,l.t1);});
  openStep('s2');$('#s2').scrollIntoView({behavior:'smooth',block:'start'});}
-$('#go').onclick=async()=>{await loadLyrics();if(!LY){err('The words have not loaded yet — wait a moment and tap Open again.');return;}const v=$('#pid').value.trim();$('#hits').innerHTML='';if(!v)return;REC=null;
+$('#go').onclick=async()=>{const v=$('#pid').value.trim();$('#hits').innerHTML='';if(!v)return;REC=null;
+ if(KIND==='any'){openAny(v);return;}
+ await loadLyrics();if(!LY){err('The words have not loaded yet — wait a moment and tap Open again.');return;}
  if(/^t\s*\d+$/i.test(v)){openP('t'+v.replace(/\D/g,''));return;}
  if(/^\d+$/.test(v)){openP(KIND==='th'?'t'+v:v);return;}
  const Q=heWords(v).map(heL);if(!Q.length){err('Type a number, or a few Hebrew words.');return;}
@@ -264,6 +270,28 @@ $('#go').onclick=async()=>{await loadLyrics();if(!LY){err('The words have not lo
  $('#hits').innerHTML=hits.map(id=>`<button class="btn" data-id="${id}" type="button">${id} · ${he(LY.s[id].l[0].split(' ').slice(0,4).join(' '))}</button>`).join('')||'<span class="hint" style="margin:0">No pizmon with those words.</span>';
  $('#hits').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('#pid').value=b.dataset.id;openP(b.dataset.id);});};
 $('#pid').addEventListener('keydown',e=>{if(e.key==='Enter')$('#go').click();});
+/* ---------- any line: a pasuk by name from Sefaria ("Miqra according to the Masorah", the pointed text used for
+   Tehillim), or a line pasted from a siddur; there is no hazzan, so the take is checked against the nikud ---------- */
+const MARKS=/[\u0591-\u05C7]/g,TAAM=/[\u0591-\u05AF\u05BD\u05C0\u05C3]/g;
+const clean=t=>String(t||'').replace(/<[^>]+>/g,'').replace(/&[a-z#0-9]+;/gi,' ').replace(/\{[פס]\}/g,' ').replace(/\s+/g,' ').trim();
+const plainOf=t=>clean(t).replace(/\u05BE/g,' ').replace(MARKS,'').replace(/[^\u05D0-\u05EA\s]/g,' ').replace(/\s+/g,' ').trim();
+const shownOf=t=>clean(t).replace(TAAM,'').trim();
+const hasNik=t=>/[\u05B0-\u05BC\u05C1\u05C2\u05C7]/.test(t);
+async function openAny(v){err('');P=null;REC=null;let title=null,verses=null;
+ const pasted=hasNik(v)||heWords(v).length>4||/[\n׃]/.test(v);
+ if(!pasted){try{const r=await fetch('https://www.sefaria.org/api/texts/'+encodeURIComponent(v)+'?vhe=Miqra_according_to_the_Masorah&context=0&commentary=0');const d=await r.json();
+   if(!d.error){const flat=a=>Array.isArray(a)?a.flatMap(flat):[a];verses=flat(d.he).map(clean).filter(x=>plainOf(x));title=v+(d.heRef?' · '+d.heRef:'');}}catch(e){}
+  if(!verses||!verses.length){if(!heWords(v).length){err('Could not find that pasuk. Try it like this: Bereshit 1:1, or Tehillim 23.');return;}}}
+ if(!verses||!verses.length){verses=v.split(/\n+|׃/).map(clean).filter(x=>plainOf(x));title='Your line'+(verses.length>1?'s':'');}
+ if(verses.length>80)verses=verses.slice(0,80);
+ const L=verses.map((x,k)=>({k,text:shownOf(x),words:plainOf(x),t0:null,t1:null}));
+ P={id:'any',any:true,s:{l:L.map(l=>l.words),ln:verses.map(x=>hasNik(x)?x:null)}};
+ foldStep('s1',esc(title));$('#ptitle').innerHTML=esc(title);
+ $('#recs').innerHTML='<span class="hint" style="margin:0">No hazzan for this text: '+(P.s.ln.some(Boolean)?'your words, vowels and ע ח are checked against the nikud.':'your words and ע ח are checked (paste it with nikud to check the vowels too).')+'</span>';
+ $('#lines').innerHTML=L.map(l=>`<div class="lnrow"><button class="ln" data-k="${l.k}" lang="he" dir="rtl">${esc(l.text)}</button></div>`).join('');
+ $('#lines').querySelectorAll('.ln').forEach(b=>b.onclick=()=>pickLine(L[+b.dataset.k]));
+ if(L.length===1){pickLine(L[0]);return;}
+ openStep('s2');$('#s2').scrollIntoView({behavior:'smooth',block:'start'});}
 /* ---------- step 2 → 3: a line ---------- */
 const PREF=new Set();
 /* the hazzan's line is analysed on the server the moment a line is picked (and cached there), so by the time the
@@ -271,10 +299,10 @@ const PREF=new Set();
 function prefetchRef(l){if(!REC||l.t0==null)return;const nk=P&&P.s.ln&&P.s.ln[l.k];const k=REC+'|'+l.t0+'|'+l.t1+'|'+l.text+'|'+(nk||'');if(PREF.has(k))return;PREF.add(k);
  const q=new URLSearchParams({f:REC,words:l.text,t0:l.t0,t1:l.t1});if(nk)q.set('nikud',nk);fetch(url('/ref?'+q),{cache:'no-store'}).catch(()=>PREF.delete(k));}
 const hiTh=(w,cls)=>esc(w).replace(/[עח]/g,c=>`<span class="th${cls?' '+cls(c):''}">${c}</span>`);
-function pickLine(l){LINE=l;TAKE=null;RESULT=null;prefetchRef(l);$('#lines').querySelectorAll('.ln').forEach(b=>b.classList.toggle('on',+b.dataset.k===l.k));
+function pickLine(l){LINE=l;TAKE=null;RESULT=null;prefetchRef(l);$('#tapHint').textContent=P&&P.any?'Tap a word to hear yourself say it.':'Tap a word to hear the hazzan sing it, then you.';$('#lines').querySelectorAll('.ln').forEach(b=>b.classList.toggle('on',+b.dataset.k===l.k));
  foldStep('s2','Line '+(l.k+1)+' · '+he(l.text));
  $('#lineWords').innerHTML=hiTh(l.text);$('#hearLine').disabled=l.t0==null;$('#takeRow').hidden=true;if(canRec)$('#recBtn').hidden=false;
- $('#recNote').textContent=l.t0==null?'There is no hazzan recording for this line, so the check looks at your words on their own.':'Sing or read the line, then tap Stop.';
+ $('#recNote').textContent=P&&P.any?(P.s.ln[l.k]?'Read the line, then tap Stop. Your words, vowels and ע ח are checked against the nikud.':'Read the line, then tap Stop. Without nikud, your words and ע ח are checked.'):l.t0==null?'There is no hazzan recording for this line, so the check looks at your words on their own.':'Sing or read the line, then tap Stop.';
  openStep('s3');$('#s3').scrollIntoView({behavior:'smooth',block:'start'});}
 /* ---------- hearing the hazzan: the archive mp3 plays straight from pizmonim.org; Tehillim from this server ---------- */
 let HIM=null;
@@ -318,7 +346,8 @@ async function waitJob(id){const t0=Date.now();let misses=0;
   if(Date.now()-t0>420000)throw new Error('the server took more than 7 minutes');}}
 $('#check').onclick=async()=>{if(!TAKE||!LINE)return;busyText('sending your recording');$('#busy').hidden=false;$('#check').disabled=true;err('');
  try{const q=new URLSearchParams({words:LINE.text,job:1});if(REC&&LINE.t0!=null){q.set('ref',REC);q.set('t0',LINE.t0);q.set('t1',LINE.t1);}
-  if(P&&P.s.ln&&P.s.ln[LINE.k])q.set('nikud',P.s.ln[LINE.k]);if(P&&P.id)q.set('pid',P.id);   /* the text's id: the server scores its other lines against this one (rival) */
+  if(P&&P.s.ln&&P.s.ln[LINE.k])q.set('nikud',P.s.ln[LINE.k]);if(P&&P.id&&!P.any)q.set('pid',P.id);
+  if(P&&P.any){q.set('words',LINE.words);const o=P.s.l.filter((x,i)=>i!==LINE.k&&x).slice(0,30);if(o.length)q.set('alts',o.join('|'));}   /* any line: the passage's other verses are the rivals */   /* the text's id: the server scores its other lines against this one (rival) */
   const r=await fetch(url('/check?'+q),{method:'POST',body:TAKE.blob,headers:{'content-type':TAKE.blob.type||'application/octet-stream'}});
   let j=await r.json();if(!r.ok||j.err)throw new Error(j.err||('server said '+r.status));
   if(j.job)j=await waitJob(j.job);   /* an older server answers with the result itself */
@@ -428,7 +457,7 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
  /* throat letters: the verdict per ע / ח, you and the hazzan */
  const rows=[];TW.forEach((t,i)=>{if(marks[i]==='off'||cantHear||noSpeech)return;(t.throat||[]).forEach(th=>{const r=RW&&RW[i]&&(RW[i].throat||[]).find(x=>x.k===th.k);rows.push({w:W[i],c:th.c,you:th,him:r});});});
  if(rows.length){$('#th').innerHTML=rows.map(x=>{const a=thSay(x.you),b=thSay(x.him);
-   return `<div class="tr"><div class="hd"><span class="lt">${esc(x.c)}</span><span>in ${he(x.w)}</span></div><div><span class="k">you</span><span class="v ${SON&&a.v==='unsure'?'bad':VCLS[a.v]||''}">${esc(SON&&a.v==='unsure'?'not clearly from the throat ✕':a.lead)}</span><span class="ears hint" style="margin:0"> · ${esc(a.ears)}</span></div><div><span class="k">the hazzan</span><span class="v">${x.him?esc(b.lead):'–'}</span>${x.him?`<span class="ears hint" style="margin:0"> · ${esc(b.ears)}</span>`:''}</div></div>`;}).join('');
+   return `<div class="tr"><div class="hd"><span class="lt">${esc(x.c)}</span><span>in ${he(x.w)}</span></div><div><span class="k">you</span><span class="v ${SON&&a.v==='unsure'?'bad':VCLS[a.v]||''}">${esc(SON&&a.v==='unsure'?'not clearly from the throat ✕':a.lead)}</span><span class="ears hint" style="margin:0"> · ${esc(a.ears)}</span></div><div>${P&&P.any?'':`<span class="k">the hazzan</span><span class="v">${x.him?esc(b.lead):'–'}</span>`}${x.him?`<span class="ears hint" style="margin:0"> · ${esc(b.ears)}</span>`:''}</div></div>`;}).join('');
   $('#thP').hidden=false;}else $('#thP').hidden=true;
  /* lab details: the numbers per word, the vowel comparison, every sound heard */
  const f2=x=>x==null?'–':(+x).toFixed(2);
