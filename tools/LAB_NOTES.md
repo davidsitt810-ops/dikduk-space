@@ -1206,3 +1206,11 @@ cost little — not changed yet (it would move every voice).
 .37–.43 (a good reader: .7+), 8–10 not at all, and the cutter kept 0 pesukim, in the cloud and on the Mac alike — an old
 recording the ears cannot follow (or read with something besides the text). Left for now.
 
+**nv5 — nv4 plus the haftarot reader** (`voices/lt/chain_nv5.sh`; 7,339 pesukim of new voices, 6,390 in training;
+the same recipe): on the readers it never heard, Faraj's correct reading 50 → 48 words with a vowel note (of 1,300),
+the planted "o for u" told 96.7 → 97.8% (other words 4.2% both), Shmuelof 2 → 1 (of 216); Rabbi Alouf's 60 held-out
+pesukim: vowel notes (A) 4 → 5 in ~1,033 vowels, a wrong word caught 44 → 45 of 60, every other mark the same;
+held-out Alouf at head level 27 words flagged both. Every never-heard measure moves the right way, each by a word or
+two — not worth an update on its own: it ships with batch 2's readers (Tawil's books, Ben Haim's Shir HaShirim and
+Esther, Zami's Torah), as one update, with LearnTefillah credited.
+
