@@ -27,6 +27,8 @@ al = [r for r in rows if r['src'] == 'al' and r['skel'] >= .5 and r['T'] >= 20]
 il = [r for r in rows if r['src'] == 'il']
 eg = [r for r in rows if r['src'] == 'eg' and r['skel'] >= .4 and r['T'] >= 20]   # Egyptian Arabic read speech mapped to Hebrew letters (HEAD_EG=1 to train on it)
 EG_W = int(os.environ.get('HEAD_EG', '0'))
+iq = [r for r in rows if r['src'] == 'iq' and r['skel'] >= .4 and r['T'] >= 20]   # IqraEval: Arabic read speech and Quran recitation mapped to Hebrew letters (HEAD_IQ=k to train on it)
+IQ_W = int(os.environ.get('HEAD_IQ', '0'))
 il2 = [r for r in rows if r['src'] == 'il2' and r['skel'] >= .3 and r['T'] >= 20]   # Israeli read speech, ayin/het written as alef/khaf (HEAD_IL=1 to train on it)
 IL_W = int(os.environ.get('HEAD_IL', '0')); il2_hold = set(r['rec'] for r in il2[::10])
 nv = [r for r in rows if r['src'] == 'nv' and r['skel'] >= .5 and r['T'] >= 20]   # new voices, pointed Tehillim (HEAD_NV=k: k copies in training)
@@ -35,6 +37,7 @@ if MAXN: ar = ar[:MAXN]; il = il[:MAXN // 4]   # smoke tests
 pids = sorted(set(r['pid'] for r in ar)); random.shuffle(pids); hold = set(pids[:max(1, len(pids) // 10)])
 pers = sorted(set(r['pid'] for r in al), key=lambda s: int(s[2:])); random.shuffle(pers); hold_al = set(pers[:max(1, len(pers) // 10)])
 eg_hold = set(r['rec'] for r in eg[::10])   # every 10th Egyptian clip held out for its own exam
+iq_hold = set(r['rec'] for r in iq[::10])   # and every 10th IqraEval clip
 nvp = sorted(set(r['pid'] for r in nv)); random.shuffle(nvp); hold_nv = set(nvp[:max(1, len(nvp) // 10)]) if nvp else set()   # 10% of their perakim (the exams' perakim are never in the manifest)
 # the new voices never train on the TEXT of Rabbi Alouf's held-out perakim either, so his held-out exams (here and in
 # exam_alouf.py) stay unseen in voice AND text
@@ -50,14 +53,14 @@ nv_train = [r for r in nv_train if not (r['id'] in PRON and PRON[r['id']] is Non
 al_train = [r for r in al if r['pid'] not in hold_al]
 if os.environ.get('HEAD_AL_SUB'): random.Random(2).shuffle(al_train); al_train = al_train[:int(os.environ['HEAD_AL_SUB'])]
 if MODE == 'letters':
-    train = [r for r in ar if r['pid'] not in hold] + [r for r in al if r['pid'] not in hold_al] * AL_W + [r for r in eg if r['rec'] not in eg_hold] * EG_W + [r for r in il2 if r['rec'] not in il2_hold] * IL_W + nv_train * NV_W
+    train = [r for r in ar if r['pid'] not in hold] + [r for r in al if r['pid'] not in hold_al] * AL_W + [r for r in eg if r['rec'] not in eg_hold] * EG_W + [r for r in iq if r['rec'] not in iq_hold] * IQ_W + [r for r in il2 if r['rec'] not in il2_hold] * IL_W + nv_train * NV_W
 else:
     train = al_train * int(os.environ.get('HEAD_AL_FULL', '1')) + nv_train * NV_W   # HEAD_AL_FULL=k: Rabbi Alouf k times
 test_ar = [r for r in ar if r['pid'] in hold]; test_al = [r for r in al if r['pid'] in hold_al]; test_nv = [r for r in nv if r['pid'] in hold_nv]
 if os.environ.get('HEAD_DUMP'):   # which new-voice items train and which are held out (for tools/mistake_lab.py)
     json.dump({'nv_train': [r['id'] for r in nv_train], 'test_nv': [r['id'] for r in test_nv]}, open(os.environ['HEAD_DUMP'], 'w'))
     if os.environ.get('HEAD_DUMP_ONLY'): sys.exit(0)
-print(f'mode {MODE}: archive lines {len(ar)}, Alouf pesukim {len(al)} (weight {AL_W}), israeli {len(il)}, egyptian {len(eg)} (weight {EG_W}), israeli train {len(il2)} (weight {IL_W}); train items {len(train)}; held out {len(test_ar)} hazzan lines of {len(hold)} pizmonim, {len(test_al)} Alouf pesukim of {len(hold_al)} perakim; new voices {len(nv)} (weight {NV_W}; {len(nv_train)} in training, none from his held-out perakim {sorted(al_held_text)}), held out {len(test_nv)} of {len(hold_nv)} perakim')
+print(f'mode {MODE}: archive lines {len(ar)}, Alouf pesukim {len(al)} (weight {AL_W}), israeli {len(il)}, egyptian {len(eg)} (weight {EG_W}), iqraeval {len(iq)} (weight {IQ_W}), israeli train {len(il2)} (weight {IL_W}); train items {len(train)}; held out {len(test_ar)} hazzan lines of {len(hold)} pizmonim, {len(test_al)} Alouf pesukim of {len(hold_al)} perakim; new voices {len(nv)} (weight {NV_W}; {len(nv_train)} in training, none from his held-out perakim {sorted(al_held_text)}), held out {len(test_nv)} of {len(hold_nv)} perakim')
 
 def feats(r):
     d = np.load(os.path.join(HERE, 'feat', r['id'] + '.npz'))
@@ -90,8 +93,16 @@ print('train clips', len(data), 'frames', sum(r['T'] for r, _ in data), flush=Tr
 def batches(items, bs=12):
     items = sorted(items, key=lambda z: z[0]['T']); out = [items[i:i + bs] for i in range(0, len(items), bs)]; random.shuffle(out); return out
 sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=LR, total_steps=EPOCHS * (len(data) // 12 + 1)) if EPOCHS else None   # EPOCHS 0: the warm head's exams only
-t0 = time.time()
-for ep in range(EPOCHS):
+t0 = time.time(); START = 0
+# HEAD_RESUME=1: go on from the last finished epoch in HEAD_OUT.part (a run stopped by a time limit); the schedule is
+# stepped forward to the same place, the optimizer's moments come back from the file
+if HEAD_OUT and os.environ.get('HEAD_RESUME') and os.path.exists(HEAD_OUT + '.part'):
+    ck = torch.load(HEAD_OUT + '.part', map_location='cpu', weights_only=False)
+    if 'opt' in ck:
+        model.load_state_dict(ck['state']); opt.load_state_dict(ck['opt']); START = ck['epoch']
+        for _ in range(START * -(-len(data) // 12)): sched.step()   # as many steps as batches() made per epoch
+        random.setstate(ck['rng']); print(f'resumed after epoch {START} of {EPOCHS} ({HEAD_OUT}.part)', flush=True)
+for ep in range(START, EPOCHS):
     model.train(); tot = 0; nb = 0
     for b in batches(data):
         b = [(feats(r), y) for r, y in b]
@@ -101,7 +112,8 @@ for ep in range(EPOCHS):
         loss = ctc(lp, ys, xl, yl); opt.zero_grad(); loss.backward(); nn.utils.clip_grad_norm_(model.parameters(), 5.0); opt.step(); sched.step()
         tot += loss.item(); nb += 1
     print(f'epoch {ep + 1}/{EPOCHS} loss {tot / nb:.3f} {int(time.time() - t0)} s', flush=True)
-    if HEAD_OUT: torch.save({'state': model.state_dict(), 'sym': SYM, 'layer': 'h12', 'd_in': 1024, 'mode': MODE, 'epoch': ep + 1}, HEAD_OUT + '.part')   # kept if a run is stopped
+    if HEAD_OUT: torch.save({'state': model.state_dict(), 'sym': SYM, 'layer': 'h12', 'd_in': 1024, 'mode': MODE, 'epoch': ep + 1,
+                             'opt': opt.state_dict(), 'rng': random.getstate()}, HEAD_OUT + '.part')   # kept if a run is stopped (HEAD_RESUME=1)
 
 # ---------------- exams
 sys.path.insert(0, os.path.join(HERE, '..', 'tehillim'))
@@ -178,6 +190,9 @@ if not QUICK: exam('held-out hazzan lines', test_ar, 'text', [('ע', 'א'), ('ח
 if not QUICK: exam('held-out Alouf pesukim', test_al, 'pron' if MODE == 'full' else 'text', [('ע', 'א'), ('ח', 'כ')] + ([('A', 'E', 'I', 'O', 'U')] if MODE == 'full' else []))
 if not QUICK: exam('Israeli read speech (ע said like א, ח like כ)', il, 'text', [('ע', 'א'), ('ח', 'כ')])
 if eg and not QUICK: exam('held-out Egyptian Arabic clips (ع ح said from the throat)', [r for r in eg if r['rec'] in eg_hold], 'text', [('ע', 'א'), ('ח', 'כ')])
+if iq and not QUICK:
+    for kind in ('read', 'quran'):
+        exam(f'held-out IqraEval clips, {kind} (ع ح said from the throat)', [r for r in iq if r['rec'] in iq_hold and r.get('kind') == kind], 'text', [('ע', 'א'), ('ח', 'כ')])
 for vname in sorted(set(r['voice'] for r in test_nv)) if not QUICK else []:
     exam(f'held-out {vname} pesukim', [r for r in test_nv if r['voice'] == vname], 'pron' if MODE == 'full' else 'text', [('ע', 'א'), ('ח', 'כ')] + ([('A', 'E', 'I', 'O', 'U')] if MODE == 'full' else []))
 if MODE == 'full':
