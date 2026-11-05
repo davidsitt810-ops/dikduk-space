@@ -102,6 +102,9 @@ if HEAD_OUT and os.environ.get('HEAD_RESUME') and os.path.exists(HEAD_OUT + '.pa
         model.load_state_dict(ck['state']); opt.load_state_dict(ck['opt']); START = ck['epoch']
         for _ in range(START * -(-len(data) // 12)): sched.step()   # as many steps as batches() made per epoch
         random.setstate(ck['rng']); print(f'resumed after epoch {START} of {EPOCHS} ({HEAD_OUT}.part)', flush=True)
+# HEAD_STOP_AFTER=k: a planned stop after epoch k (HEAD_OUT.part kept, no exams, no final save), so a long training can
+# run as two shorter jobs; the second one is the same command with HEAD_RESUME=1
+STOP = int(os.environ.get('HEAD_STOP_AFTER', '0')) if HEAD_OUT else 0
 for ep in range(START, EPOCHS):
     model.train(); tot = 0; nb = 0
     for b in batches(data):
@@ -114,6 +117,8 @@ for ep in range(START, EPOCHS):
     print(f'epoch {ep + 1}/{EPOCHS} loss {tot / nb:.3f} {int(time.time() - t0)} s', flush=True)
     if HEAD_OUT: torch.save({'state': model.state_dict(), 'sym': SYM, 'layer': 'h12', 'd_in': 1024, 'mode': MODE, 'epoch': ep + 1,
                              'opt': opt.state_dict(), 'rng': random.getstate()}, HEAD_OUT + '.part')   # kept if a run is stopped (HEAD_RESUME=1)
+    if STOP and ep + 1 == STOP and ep + 1 < EPOCHS:
+        print(f'planned stop after epoch {ep + 1} of {EPOCHS} (HEAD_STOP_AFTER); HEAD_RESUME=1 goes on from {HEAD_OUT}.part', flush=True); sys.exit(0)
 
 # ---------------- exams
 sys.path.insert(0, os.path.join(HERE, '..', 'tehillim'))
