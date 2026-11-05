@@ -6,7 +6,7 @@ clip is aligned on the Arabic ear, and layer 12 (int8, as perek_to_manifest.py) 
 line, src "iq". Many more throats than the 410 Egyptian clips, and recitation, which is closer to how a hazzan reads.
 Only sentences whose phoneme transcript has as many ع (E) and ح (H) as the writing are kept (the two agree on what was
 said), clips with ع or ح first. Written as it goes; ids already in the manifest are skipped.
-usage: [IQ_QURAN=n] [IQ_READ=n] extract_iq.py <parquet shard> [max_clips_per_kind] [max_plain]"""
+usage: [IQ_QURAN=n] [IQ_READ=n] [IQ_MAX_SECONDS=s] extract_iq.py <parquet shard> [max_clips_per_kind] [max_plain]"""
 import sys, os, json, time, re, subprocess, tempfile
 import numpy as np, torch, pyarrow.parquet as pq
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
@@ -107,9 +107,12 @@ if os.path.exists(MAN):
             except Exception: continue
             done.add(d['id']); n[kind_of(d['arabic'])] += 1
 t_start = time.time(); n_skip = 0
-pf = pq.ParquetFile(SHARD)
+MAXS = float(os.environ.get('IQ_MAX_SECONDS', '0'))   # a planned stop after this long (a later run goes on: it counts what is written)
+pf = pq.ParquetFile(SHARD); stop = False
 for batch in pf.iter_batches(batch_size=64, columns=['id', 'sentence', 'phoneme_ref', 'audio']):
+    if stop: break
     for r in batch.to_pylist():
+        if MAXS and time.time() - t_start > MAXS: print(f'planned stop after {int(MAXS)} s (IQ_MAX_SECONDS)', flush=True); stop = True; break
         cid = 'iq_' + r['id']
         if cid in done: continue
         ph = (r['phoneme_ref'] or '').split(); s = r['sentence'] or ''
