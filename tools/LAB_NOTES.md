@@ -1214,3 +1214,28 @@ held-out Alouf at head level 27 words flagged both. Every never-heard measure mo
 two — not worth an update on its own: it ships with batch 2's readers (Tawil's books, Ben Haim's Shir HaShirim and
 Esther, Zami's Torah), as one update, with LearnTefillah credited.
 
+
+**Batch 2, cut in the cloud (Nov 5):** Rabbi Tawil's six books 1,248 pesukim (97% kept), Ben Haim's Shir HaShirim
+114, Zami's Torah 575 from 50 of his 80 aliyot (about half his pesukim pass the cutter, but the ones that pass line up
+best of every new reader: skel median .84 against .69–.75). The cutting job was stopped by the 2-hour limit on one
+background job before Zami's last 30 aliyot and Ben Haim's Esther (~500 pesukim); it was not restarted. Long trainings
+now run as planned parts that each end inside that limit (`HEAD_STOP_AFTER=k`, then the same command with
+`HEAD_RESUME=1`; `voices/lt/nv6_train.sh`, `nv6_exams.sh`).
+
+**nv6 = nv5 + those 1,937 pesukim** (nv5's recipe and starting point; 9,276 new-voice pesukim, 8,008 in training):
+
+| | nv4 (= v5.4, live) | nv5 | nv6 |
+|---|---|---|---|
+| Faraj, never heard, correct reading: words with a vowel note (of 1,300) | 50 | 48 | 53 |
+| Faraj, planted "o for u": told / other words noted | 96.7% / 4.2% | 97.8% / 4.2% | 98.3% / 4.6% |
+| Shmuelof, never heard (216 words): words with a note | 2 | 1 | 4 |
+| Rabbi Alouf, 60 held-out pesukim: vowel notes (A) in ~1,033 vowels | 4 | 5 | 6 |
+| … a wrong word caught / not sure / passed (of 60) | 44 / 12 / 4 | 45 / 12 / 3 | 44 / 13 / 3 |
+| held-out Alouf at head level, words flagged (of 1,978) | 27 | 27 | 30 |
+
+Every difference is a few words — inside the noise of exams this size — but nothing is better and the false notes on
+readers it never heard go the wrong way. **Not shipped; v5.4 stays.** Adding more readers of the same kind has stopped
+paying: +17 voices helped (§34), +23 helped again, +1 (the haftarot) a word or two, +3 (batch 2) a few words worse.
+nv5 alone is not worth an update either. What would move the vowel ear now is not more of the same readers but exams
+big enough to see a difference of a few words (Faraj's 1,300 words and Shmuelof's 216 cannot), and cleaner data
+(a skel floor for the new voices; §36's 98.6% ≥ .6 for the haftarot, but 15–97% below .6 for some archive readers).
