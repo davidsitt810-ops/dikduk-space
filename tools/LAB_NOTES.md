@@ -1239,3 +1239,30 @@ paying: +17 voices helped (§34), +23 helped again, +1 (the haftarot) a word or 
 nv5 alone is not worth an update either. What would move the vowel ear now is not more of the same readers but exams
 big enough to see a difference of a few words (Faraj's 1,300 words and Shmuelof's 216 cannot), and cleaner data
 (a skel floor for the new voices; §36's 98.6% ≥ .6 for the haftarot, but 15–97% below .6 for some archive readers).
+
+## 37. IqraEval's throats for the letter head (v8): no gain where it counts (Nov 5)
+
+**Data** (`tools/extract_iq.py`; IqraEval's Iqra_train, CC BY-NC 4.0, allowed for this free checker by its authors):
+shard 0's 2,462 clips → 1,723 kept: 623 recited verses and 900 read sentences with ع or ح (each with as many E/H in
+its phoneme transcript as ع/ح in its writing; 20 disagreed), 200 sentences with neither; Arabic mapped letter by letter
+onto Hebrew (ع→ע, ح→ח, خ→כ …; al- before a sun letter assimilated, its alef dropped inside a sentence; ظ sentences
+dropped). Lined up on the Arabic ear: skel median .91; the Arabic ear itself heard 90% of the ع and all ح as such.
+1,670 clips (2.0 h) in training at weight 1, every tenth clip held out. **v8** = v7's recipe + these (warm from v5eg,
+Israeli and Egyptian ×1, Alouf ×2, LR 3e-4, 3 epochs; two planned jobs, `voices/iq/v8_train.sh`).
+
+| head level | v7 (live) | v8 |
+|---|---|---|
+| held-out hazzan lines: LER / ע→ע / א→ע / כ→ח | 26% / 92% / 10% / 9% | 27% / 92% / 9% / 11% |
+| held-out Alouf: LER / ע→ע | 6% / 98% | 7% / 99% |
+| Israeli read speech: LER / ע→ע (they say it plain: false throat) | 32% / 4% | 33% / 5% |
+| **Egyptian Arabic, unseen speakers: ע→ע** | **78%** | **78%** |
+| held-out IqraEval, read: LER / ע→ע / ח→ח | 27% / 75% / 92% | 12% / 92% / 96% |
+| held-out IqraEval, recited: LER / ע→ע / ח→ח | 31% / 74% / 85% | 16% / 87% / 91% |
+| 16 Hebrew readers the letter head never trained on (1,418 ע, 942 ח): ע→ע / ח→ח / א→ע / כ→ח | 91.2% / 98.5% / 3.8% / 3.6% | 91.0% / 98.3% / 3.3% / 4.1% |
+
+v8 learned IqraEval's own clips (held out by clip, not by speaker: the same reciters and Common Voice speakers recur,
+so that column is in-distribution) and nothing else moved: unseen Egyptian throats 78% → 78%, the Hebrew readers it
+never heard the same to a tenth of a point, the Israelis' false throat 4% → 5%. **Not shipped; v7 stays.** The 22% of
+unseen Egyptian ع heard as א is not for lack of Arabic throat data. Faraj (never heard) already gets ע 98% and ח 98%
+"throat" from the full checker, Rabbi Alouf ע 90%. What would teach the head more is Hebrew read by the people who
+will use the checker (a community student reading with a real ע), not more Arabic.
