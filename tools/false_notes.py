@@ -5,7 +5,7 @@ usage: false_notes.py exam.json [planted_exam.json]"""
 import sys, os, json, collections
 R = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); sys.path.insert(0, R); sys.path.insert(0, os.path.join(R, 'tools'))
 from nikud import parse_verse
-from vowels import vowel_notes
+from vowels import vowel_notes, expected_vowels
 import vowel_rules as VR
 
 def notes_detail(r):
@@ -13,7 +13,7 @@ def notes_detail(r):
     pv = parse_verse(raw['nikud'])
     if len(pv) != len(W) or not r['clean']: return []
     letters = {i: l for i, (_, l, _) in enumerate(pv)}
-    exp = {i: [{'heard': u['c'], 'k': u['k']} for u in us if u['kind'] == 'vowel'] for i, (_, _, us) in enumerate(pv)}
+    exp = {i: expected_vowels(us) for i, (_, _, us) in enumerate(pv)}   # as the server (v5.6: a furtive patah where it is said)
     stu = {i: VR.slots(w) for i, w in enumerate(raw['tw'])}
     haz = {i: VR.slots(w) for i, w in enumerate(raw['rw'])} if raw['rw'] else {}
     vh, vn = vowel_notes(stu, haz if haz else None, exp, letters); vh = vh or {}; vn = vn or {}

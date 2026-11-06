@@ -14,7 +14,7 @@ usage: vowel_rules.py exam_a.json [exam_b.json ...]"""
 import sys, os, json, collections
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from nikud import parse_verse
-from vowels import compare_vowels, compare_aligned, compat, vowel_notes   # A is the server's rule since v5.3
+from vowels import compare_vowels, compare_aligned, compat, vowel_notes, expected_vowels   # A is the server's rule since v5.3
 
 def slots(raw_word):
     return [{'k': k, 'heard': h, 'mass': m, 'p': p} for k, h, m, p in raw_word]
@@ -25,7 +25,7 @@ def notes_for(row, aligned, gate_p=None, min_head=None):
     pv = parse_verse(raw['nikud'])
     if len(pv) != len(W): return {}
     letters = {i: l for i, (_, l, _) in enumerate(pv)}
-    exp = {i: [{'heard': u['c'], 'k': u['k']} for u in us if u['kind'] == 'vowel'] for i, (_, _, us) in enumerate(pv)}
+    exp = {i: expected_vowels(us) for i, (_, _, us) in enumerate(pv)}   # as the server (v5.6: a furtive patah where it is said)
     stu = {i: slots(w) for i, w in enumerate(raw['tw'])}
     haz = {i: slots(w) for i, w in enumerate(raw['rw'])} if raw['rw'] else {}
     if aligned:   # exactly what the server does since v5.3 (vowels.vowel_notes, both cross-checks included)

@@ -209,7 +209,7 @@ except Exception as e:
 # and reads which vowel class was sung in each slot; the student's vowels are compared with the hazzan's (or with the
 # nikud when the line has it). Loaded when the file is there.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from vowels import vowel_place, compare_vowels, vowel_notes, letters_kept, VOWEL_NAME, VOWELS
+from vowels import vowel_place, compare_vowels, vowel_notes, letters_kept, expected_vowels, VOWEL_NAME, VOWELS
 from order import order_evidence, order_from_tokens, rival_evidence
 import shva as SH
 from rule import RULE, mark_of, head_median, no_speech_in, clean_of, marks_of, strict_of, summarize, score_parts, score_of   # the word rule (rule.py)
@@ -928,7 +928,7 @@ def lyrics():
     return _LYR['data']
 
 # ---- what this server is: the code, the heads and the models it runs, so every verdict can be traced to them
-VERSION = 5.5
+VERSION = 5.6
 HERE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def file_sha(path, n=12):
@@ -1228,7 +1228,7 @@ def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None, alt
         # 79-85% -> 83-96%, false notes 139 -> 131 words on 5 readers.
         try:
             pv = parse_verse(nikud)
-            exp = {i: [{'heard': u['c'], 'k': u['k']} for u in us if u['kind'] == 'vowel'] for i, (_, _, us) in enumerate(pv)}
+            exp = {i: expected_vowels(us) for i, (_, _, us) in enumerate(pv)}   # (v5.6) a furtive patah where it is said
             if len(exp) == len(W):
                 RW = (out.get('ref') or {}).get('words') or []
                 haz = {i: w.get('vow', []) for i, w in enumerate(RW)} if RW else None

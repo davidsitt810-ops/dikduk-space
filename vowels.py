@@ -16,6 +16,22 @@ VOWEL_NAME = {'A': 'ah (patah / kamatz)', 'E': 'eh (segol / tsere)', 'I': 'ee (h
 # 50 -> 26 words of 1,300, the real ee still told 96.5% as before (tools/LAB_NOTES.md §38).
 EI_MAX_E = 0.005
 
+def expected_vowels(units):
+    """One word's vowels from the nikud (nikud.parse_word's units), each with the letter it follows (k), as
+       vowel_notes wants them. (v5.6) A furtive patah (רוּחַ, לַמְנַצֵּחַ: said BEFORE the final ח / ע / הּ, so the parser
+       puts it before its own consonant) is expected where it is said, in the slot after the letter before it: the
+       ear's template has a vowel slot only AFTER each letter, so the "ah" lands in the slot of the vowel before it
+       and the slot after the final letter is empty. That made a false "you said ah where the page says eh" on
+       לַמְנַצֵּחַ, the first word of 55 perakim, and on כֹּחַ, בוֹטֵחַ, יָרֵחַ, שָׁמֵעַ… (Faraj Samra, never heard: 13 of his 198
+       false notes on Tehillim 1-55, all gone, none added, no planted mistake missed; tools/LAB_NOTES.md §39)."""
+    out = []
+    for j, u in enumerate(units):
+        if u['kind'] != 'vowel': continue
+        k = u['k']
+        if k > 0 and j + 1 < len(units) and units[j + 1]['kind'] == 'cons' and units[j + 1]['k'] == k: k -= 1   # furtive: before its consonant
+        out.append({'heard': u['c'], 'k': k})
+    return out
+
 def ctc_align_opt(lp, toks, blank, optional=None, band=None, skip_cost=0.0):
     """Viterbi forced alignment on the blank-interleaved trellis; `optional` = set of token positions the path may
        skip, each skip costing `skip_cost` (log-prob units). -> per token {'f0','f1','score'} (f0 = -1 when skipped)."""
