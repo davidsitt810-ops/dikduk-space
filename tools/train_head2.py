@@ -57,6 +57,7 @@ if MODE == 'letters':
 else:
     train = al_train * int(os.environ.get('HEAD_AL_FULL', '1')) + nv_train * NV_W   # HEAD_AL_FULL=k: Rabbi Alouf k times
 test_ar = [r for r in ar if r['pid'] in hold]; test_al = [r for r in al if r['pid'] in hold_al]; test_nv = [r for r in nv if r['pid'] in hold_nv]
+test_nv += [r for r in nv if r['voice'] in NV_SKIP and r['pid'] not in hold_nv]   # a voice left out is examined on all its pesukim
 if os.environ.get('HEAD_DUMP'):   # which new-voice items train and which are held out (for tools/mistake_lab.py)
     json.dump({'nv_train': [r['id'] for r in nv_train], 'test_nv': [r['id'] for r in test_nv]}, open(os.environ['HEAD_DUMP'], 'w'))
     if os.environ.get('HEAD_DUMP_ONLY'): sys.exit(0)
@@ -169,6 +170,19 @@ def exam_vowel_ear(items, title='held-out Alouf'):
        found per word compared with the nikud's; a correct reader (Rabbi Alouf) should raise no flags"""
     sys.path.insert(0, os.path.join(HERE, '..', 'space'))
     from vowels import vowel_place, compare_vowels, clear
+    VL = None   # DK_VOWELS=<the repo's vowels.py>: also the live server's own rule (A, against the nikud) on these words
+    if os.environ.get('DK_VOWELS'):
+        import importlib.util; sp = importlib.util.spec_from_file_location('vowels_live', os.environ['DK_VOWELS']); VL = importlib.util.module_from_spec(sp); sp.loader.exec_module(VL)
+    def exp_from_pron(letters, pw):
+        """the nikud's vowels of one word with the letter each follows (k, into the word's letters), from its pronounced
+           sequence (letters, each vowel after its letter; silent letters left out; a word-initial וּ is a bare U)"""
+        out, j = [], -1
+        for ch in pw:
+            if ch in VOWELS: out.append({'heard': ch, 'k': max(j, 0)}); continue
+            j = letters.find(ch, j + 1)
+            if j < 0: return None
+        return out
+    n_flag_a = n_words_a = 0
     n_words = n_same = n_flag = n_clear = n_clear_ok = 0; conf = {}
     with torch.no_grad():
         for r in items:
@@ -185,8 +199,15 @@ def exam_vowel_ear(items, title='held-out Alouf'):
                         conf[(e['heard'], s_['heard'])] = conf.get((e['heard'], s_['heard']), 0) + 1
                         if clear(s_, 2.0): n_clear += 1; n_clear_ok += (s_['heard'] == e['heard'])
             n_flag += sum(len(v) for v in compare_vowels(slots, ref).values())
+            if VL is not None:   # the live rule: its own slots, lined up with the nikud's by letter, every note a false alarm here
+                sl_live, _ = VL.vowel_place(lp, words, S2I, lambda w: w)
+                exp = {i: exp_from_pron(w, p) for i, (w, p) in enumerate(zip(words, pw))}
+                exp = {i: e for i, e in exp.items() if e is not None}; n_words_a += len(exp)
+                _, vn = VL.vowel_notes({i: s for i, s in sl_live.items() if i in exp}, None, exp, {i: w for i, w in enumerate(words)})
+                n_flag_a += len(vn or {})
     print(f'\nvowel ear on {title}: {n_words} words, vowel count matched the nikud in {100 * n_same / max(1, n_words):.0f}%; '
           f'clear slots {n_clear} of which right {100 * n_clear_ok / max(1, n_clear):.0f}%; words flagged (false alarms on a correct reader) {n_flag} = {100 * n_flag / max(1, n_words):.1f}%')
+    if VL is not None: print(f'   the live rule (A, against the nikud): words with a note {n_flag_a} of {n_words_a} = {100 * n_flag_a / max(1, n_words_a):.2f}%')
     for e in VOWELS:
         tot = sum(conf.get((e, o), 0) for o in VOWELS)
         if tot: print(f'   nikud {e} -> found: ' + ', '.join(f'{o} {100 * conf.get((e, o), 0) / tot:.0f}%' for o in VOWELS) + f'  (n={tot})')
