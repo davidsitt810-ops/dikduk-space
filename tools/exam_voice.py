@@ -43,7 +43,7 @@ print(f'{NAME}: {len(jobs)} pesukim', flush=True)
 PLANT = os.environ.get('PLANT'); NO_REF = bool(os.environ.get('NO_REF'))
 RAW = bool(os.environ.get('RAW'))   # RAW=1: each row also keeps the vowel ear's slots (take and hazzan) and the server's notes, to try other note rules offline
 if PLANT:
-    assert PLANT == 'OU', 'only PLANT=OU'
+    assert PLANT in ('OU', 'IE'), 'PLANT=OU or PLANT=IE'
     import nikud as NK
     O_MARKS = {NK.HOLAM, NK.HOLAM_VAV, NK.QAMATS_QATAN, NK.HAT_QAM}
     def plant_word(w):
@@ -59,6 +59,8 @@ if PLANT:
                 ms = [(NK.DAGESH if male else NK.QUBUTS) if m in O_MARKS else m for m in ms]
             out.append(c + ''.join(ms))
         return ''.join(out)
+    if PLANT == 'IE':   # the page's hiriq written tsere, the Name kept: the correct reader now "says i where the page says e"
+        def plant_word(w): return w if NK.NAME.search(w) else w.replace(NK.HIRIQ, NK.TSERE)
     def plant(nik):
         new = ' '.join(plant_word(w) for w in nik.split(' '))
         a, b = NK.parse_verse(nik), NK.parse_verse(new)
