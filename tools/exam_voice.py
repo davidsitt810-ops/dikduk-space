@@ -43,7 +43,7 @@ print(f'{NAME}: {len(jobs)} pesukim', flush=True)
 PLANT = os.environ.get('PLANT'); NO_REF = bool(os.environ.get('NO_REF'))
 RAW = bool(os.environ.get('RAW'))   # RAW=1: each row also keeps the vowel ear's slots (take and hazzan) and the server's notes, to try other note rules offline
 if PLANT:
-    assert PLANT in ('OU', 'IE'), 'PLANT=OU or PLANT=IE'
+    assert PLANT in ('OU', 'IE', 'EI', 'EA', 'UO'), 'PLANT=OU, IE, EI, EA or UO'
     import nikud as NK
     O_MARKS = {NK.HOLAM, NK.HOLAM_VAV, NK.QAMATS_QATAN, NK.HAT_QAM}
     def plant_word(w):
@@ -61,6 +61,29 @@ if PLANT:
         return ''.join(out)
     if PLANT == 'IE':   # the page's hiriq written tsere, the Name kept: the correct reader now "says i where the page says e"
         def plant_word(w): return w if NK.NAME.search(w) else w.replace(NK.HIRIQ, NK.TSERE)
+    # the other way round, for the next kinds of false note (LAB_NOTES §39): EI = the page's e (tsere, segol, hataf segol)
+    # written hiriq, so the correct reader "says e where the page says i"; EA = written patah (hataf segol -> hataf
+    # patah; not an e before a bare yod, which would turn it into the diphthong ay); UO = the page's u written o (kubutz
+    # -> holam, shuruk -> holam male). The Name kept.
+    TARGET = {'EI': {NK.TSERE: NK.HIRIQ, NK.SEGOL: NK.HIRIQ, NK.HAT_SEG: NK.HIRIQ},
+              'EA': {NK.TSERE: NK.PATAH, NK.SEGOL: NK.PATAH, NK.HAT_SEG: NK.HAT_PAT}, 'UO': {NK.QUBUTS: NK.HOLAM}}
+    if PLANT in TARGET:
+        def plant_word(w):
+            if NK.NAME.search(w): return w
+            groups = []
+            for ch in w:
+                if 'א' <= ch <= 'ת' or not groups: groups.append([ch, []])
+                else: groups[-1][1].append(ch)
+            out = []
+            for j, (c, ms) in enumerate(groups):
+                nxt = groups[j + 1] if j + 1 < len(groups) else None
+                bare_yod = nxt is not None and nxt[0] == 'י' and not any(m in NK.VOWEL_MARKS or m == NK.DAGESH for m in nxt[1])
+                if PLANT == 'UO' and c == 'ו' and NK.DAGESH in ms and not any(m in NK.VOWEL_MARKS for m in ms):
+                    ms = [NK.HOLAM if m == NK.DAGESH else m for m in ms]   # shuruk -> holam male
+                elif not (PLANT == 'EA' and bare_yod):
+                    ms = [TARGET[PLANT].get(m, m) for m in ms]
+                out.append(c + ''.join(ms))
+            return ''.join(out)
     def plant(nik):
         new = ' '.join(plant_word(w) for w in nik.split(' '))
         a, b = NK.parse_verse(nik), NK.parse_verse(new)
