@@ -84,8 +84,14 @@ if PLANT:
                     ms = [TARGET[PLANT].get(m, m) for m in ms]
                 out.append(c + ''.join(ms))
             return ''.join(out)
-    def plant(nik):
-        new = ' '.join(plant_word(w) for w in nik.split(' '))
+    def plant(nik, one=None):
+        words = nik.split(' '); news = [plant_word(w) for w in words]
+        if one is not None:   # PLANT_ONE=1: one planted word per pasuk, chosen at random (a student rarely misreads more,
+            # and a mistake made everywhere would also look like the reader's own way of speaking to a rule that weighs the take)
+            cand = [j for j, (a, b) in enumerate(zip(words, news)) if a != b]
+            pick = one.choice(cand) if cand else None
+            news = [b if j == pick else a for j, (a, b) in enumerate(zip(words, news))]
+        new = ' '.join(news)
         a, b = NK.parse_verse(nik), NK.parse_verse(new)
         assert len(a) == len(b)
         idx = [j for j, ((_, _, ua), (_, _, ub)) in enumerate(zip(a, b)) if [u['c'] for u in ua] != [u['c'] for u in ub]]
@@ -112,7 +118,7 @@ for done, (n, i) in enumerate(jobs, 1):
     A = align(n); R = IDX[str(n)]; p = A['pesukim'][i]; q = R['pesukim'][i]
     wav = cut(n, p['t0'] - .25, p['t1'] + .25)
     alts = '|'.join(x['text'] for k, x in enumerate(R['pesukim']) if k != i and x.get('text'))
-    nik, planted, nw = (plant(q['nikud']) if PLANT else (q['nikud'], None, None))
+    nik, planted, nw = (plant(q['nikud'], random.Random(n * 1000 + i) if os.environ.get('PLANT_ONE') else None) if PLANT else (q['nikud'], None, None))
     prm = {'words': q['text'], 'nikud': nik, 'alts': alts}
     if not NO_REF: prm.update({'ref': R['file'], 't0': q['t0'], 't1': q['t1']})
     try:
