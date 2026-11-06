@@ -45,6 +45,8 @@ al_held_text = {int(p[2:]) for p in hold_al}
 NV_SKIP = set(v for v in os.environ.get('HEAD_NV_SKIP', '').split(',') if v)   # leave a voice out entirely (does the head help a voice it never heard?)
 perek_no = lambda r: int(r['pid'][len(r['voice']):]) if r['pid'][len(r['voice']):].isdigit() else None   # a Tehillim perek (other books: <voice>_<book><chapter>)
 nv_train = [r for r in nv if r['pid'] not in hold_nv and perek_no(r) not in al_held_text and r['voice'] not in NV_SKIP]
+if os.environ.get('HEAD_NV_SKEL'):   # a floor on how well a pesuk lined up (its consonant score) before it may train
+    nv_train = [r for r in nv_train if (r.get('skel') or 0) >= float(os.environ['HEAD_NV_SKEL'])]
 # calibration test: only K pesukim of one voice (HEAD_NV_KEEP=voice:K, seeded) — can a reader's first K pesukim teach
 # the head his voice? — and Rabbi Alouf subsampled to anchor it (HEAD_AL_SUB=n)
 if os.environ.get('HEAD_NV_KEEP'):
@@ -182,7 +184,7 @@ def exam_vowel_ear(items, title='held-out Alouf'):
             j = letters.find(ch, j + 1)
             if j < 0: return None
         return out
-    n_flag_a = n_words_a = 0
+    n_flag_a = n_words_a = 0; plant_n, plant_told = {}, {}
     n_words = n_same = n_flag = n_clear = n_clear_ok = 0; conf = {}
     with torch.no_grad():
         for r in items:
@@ -203,11 +205,19 @@ def exam_vowel_ear(items, title='held-out Alouf'):
                 sl_live, _ = VL.vowel_place(lp, words, S2I, lambda w: w)
                 exp = {i: exp_from_pron(w, p) for i, (w, p) in enumerate(zip(words, pw))}
                 exp = {i: e for i, e in exp.items() if e is not None}; n_words_a += len(exp)
-                _, vn = VL.vowel_notes({i: s for i, s in sl_live.items() if i in exp}, None, exp, {i: w for i, w in enumerate(words)})
+                L = {i: w for i, w in enumerate(words)}
+                _, vn = VL.vowel_notes({i: s for i, s in sl_live.items() if i in exp}, None, exp, L)
                 n_flag_a += len(vn or {})
+                for kind in ('OU', 'IE'):   # the page rewritten as exam_voice.py's PLANT does: o written u, i written e
+                    pl = {i: [dict(v, heard=kind[1]) if v['heard'] == kind[0] else v for v in e] for i, e in exp.items() if any(v['heard'] == kind[0] for v in e)}
+                    if not pl: continue
+                    _, vp = VL.vowel_notes({i: s for i, s in sl_live.items() if i in pl}, None, pl, L)
+                    plant_n[kind] = plant_n.get(kind, 0) + len(pl); plant_told[kind] = plant_told.get(kind, 0) + len(vp or {})
     print(f'\nvowel ear on {title}: {n_words} words, vowel count matched the nikud in {100 * n_same / max(1, n_words):.0f}%; '
           f'clear slots {n_clear} of which right {100 * n_clear_ok / max(1, n_clear):.0f}%; words flagged (false alarms on a correct reader) {n_flag} = {100 * n_flag / max(1, n_words):.1f}%')
-    if VL is not None: print(f'   the live rule (A, against the nikud): words with a note {n_flag_a} of {n_words_a} = {100 * n_flag_a / max(1, n_words_a):.2f}%')
+    if VL is not None:
+        print(f'   the live rule (A, against the nikud): words with a note {n_flag_a} of {n_words_a} = {100 * n_flag_a / max(1, n_words_a):.2f}%'
+              + ''.join(f'; planted {k[0]}->{k[1]} told {plant_told[k]} of {plant_n[k]} = {100 * plant_told[k] / max(1, plant_n[k]):.1f}%' for k in sorted(plant_n)))
     for e in VOWELS:
         tot = sum(conf.get((e, o), 0) for o in VOWELS)
         if tot: print(f'   nikud {e} -> found: ' + ', '.join(f'{o} {100 * conf.get((e, o), 0) / tot:.0f}%' for o in VOWELS) + f'  (n={tot})')
