@@ -1294,3 +1294,7 @@ With v5.5 also: the other words noted around the plants 22 → 11–12, Rabbi Ta
 sure"; sure had to mean "heard no eh", because the ear's own certainty was 99% on three of the four words he heard as
 a clear eh. What it may cost: the real ee in this test is Faraj's hiriq, a clean ee; a student's ee for tsere said
 half-way may now go untold.
+
+**Through the server** (v5.5 on the dev server, the shipped heads, `exam_samra_v55*.json`): Faraj's correct reading
+50 → **25** words with a vowel note of 1,300 (e→i slots 67 → 18; every word mark the same: 1,268 ok, 6 red, 18 not
+sure); the planted real ee 277/287 told before and after, the other words noted around them 22 → 11. **v5.5.**
