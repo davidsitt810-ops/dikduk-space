@@ -181,3 +181,7 @@ Base: `https://davidsitt-pizmonim-dikduk.hf.space`. All JSON, CORS `*`. No keys.
 ## v5.4 (Nov 2)
 - Server only: the vowel ear is raised on 23 readers (the Torah, Mishle and Iyob added), so fewer false vowel notes
   for a voice it never heard. Nothing to change on the site.
+
+## v5.5 (Nov 6)
+- Server only: half as many false vowel notes for a reader whose "eh" the ear takes for "ee" (the note "ee where the
+  page says eh" now needs the ear to hear no eh at all). Nothing to change on the site.

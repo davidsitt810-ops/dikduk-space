@@ -200,6 +200,13 @@ correct reading 70 → 50 words with a false vowel note (of 1,300), Shmuelof 3 �
 told 96.1 → 96.7% of the time, with fewer false notes around it (5.3 → 4.2%); Rabbi Alouf's own exam unchanged (the
 same word marks, 4 vowel notes in 1,035 vowels; a wrong word caught 42 → 44 of 60) (LAB_NOTES §36).
 
+v5.5 (Nov 6): "ee where the page says eh" (a tsere or segol heard as hiriq) is told only when the ear heard no eh at
+all in that vowel. Two of every three false vowel notes on Hazzan Faraj Samra, a reader the ear never heard, were
+this one note on a clear eh (David listened to them); they keep a trace of eh, a real ee does not. Faraj's correct
+reading 50 → 25 words with a false vowel note (of 1,300); a real ee read where the page says eh (his own hiriq, the
+page rewritten) still told 96.5% of the time, as before; the planted "o for u" still 96.7%; Rabbi Tawil 22 → 19,
+Ben Haim 27 → 25, Shmuelof 2 (LAB_NOTES §38). `vowels.EI_MAX_E`.
+
 
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
 - `GET /letters` — the letter checker; `POST /letter?c=<letter>[&want=…][&strict=1]` with a short take as the body; `GET /letters.json`, `GET /letters/audio/<name>.mp3` — Rabbi Alouf's example words.

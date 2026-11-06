@@ -9,6 +9,12 @@ import numpy as np
 
 VOWELS = ['A', 'E', 'I', 'O', 'U']
 VOWEL_NAME = {'A': 'ah (patah / kamatz)', 'E': 'eh (segol / tsere)', 'I': 'ee (hiriq)', 'O': 'oh (holam)', 'U': 'oo (shuruk / kubutz)'}
+# v5.5: "ee where the page says eh" only when the ear heard no eh at all in that vowel (at most this share of its mass).
+# Hazzan Faraj Samra, never heard by the ear, says a clear eh (David listened) that the ear often takes for ee — 67 of
+# his 96 false notes; those keep a trace of eh (median 1.6% of the mass), while a real ee read where the page says eh
+# (his own hiriq with the page rewritten, PLANT=IE) has none (0.0% at the 90th percentile). At 0.5%: his false notes
+# 50 -> 26 words of 1,300, the real ee still told 96.5% as before (tools/LAB_NOTES.md §38).
+EI_MAX_E = 0.005
 
 def ctc_align_opt(lp, toks, blank, optional=None, band=None, skip_cost=0.0):
     """Viterbi forced alignment on the blank-interleaved trellis; `optional` = set of token positions the path may
@@ -165,7 +171,9 @@ def compare_aligned(student, ref, letters, ratio=2.0, with_pairs=False, skip=0.5
             st, rs = sl[a], r[b]; pairs.setdefault(i, {})[st['k']] = rs['heard']
             if st['heard'] == rs['heard'] or not clear(st, ratio): continue
             if rs.get('mass') is not None and not clear(rs, ratio): continue
-            mm = st['mass']; out.setdefault(i, []).append({'k': st['k'], 'you': st['heard'], 'ref': rs['heard'], 'm': round(mm[st['heard']] / max(1e-6, sum(mm.values())), 2)})
+            mm = st['mass']
+            if rs['heard'] == 'E' and st['heard'] == 'I' and mm.get('E', 0) > EI_MAX_E * sum(mm.values()): continue   # v5.5, below
+            out.setdefault(i, []).append({'k': st['k'], 'you': st['heard'], 'ref': rs['heard'], 'm': round(mm[st['heard']] / max(1e-6, sum(mm.values())), 2)})
     return (out, pairs) if with_pairs else out
 
 def vowel_notes(student, hazzan, expected, letters):

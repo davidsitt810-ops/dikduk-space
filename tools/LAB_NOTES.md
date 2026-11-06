@@ -1266,3 +1266,31 @@ never heard the same to a tenth of a point, the Israelis' false throat 4% → 5%
 unseen Egyptian ع heard as א is not for lack of Arabic throat data. Faraj (never heard) already gets ע 98% and ח 98%
 "throat" from the full checker, Rabbi Alouf ע 90%. What would teach the head more is Hebrew read by the people who
 will use the checker (a community student reading with a real ע), not more Arabic.
+
+## 38. Faraj's "eh" heard as "ee": the note now needs no trace of eh (v5.5, Nov 6)
+
+**Where the false notes come from** (`tools/false_notes.py`): on Faraj Samra's correct reading (v5.4, 150 takes),
+67 of the 96 false vowel-note slots are one note, "ee where the page says eh" (a tsere or segol heard as hiriq):
+יִשְׂרָאֵל as "yisra-il", בְּנֵי, הַנֹּתֵן, צֶדֶק … The other readers each have their own (Ben Haim oo→oh and oh→ah,
+Tawil oo→oh and ee→ah) with only a few e→i. David listened to four of Faraj's (a page with each word and its pasuk):
+a clear eh. The ear mishears this voice.
+
+**A real ee where the page says eh** (`exam_voice.py PLANT=IE`: the page's hiriq written tsere, the Name kept, so
+Faraj's own ee is read where the page now says eh; 80 takes, no hazzan): 287 planted words. The ear's share for ee
+is 1.000 in both kinds of note; what tells them apart is the eh left in the vowel: a real ee has none (0.000 at the
+90th percentile), the misheard eh keeps a trace (median 1.6%, 75th percentile 8%) (`tools/ei_rules.py`).
+
+| keep "ee where the page says eh" when … | Faraj correct: words with a false note (of 1,300) | a real ee told (of 287) | planted o→u told (of 181) |
+|---|---|---|---|
+| always (v5.4) | 50 | 96.5% | 96.7% |
+| the ear's share for ee ≥ .99 | 27 | 95.1% | 96.7% |
+| … ≥ .999 | 23 | 90.2% | 96.7% |
+| a long ee (mass ≥ 1.5) | 27 | 74.2% | 96.7% |
+| **eh at most 0.5% of the vowel (v5.5)** | **25** | **96.5%** | **96.7%** |
+| never | 15 | 2.1% | 96.7% |
+
+With v5.5 also: the other words noted around the plants 22 → 11–12, Rabbi Tawil 22 → 19, Ben Haim 27 → 25, Shmuelof
+2 → 2 (the raw exams replayed through `vowels.vowel_notes`, the server's own function). David chose "only when very
+sure"; sure had to mean "heard no eh", because the ear's own certainty was 99% on three of the four words he heard as
+a clear eh. What it may cost: the real ee in this test is Faraj's hiriq, a clean ee; a student's ee for tsere said
+half-way may now go untold.
