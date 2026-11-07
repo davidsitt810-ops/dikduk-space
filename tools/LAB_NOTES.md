@@ -1298,3 +1298,351 @@ half-way may now go untold.
 **Through the server** (v5.5 on the dev server, the shipped heads, `exam_samra_v55*.json`): Faraj's correct reading
 50 → **25** words with a vowel note of 1,300 (e→i slots 67 → 18; every word mark the same: 1,268 ok, 6 red, 18 not
 sure); the planted real ee 277/287 told before and after, the other words noted around them 22 → 11. **v5.5.**
+
+## 39. Bigger tests (Nov 6–7): every pasuk of Faraj Samra, planted mistakes, a skipped word, the student's own voice, a phone in a room — v5.6
+
+**Why.** The numbers so far came from 80–150 takes per reader: a false-note share of 1.9% could be anything from 1%
+to 3%. This round runs every usable pasuk of a voice the checker never heard — Hazzan Faraj Samra's Tehillim, 1,683
+takes (13,498 words) — through the dev server (v5.5, the shipped heads, `exam_voice.py RAW=1`, `big/exam.sh`), in
+parts that each end inside two hours. Ranges are 95% Wilson intervals. The rules are tuned on perakim 1–55 and checked
+on 56–150, which no rule here was fitted to; Shmuelof's Tehillim is a second held-out voice.
+
+**Faraj's correct reading (v5.5)**
+
+| | Tehillim 1–55 (tuned on) | 56–150 (held out) |
+|---|---|---|
+| takes / clean | 852 / 800 | 831 / 752 |
+| words with a vowel note (all false) | 198 of 7,012 = 2.8% (2.5–3.2) | 170 of 6,486 = 2.6% (2.3–3.0) |
+| v5.4 on the same takes (replayed) | 4.4% | 4.6% (4.1–5.1) |
+| right words red | 23 (0.3%) | 27 (0.4%) |
+| ע throat / unsure / plain | 95% / 5% / 0.2% | 95% / 4% / 0.4% |
+| ח throat / unsure / plain | 98% / 2% / 0.1% | 98% / 2% / 0 |
+
+The replay of the server's notes from the raw slots (`big/rules.py`) matches the server on every take (0 of 1,683
+differ), so rule variants below are measured on exactly what the page would show. The small tests were optimistic:
+§38's 1.9% is 2.6–2.8% on the whole book. The kinds: e→i 41% of the false slots (155 + 145), a→e 15%, o→u 12%,
+i→e 8%, e→a 6%.
+
+**The furtive patah (v5.6 candidate).** The parser puts a furtive patah (רוּחַ, לַמְנַצֵּחַ, בֹּטֵחַ) before its own
+consonant, and the ear's template has a vowel slot only after each letter, so the "ah" said before the final ח/ע/הּ
+lands in the slot of the vowel before it while the expected patah waits in the empty slot after the last letter: a
+false "you said ah where the page says eh" on לַמְנַצֵּחַ, which opens more than fifty perakim. `vowels.expected_vowels`
+now expects it in the slot after the letter before it. 1–55: 13 of 198 false notes go, none added; 56–150: 11 of 170
+go, 1 added (בֹּטֵחַ 135:18). The dense i-for-e plant: other words noted 102 → 88; one planted word stops being told,
+לַשְׁמִעַ 26:7, whose old note said "ah where the page says eh" — the artifact itself, not an i heard.
+
+**One planted mistake per pasuk** (`PLANT_ONE=1`, 500 takes each, all of Tehillim, no hazzan): a student rarely
+misreads more than a word, and a mistake planted on every word looks like the reader's own way of speaking to any rule
+that weighs the whole take. Each kind is the exact counterpart of one kind of false note (`PLANT=EI`: the page's e
+written i, so Faraj's correct e is "e where the page says i"; `EA` e written a; `UO` u written o; `OU` o written u;
+`IE` i written e).
+
+| a real mistake, one word per pasuk | Faraj: told, v5.5 (clean takes) | v5.6 | Shmuelof: told, v5.5 (clean) | v5.6 |
+|---|---|---|---|---|
+| i for e | 88.1% of 478 (94.8%) | the same | 86.0% of 406 (94.6%) | the same |
+| e for i | 78.1% of 475 (84.5%) | 76.8% (83.1%)* | 80.2% of 400 (89.4%) | 78.8% (87.7%)* |
+| e for a | 83.8% of 463 (90.7%) | the same | 79.7% of 379 (88.6%) | the same |
+| u for o | 92.7% of 313 (99.0%) | the same | 90.6% of 267 (99.6%) | the same |
+| o for u | 89.3% of 449 (96.9%) | 89.1% (96.6%)* | 89.0% of 382 (98.3%) | the same |
+| other words noted around them | 2.6–3.3% | 2.3–2.9% | 1.2–1.4% | 0.7–0.8% |
+
+\* the words the fix stops telling were told only by the artifact: Faraj's לַמְנַצִּחַ ×5 and שֹׁמִעַ, Shmuelof's לַמְנַצִּחַ ×6
+("you said ah where the page says ee"), Faraj's יָשֻׁחַ ("ah where the page says oo") — the ear heard the furtive "a" in the slot, never the planted
+vowel. Nothing real is lost on any test (the dense plants too: i for e 1,282 → 1,281 of 1,450, o for u 1,021 → 1,017 of
+1,138, every one of the five a furtive word whose old note was "ah"). On unclean takes (7%) no vowel note is given at
+all, by design. What these show besides: **the vowel right before a furtive patah is not checked at all** — in כֹּחַ,
+בְּכֹחַ, יָשֹׁחַ, בִּפְרֹחַ the ear's one slot after that letter holds the furtive's "a" and never Faraj's "o" (a second slot
+before a final ח / ע would be needed; not tried).
+
+What the ear does on the mistakes it misses (clean takes, the planted vowels): e for i — 27 heard as i (the ear's own
+e→i on this voice agrees with the planted page), 29 with no vowel slot placed at that letter, 13 unclear; e for a —
+18 no slot, 16 unclear, 7 heard a; i for e — 12 no slot. A template that requires a slot where the nikud has a full
+vowel might recover the "no slot" ones (a third to a half of the misses), at an unmeasured cost in false notes. Not
+tried, because of where the missing slots are (`big/coverage.py`, his correct reading 56–150, clean takes, every
+vowel the nikud expects): the ear places a slot for 98–99.7% of his a, i, o, u, but for only 93.9% of his e — and on
+5.2 of those 6.1% Rabbi Alouf's path on the same pasuk has one. It is his eh again, the one the ear also hears as
+ee: the head gives it too little vowel mass to place a slot, so a slot forced there would mostly hold too little to
+judge, or an ee.
+
+**Rules tried against these, and turned down** (each replayed from the raw slots on the same takes; `big/compare.py`,
+`big/table.py`; false = Faraj's correct words with a vowel note; told = the planted mistakes, one per pasuk):
+
+| rule (on top of the furtive fix) | Faraj 1–55 false | 56–150 false | i for e | e for i | e for a | u for o | o for u |
+|---|---|---|---|---|---|---|---|
+| v5.5 | 2.82% | 2.62% | 88.1% | 78.1% | 83.8% | 92.7% | 89.3% |
+| **v5.6: the furtive patah** | **2.64%** | **2.47%** | **88.1%** | **76.8%** | **83.8%** | **92.7%** | **89.1%** |
+| per-take calibration: drop "ee for eh" when ≥ 50% of the take's other eh (3+, other words) were heard ee | 2.48% | 2.39% | 86.6% | | | | |
+| … ≥ 25%, 2+ | 2.14% | 2.20% | 75.3% | | | | |
+| drop "ee for eh" altogether | 1.50% | 1.39% | 1.7% | | | | |
+| drop a→e, i→e on unstressed vowels | 1.94% | 1.97% | | 54.9% | 57.9% | | |
+| … only in a closed unstressed syllable | 2.07% | 2.02% | | 69.5% | 75.2% | | |
+| drop u→o right after ע / ח (a throat letter lowers the vowel) | 2.61% | 2.37% | | | | | 84.4% |
+| … and i→e | 2.57% | 2.33% | | 72.0% | | | 84.4% |
+
+(empty cells: as v5.6.) Every rule that removes false notes removes real catches of the same kind at about the same
+rate or worse; none is a trade worth making without knowing how often students make each mistake.
+
+The calibration cannot tell the ear's steady mishearing of a voice from a reader's steady mistake: Faraj's own eh is
+heard ee often enough (6.7% of his eh's) that a real ee planted among them is excused too. The e→i notes have no
+context that holds them: per opportunity they run 0.5–8% after every letter (highest after ו, י, ק, ע), the same
+in closed and open syllables, before a mater yod or not; and of all 345 words with a note, 325 are noted against
+the hazzan too (Rabbi Alouf's eh is heard eh, Faraj's ee) — it is this voice, not a rule.
+
+**Faraj's kamats katan.** Of his 12 "ah where the page says oh", 9 are a kamats katan that he says "a" and Rabbi
+Alouf "o" (the ear sure of both): before a hataf kamats he says a 7 times in 15 (אׇהֳלֵי, פׇּעֳלֶךָ, צׇהֳרָיִם, בׇּאֳנִיּוֹת…),
+with a meteg 3 in 18 (שׇׁמְרֵנִי, רׇדְפִי, מִיׇּרְדִי), before a plain shva 3 in 98 (שׇׁפְטֵנִי, שׇׁמְרָה, יִתׇּצְךָ), elsewhere
+(כׇּל, חׇכְמָה) 1 in 221. Rabbi Alouf says o in all but one or two of each. A reading tradition, not the ear — a
+question for David.
+
+**A skipped word** (`exam_voice.py PLANT=SKIP`: one word of two letters or more cut out of the take's audio at its
+aligned span, a 10 ms crossfade; the page and Rabbi Alouf unchanged; 500 takes): the take is clean 78% of the time
+(the cut itself makes it less so). On clean takes the skipped word is red 78%, "not sure" 15%, passed 7% (strict:
+red 93%); on the rest red 42%, not sure 52%, passed 6%. What it misses is the short words: a cut under 0.2 s passed
+44% (and the aligner's span may leave part of such a word in), 0.2–0.4 s 11%, longer 1%. Rabbi Alouf's own voice
+(his 60 held-out pesukim, replayed): 56 of 59 red, 3 not sure. Other words red around the cut 0.37%; the replay of the page's word rule from the stored inputs matches
+the server on all 500 takes (`big/drops.py`). Shmuelof, the same test on all his 429 takes (`big/skipstats.py`):
+clean 77%; on clean takes red 74%, "not sure" 18%, passed 8% (strict: red 92%); on the rest red 31%, not sure 67%,
+passed 1%; a cut under 0.2 s passed 44% again, 0.4 s or longer 2%.
+
+**Faraj's red words, and the drop bar (v5.6).** Of the 50 right words marked red in his 13,498, 47 were "dropped" (the
+line fits better without the word by at least 10 nats, `rule.RULE['drop']`), short words mostly (כל, מן, שם, בם, כן,
+אליך, the Name) at 10–29 nats; the other 3 the letter check. Re-run with their rule inputs kept (`samra_drops`, the
+50 takes) and replayed (`big/dropsweep.py`, the server's own `rule.marks_of`, which reproduces every stored mark):
+
+| drop bar (nats) | Faraj's right words red (of the 50) | a word cut out of his audio: red / not sure / passed (500) | Rabbi Alouf: skipped / swapped / replaced red | Israelis: right red / skipped red | archive |
+|---|---|---|---|---|---|
+| 10 (v5.5) | 50 | 350 / 114 / 35 | 56 of 59 / 55 of 58 / 44 of 60 | 16 / 37 of 80 | unchanged |
+| 15 | 24 | 347 / 117 / 35 | 56 / 55 / 43 | 16 / 37 | unchanged |
+| **20 (v5.6)** | **11** (25 now ok, 14 not sure) | **344 / 120 / 35** | **56 / 55 / 43** | **15 / 37** | **unchanged** |
+| 25 | 8 | 344 / 120 / 35 | 56 / 55 / 43 | 14 / 37 | unchanged |
+
+A skipped word that the bar no longer calls "dropped" is still caught by the letters (only 6 of 500 go from red to
+"not sure"; none passes; on clean takes red 77.9% → 76.4%, strict 92.6% either way). On the second voice, run after
+the bar was chosen: Shmuelof's skipped words 3 of 429 go from red to "not sure" (clean takes 73.9% → 72.9%, strict
+91.8% either way), none passes; his right words red 2 → 1. On the exams committed with the code (`tools/rule_baseline.py`,
+the CI's accuracy alarm, whose baseline was not updated with the change and failed every v56 push from ed1ee9c to
+6120013 — updated now): no skipped, swapped or replaced word passes; five go from red to "not sure" — three of
+Rabbi Alouf's 80 skipped words (`exam2`: the Name, באפו, בל, dropped by 11–14 nats), one Israeli swapped pair, one
+replaced word (אשית, 11.1) — and the Israelis' right words red 64 → 62 (all 199), the archive's one "not sure" → ✓.
+With the strict switch on, a "not sure" on a clean take is ✕, so there they are still caught. The skip-vs-swap guard reads the same bar but cannot move with it: a swap that could fire
+has ≥ 8 nats, and the guard needs swap < 0.35 × drop, so a drop over 22.9 — above both bars. Changed in all three
+copies (rule.py, index.html, embed.js; `t_parity` 547/547, `t_score` 20,000/20,000): **the site's copy of embed.js
+needs copying again.**
+
+**Shmuelof's Tehillim, the second voice never heard** (33 perakim, 429 takes, 3,416 words, Israeli reading; v5.5):
+words with a vowel note 39 = 1.1% (0.8–1.6) → **29 = 0.8%** with the furtive fix (10 gone, none added: 7 of his 13
+"ah where the page says eh" were it); right words red 2 → 1 with the drop bar at 20; what is left is mostly his holam
+heard as u (11). His ע: throat 71%, unsure 27%, plain 2% — he says it as a glottal stop, as Israelis do, and the
+checker says so; ח 94% throat.
+
+**v5.6 through its own server** (the worktree's code on a dev server of its own, `/health` version 5.6, commit
+955fac0, the shipped heads; `DK_SERVER_REPO=… DK_VERSION=5.6 big/exam.sh samra_v56B samra 56-150`), Faraj's correct
+reading, against the v5.5 exam of the same 831 takes (`big/v56check.py`): the ear's slots the same on every take;
+the vowel notes the furtive replay's on 828 takes — on the other 3, one more word each, a word v5.5 had called "not
+heard" (red hides a vowel note) and v5.6 keeps (`big/v56why.py`); right words red 27 → 4 (17 now ✓, 6 "not sure");
+13 words "not sure" → ✓ (a word over the old bar but under the new one that the letters had found, `rule.py`'s
+"heard" guard — it made them "not sure", never red). On perakim 1–55 as well (`samra_v56A`, 852 takes, against
+`samra_bigA`): the slots and the clean flag the same on every take, the vowel notes the furtive replay's on every
+take (185 words), right words red 23 → 7 (8 now ✓, 8 "not sure"), 10 words "not sure" → ✓. The page tests through the same server and a demo site with
+v5.6's embed.js: `t_rule`, `t_canthear`, `t_wrongline`, `t_noaudio`, `t_strict_ui`, `t_v5_ui` all as before (on
+Tehillim 23:1 the swap of רעי and לא is missed by v5.5 and v5.6 alike — its drop 1.4, swap −7.6 —, the swap of
+the first two words and the skipped לדוד are caught by both).
+
+**The student's own voice, on the big tests** (§32–33's cal30: the shipped head + 30 of Faraj's pesukim from perakim
+1–10, ×5, with 300 of Rabbi Alouf's, 6 epochs, 5 minutes on 2 cores; `voices/perek_to_manifest.py` into a manifest of
+its own, `HEAD_MAN_EXTRA`, so no other run sees his voice). Judged on perakim 56–150 through the server
+(`HEAD_FULL=… big/exam.sh`; the hazzan heard with the same head), against the shipped head on the very same takes,
+under v5.6 as a whole on both (`big/cal56.py`: the furtive patah, and the marks replayed at the drop bar of 20 from
+each take's stored rule inputs — a replay that gives the v5.6 server's own marks on 831 of 831 takes; the shipped
+head's correct reading is the v5.6 server run itself):
+
+| Faraj, perakim 56–150 | shipped head | calibrated on 30 of his pesukim | (words told by one only: shipped / calibrated) |
+|---|---|---|---|
+| his correct reading (831 takes): words with a vowel note | 163 of 6,486 = 2.5% (2.2–2.9) | **111 = 1.7% (1.4–2.1)** | 63 / 11 |
+| … words noted i where the page says e (the largest kind) | 73 | 43 | |
+| … e where the page says a / u where it says o | 26 / 23 | 12 / 15 | |
+| right words red | 4 | 5 | |
+| i for e told (220 planted) | 83.6% | 83.2% | 2 / 1 |
+| e for i (220) | 72.3% | **76.4%** | 3 / 12 |
+| e for a (211) | 77.7% | **80.1%** | 4 / 9 |
+| u for o (158) | 88.6% | 88.0% | 1 / 0 |
+| o for u (210) | 84.8% | **87.1%** | 0 / 5 |
+| other words noted around the plants | 2.0–2.8% | 1.8–2.1% | |
+
+(The shipped head's i-for-e takes were run again through v5.6, `samra_v56_oneie`: its first run kept no rule inputs.)
+
+A third fewer false notes and every kind of real mistake told as often or more — the one lever in this round that
+moves both at once, because it changes what the ear hears instead of what the rule shows: his eh is heard eh, so a
+real ee where the page says eh still stands out, and a real eh where the page says ee stands out more. These planted
+mistakes sit in the judged takes, not in the 30 (§33 is the other risk: a mistake inside the calibration pesukim is
+learned unless safe3 relabels it). Not shipped: one head per student (10 MB), trained from his first clean takes.
+
+**The same on Shmuelof** (30 of his pesukim from perakim 1–6, `big/queue.sh shm_man / shm_cal`; judged on his 369
+takes from perek 7 on, v5.6 on both, `big/cal56.py`): his correct reading — words with a vowel note 24 of 2,915 =
+0.8% (0.6–1.2) → 18 = 0.6% (0.4–1.0) (8 gone, 2 new; u for o 8 → 5, a for e 6 → 4), right words red 1 → 1.
+The planted mistakes (one per pasuk, the same takes):
+
+| Shmuelof, perakim 7–150 | shipped head | calibrated on 30 of his pesukim | (told by one only: shipped / calibrated) |
+|---|---|---|---|
+| i for e (347 planted) | 86.2% | **89.6%** | 0 / 12 |
+| e for i (345) | 79.4% | 80.3% | 6 / 9 |
+| e for a (326) | 79.8% | 79.8% | 5 / 5 |
+| u for o (230) | 90.9% | 90.4% | 1 / 0 |
+| o for u (328) | 89.6% | 89.6% | 2 / 2 |
+| other words noted around the plants | 0.7–0.8% | 0.6–0.7% | |
+
+On a voice the ear already hears well the gain is small — but nothing is lost: on both voices, every kind of real
+mistake is told as often or more (the differences in either direction are within a handful of words), and the false
+notes go down.
+
+**How many pesukim the student reads first** (`big/queue.sh calhead10`: 10 of the same 30 — the seeded shuffle's
+first ten — ×10, with the same 300 of Rabbi Alouf's, 6 epochs; about 1½ minutes of his reading, against 4½ for the
+30; judged through the v5.6 server itself, `HEAD_FULL=… DK_SERVER_REPO=… big/exam.sh samra_cal10_B`, on the same takes):
+
+| Faraj, perakim 56–150 | shipped head | 30 of his pesukim | 10 of his pesukim |
+|---|---|---|---|
+| his correct reading: words with a vowel note | 163 = 2.5% (2.2–2.9) | 111 = 1.7% (1.4–2.1) | 133 = 2.1% (1.7–2.4) |
+| … i for e / e for a / u for o / o for u | 73 / 26 / 23 / 9 | 43 / 12 / 15 / 10 | 54 / 19 / 10 / 15 |
+| right words red | 4 | 5 | 5 |
+| i for e told (220 planted) | 83.6% | 83.2% | 82.3% |
+| e for i (220) | 72.3% | 76.4% | 75.5% |
+| e for a (211) | 77.7% | 80.1% | 80.6% |
+| u for o (158) | 88.6% | 88.0% | 87.3% |
+| o for u (210) | 84.8% | 87.1% | 87.6% |
+| other words noted around the plants | 2.0–2.8% | 1.8–2.1% | 1.9–2.5% |
+
+Ten pesukim bring the real catches up as far as thirty do (e for i, e for a, o for u: within a word or two of each
+other), but take away only 30 of the 52 false notes that thirty take away, and they tilt the ear on his o and u —
+"o where the page says u" on his correct reading 9 → 15, u for o told two fewer. Thirty pesukim (about 4½ minutes of
+reading) is the length; ten would be a start, not the end.
+
+**A phone in a room** (`exam_voice.py DEGRADE=phone`: a small room's early echoes, pink noise 20 dB under the
+singing, Opus at 24 kbps; seeded by take; the hazzan's recording as it is; the shipped heads through the v5.6 server;
+`big/phonecmp.py`, `big/throatcmp.py`, `big/cal56.py`), on the 234 takes of 56–150 that carry the planted e-for-i:
+
+| Faraj, the same 234 takes | as recorded | on the phone |
+|---|---|---|
+| clean takes | 88.9% | **59.8%** |
+| his correct reading: words with a vowel note / "not sure" / red | 2.6% / 2.3% / 2 | 1.2% / 7.0% / 2 |
+| ע throat / unsure / plain | 94.7 / 4.9 / 0.4% | 92.3 / 7.4 / 0.4% |
+| ח throat / unsure / plain | 99.4 / 0.6 / 0% | 93.0 / 6.3 / 0.6% |
+| planted e for i told (220) | 72.3% | **52.3%** |
+| planted o for u told (210, its own 234 takes) | 84.8% | **60.5%** |
+
+The ear itself is not what fails: on the 140 takes clean both ways the planted e for i is told 84.6% as recorded and
+88.5% on the phone, other words noted 1.9% and 1.7%. What fails is the clean bar — the letter head's median drops by
+.08 (.80 → .73), 68 of the 208 clean takes go under .70 (36 of them to .65–.70, 24 to .60–.65), and a take under it
+gets no vowel notes at all. The phone makes words "not sure", not red; ע and ח more often unsure, almost never plain.
+On all 831 of his takes of 56–150 (`samra_phone_B`; the 234 above, which all hold an e, are harder): clean 90.5% →
+66.5% (209 lost, 10 gained), the letter-head median .82 → .74, words "not sure" 2.0% → 6.4%, red 4 → 8, one take
+"can't hear" (56:3, head .25), ע throat 95.3% → 92.5% and ח 98.0% → 94.5% (plain 4 → 1 and 0 → 1). Shmuelof
+(`shmuelof_phone_big`, his 369 takes from perek 7): clean 90.2% → 52.6%, median .80 → .71, "not sure" 1.0% → 6.3%,
+red 1 → 7 (five by the word logistic, pw ≥ .95, on clean takes; two dropped at 21.6 and 22.5 nats), ח throat
+94.2% → 88.4%.
+
+Which part of the phone does it (`DEGRADE=` one part at a time, `kbps=24`, `room`, `snr=20`, on the same 234 takes
+read correctly, with the hazzan; `big/dgparts.py`):
+
+| Faraj, 234 takes | clean takes | letter-head median | words "not sure" | ע / ח throat |
+|---|---|---|---|---|
+| as recorded | 88.9% | .801 | 2.3% | 94.7 / 99.4% |
+| Opus at 24 kbps alone | 90.2% | .804 | 2.3% | 95.1 / 98.7% |
+| the room's echoes alone | 85.0% | .778 | 3.2% | 93.3 / 98.1% |
+| pink noise 20 dB under alone | 73.5% | .756 | 4.5% | 93.7 / 94.9% |
+| all three (the phone) | 59.8% | .726 | 7.0% | 92.3 / 93.0% |
+| all three, Opus at 64 kbps | 58.5% | .728 | 6.9% | 94.0 / 96.2% |
+| all three, the noise 10 dB under (`noisy`) | 22.2% | .613 | 26.3% | 88.4 / 81.0% |
+
+The codec costs nothing, alone or with the rest; the noise is most of it and the room the rest, about adding up.
+With the noise 10 dB under (`DEGRADE=noisy`, a television in the room) the planted e for i is told 18% (72% as
+recorded); his correct reading: "not sure" 26%, red 9 words of 1,862 (0.5%), ע / ח never plain: the checker gives
+way to "not sure", as it should, but it no longer checks. What
+a student can do is a quiet room and the phone near the mouth; what the page could do is measure the take's noise
+floor and say so before it says "unclear" (not built).
+
+What the page actually sends: Chromium 141 (headless, a fake microphone), with the page's own `getUserMedia` and
+`MediaRecorder` options, records `audio/mp4;codecs=opus` at 128 kbps (`audioBitsPerSecond` at start; ~113 measured) —
+far above the 24 kbps here. Safari (an iPhone) not measured.
+
+**The clean bar** (`big/cleanbar.py`: the clean test replayed from the stored rule inputs and vowel slots under v5.6;
+the replay at .70 gives the server's marks and clean flag on 831 of 831 takes). A take whose letter-head median is
+under .70 gets no vowel notes (nor the clean kind of word call, nor the strict check); the bar was set for the
+whole-line evidence (Rabbi Alouf's lines .93, the archive's .31), and the vowel notes were put behind it when the
+archive's hazzanim with instruments drew 117 notes on 528 right words (§25). On good recordings
+it is now the largest single loss of real catches: 7–10% of Faraj's and Shmuelof's takes are under it, and their
+planted mistakes go untold there. Replayed lower for the vowel notes alone (every word mark as v5.6):
+
+| | v5.6 (.70) | vowel notes from .62 | … and the line gap ≤ .17 |
+|---|---|---|---|
+| Faraj, correct, 56–150 (831): words with a vowel note | 163 = 2.5% | 178 = 2.7% | 175 = 2.7% |
+| Faraj planted, all of Tehillim: e for i / e for a / u for o / o for u | 76.8 / 83.8 / 92.7 / 89.1% | 81.9 / 89.0 / 97.4 / 94.0% | 81.3 / 88.3 / 97.1 / 93.3% |
+| … i for e (234 takes, v5.6 run) | 83.6% | 91.4% | 90.0% |
+| … other words noted | 2.4–2.9% | 2.6–3.1% | 2.6–3.1% |
+| Shmuelof, correct (429): words with a vowel note | 29 = 0.8% | 31 | 31 |
+| … planted e for i / o for u | 78.8 / 89.0% | 86.8 / 97.1% | 86.5 / 96.9% |
+| Faraj on the phone (234): e for i / o for u told | 52.3 / 60.5% | 72.7 / 88.1% | 68.6 / 82.4% |
+| … other words noted | 1.0 / 1.2% | 1.3 / 1.8% | 1.3 / 1.6% |
+| Faraj on the phone, all 831 of 56–150, read correctly: clean takes / words with a vowel note | 66.5% / 1.5% | 88.7% / 2.0% | 84.2% / 1.9% |
+| Shmuelof on the phone (369, read correctly): words with a vowel note | 18 = 0.6% | 36 = 1.2% | 35 = 1.2% |
+| Daya's Tehillim (75 takes, a poor recording: 11 clean, head median .61; through v5.6 today, `daya_v56`): words with a note | 7 = 1.2% | 26 = 4.6% | 10 = 1.8% |
+| … the same with v5.2's ear (`daya_raw`, Nov 1) | 9 = 1.6% | 31 = 5.5% | 12 = 2.1% |
+| Ben Haim / Tawil (150 each, v5.2's ear) | 24 / 19 | 29 / 20 | 29 / 20 |
+
+The line gap is what keeps Daya out: the written line explains his audio poorly (gap median .23, against .12 for
+Faraj on the phone and .07 for Shmuelof). Moving the bar for the word marks too was not pursued: at .65 a cut word
+would be red 74% instead of 69% (Shmuelof 71% instead of 63%), but right words red around the cuts 12 → 18, and at
+.62 Daya's right words red 2 → 9.
+**Not built.** .62 and .17 were read off these same exams, and the poor-recording side rests on one voice. The real
+question is where a student's phone takes sit: David's own (Nov 1, Voice Memos, through v5.6 today) — his 23:1 takes
+clean (head .81–.87, gap .03–.04), his 23:2 takes not (.56 and .54, gap .23 and .17), out of this rule's reach too;
+forced clean, the one with his two mistakes would tell menohot (and a doubtful "eh" on על).
+
+**A reader the ear never heard, on all his pesukim** — Abe Zami's Torah, 1,147 pesukim, 15,302 words: his archive
+recordings of Bereshit to Lekh Lekha (`zami_<parasha>.mp3`, in nv4's training and since) and batch 2's aliyot (nine
+other parashiyot, in nv6's only). noZami = nv6's recipe and data with every one of his pesukim left out
+(`big/queue.sh train noZami`: 5 epochs from the Alouf-only head, 36 + 21 minutes in two planned parts); each head's
+own vowel-ear exam (`train_head2.py`, the live rule A against the nikud, i→e and o→u planted on every word it can),
+split by recording (`HEAD_NV_SPLIT=zami`, `big/queue.sh zsplit`):
+
+| Abe Zami, words with a vowel note on his correct reading | archive Torah (7,545 words) | batch 2's aliyot (7,757) |
+|---|---|---|
+| noZami — never heard him | 53 = 0.70% | 93 = 1.20% |
+| noZamiSkel — the same, new voices' pesukim under skel .6 left out (§36's floor; 10,324 items, not 11,193) | 55 = 0.73% | 79 = 1.02% |
+| nv5 — heard the archive Torah (90% of it in training) | 15 = 0.20% | 56 = 0.72% |
+| nv4 (v5.4, live) — the same | 17 = 0.23% | 62 = 0.80% |
+| nv6 — heard both (90% of each in training) | 11 = 0.15% | 19 = 0.24% |
+| planted i for e told: noZami / noZamiSkel / nv5 / nv4 / nv6 | 94.3 / 94.3 / 95.9 / 95.7 / 96.3% | 94.7 / 94.8 / 95.2 / 94.8 / 96.6% |
+| planted o for u told | 94.9 / 94.8 / 95.2 / 95.2 / 95.4% | 98.2 / 98.3 / 98.3 / 98.2 / 98.7% |
+
+On the aliyot, which noZami, nv4 and nv5 all never trained on: having heard his other recordings gives 0.72–0.80%
+against 1.02–1.20% for never having heard him — a fifth to two-fifths fewer false notes, the planted mistakes told as
+often (within a point). (noZami's data also has batch 2's other readers, which §36 found worth a few words the wrong
+way on readers never heard, so part of the gap may be theirs.) The lower numbers on pesukim a head trained on are
+memory, not a test. What 23 other readers give a new one is a false note on about 1% of his words; what moves it is
+hearing him — the same lesson as the calibration above, from the other side.
+
+On the other readers' held-out perakim noZami is close to nv6 (they share the draw; the head's own words flagged:
+Rabbi Alouf 30 / 31 of 1,978, Tawil 38 / 33, the haftarot 54 / 53 — Ben Haim the widest, 38 / 57 of 1,445).
+Against nv4 those numbers cannot be compared: `train_head2.py` draws the held-out perakim afresh whenever the
+manifest grows, so most of today's were in nv4's training (it looks better on Dwek, Sardar, Daya for that reason;
+the Zami split above is not touched by it: no head but nv6 trained on the aliyot).
+
+**What it means.**
+- **v5.6** (the furtive patah, the drop bar at 20) is the same through its own server as in the replays on all 1,683
+  of Faraj's takes, and every page test passes: ready to merge on David's word. The site's copy of embed.js needs
+  copying again.
+- **The vowel rule is where it should be for now.** Every rule tried that takes false notes away takes real catches
+  away at the same rate or worse; which trade is right depends on how often students make each mistake, which no
+  recording here can say.
+- **What moves both at once is the ear hearing the student**: 30 of his pesukim (4½ minutes) take a third of Faraj's
+  false notes away and a quarter of Shmuelof's, with every kind of real mistake told as often or more; 10 pesukim a
+  little over half of it. A product, not a rule: an enrollment, a head per student (10 MB, 5 minutes on 2 cores),
+  safe3 against learning a mistake he makes every time (§33). Not built. Zami says the same from the other side: a
+  head that never heard a reader gives him about 1% false notes whatever the other 23 readers in it; one that heard
+  his other recordings, a fifth to two-fifths fewer.
+- **A phone in a room takes the vowel check away, not its accuracy**: a third of Faraj's takes and half of
+  Shmuelof's fall under the clean bar (the noise most, the room the rest, the codec nothing); with the noise 10 dB
+  under, four in five. The bar replayed lower for the vowel notes alone, with a gap condition, brings most of it back
+  at a small cost on these voices. Held for real student phone takes — David's own 23:2 takes sit under even that.
+- Open: Faraj's kamats katan (a reading tradition — David's call); the vowel right before a furtive patah is never
+  checked; a skipped word under 0.2 s passes 44% of the time.
