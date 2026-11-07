@@ -219,6 +219,9 @@ And a word is called "not heard" (red, dropped) only when the line is at least 2
 `rule.RULE['drop']`, the page and the embed alike): Faraj's right words marked red 50 → 11 of 13,498 (25 now ok, 14
 "not sure"), while a word cut out of his audio is still red 344 of 500 times (was 350; the six are "not sure", none
 passes), and Rabbi Alouf's, the Israelis' and the archive's exams keep every skipped and swapped word they caught.
+Both checked end to end through v5.6's own server (Faraj's perakim 56–150, 831 takes): the same vowel slots, notes and
+marks as the replays above, take for take; the page tests (`t_rule`, `t_canthear`, `t_wrongline`, `t_noaudio`,
+`t_strict_ui`, `t_v5_ui`) pass as before.
 
 
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
