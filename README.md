@@ -207,6 +207,15 @@ reading 50 → 25 words with a false vowel note (of 1,300); a real ee read where
 page rewritten) still told 96.5% of the time, as before; the planted "o for u" still 96.7%; Rabbi Tawil 22 → 19,
 Ben Haim 27 → 25, Shmuelof 2 (LAB_NOTES §38). `vowels.EI_MAX_E`.
 
+v5.6 (Nov 7): a furtive patah (רוּחַ, בֹּטֵחַ, לַמְנַצֵּחַ — said before the final ח / ע / הּ) is expected where it is said,
+in the vowel slot after the letter before it. The ear's template has a slot only after each letter, so the "ah" landed
+in the slot of the vowel before it and the page's patah waited in an empty slot after the last letter: a false "ah
+where the page says eh" on לַמְנַצֵּחַ, which opens more than fifty perakim. Measured on every usable pasuk of Hazzan
+Faraj Samra's Tehillim (1,683 takes, 13,498 words; a reader the ear never heard): words with a false vowel note 368 →
+345 (perakim 1–55, where it was found: 198 → 185; 56–150, held out: 170 → 160, one added); a mistake planted one word
+per pasuk is told as often as before (i for e 88.1%, e for a 83.8%, u for o 92.7%; e for i 78.1% → 76.8%, the six it
+stops telling having been "told" by this very artifact) (LAB_NOTES §39). `vowels.expected_vowels`.
+
 
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
 - `GET /letters` — the letter checker; `POST /letter?c=<letter>[&want=…][&strict=1]` with a short take as the body; `GET /letters.json`, `GET /letters/audio/<name>.mp3` — Rabbi Alouf's example words.

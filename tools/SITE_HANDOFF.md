@@ -185,3 +185,7 @@ Base: `https://davidsitt-pizmonim-dikduk.hf.space`. All JSON, CORS `*`. No keys.
 ## v5.5 (Nov 6)
 - Server only: half as many false vowel notes for a reader whose "eh" the ear takes for "ee" (the note "ee where the
   page says eh" now needs the ear to hear no eh at all). Nothing to change on the site.
+
+## v5.6 (Nov 7)
+- Server only: no more false "ah where the page says eh" on a furtive patah (לַמְנַצֵּחַ, רוּחַ, בֹּטֵחַ…). Nothing to change
+  on the site.
