@@ -1551,7 +1551,7 @@ On all 831 of his takes of 56–150 (`samra_phone_B`; the 234 above, which all h
 "can't hear" (56:3, head .25), ע throat 95.3% → 92.5% and ח 98.0% → 94.5% (plain 4 → 1 and 0 → 1). Shmuelof
 (`shmuelof_phone_big`, his 369 takes from perek 7): clean 90.2% → 52.6%, median .80 → .71, "not sure" 1.0% → 6.3%,
 red 1 → 7 (five by the word logistic, pw ≥ .95, on clean takes; two dropped at 21.6 and 22.5 nats), ח throat
-94.2% → 88.4%.
+94.2% → 88.4%. His planted e for i (`shmuelof_phone_oneei`, 345): told 79.4% → 44.3%, other words red 3 → 9.
 
 Which part of the phone does it (`DEGRADE=` one part at a time, `kbps=24`, `room`, `snr=20`, on the same 234 takes
 read correctly, with the hazzan; `big/dgparts.py`):
@@ -1597,6 +1597,7 @@ planted mistakes go untold there. Replayed lower for the vowel notes alone (ever
 | … other words noted | 1.0 / 1.2% | 1.3 / 1.8% | 1.3 / 1.6% |
 | Faraj on the phone, all 831 of 56–150, read correctly: clean takes / words with a vowel note | 66.5% / 1.5% | 88.7% / 2.0% | 84.2% / 1.9% |
 | Shmuelof on the phone (369, read correctly): words with a vowel note | 18 = 0.6% | 36 = 1.2% | 35 = 1.2% |
+| Shmuelof on the phone, planted e for i (345; run after .62 and .17 were chosen): told / other words noted | 44.3% / 0.7% | 71.9% / 1.2% | 68.4% / 1.1% |
 | Daya's Tehillim (75 takes, a poor recording: 11 clean, head median .61; through v5.6 today, `daya_v56`): words with a note | 7 = 1.2% | 26 = 4.6% | 10 = 1.8% |
 | … the same with v5.2's ear (`daya_raw`, Nov 1) | 9 = 1.6% | 31 = 5.5% | 12 = 2.1% |
 | Ben Haim / Tawil (150 each, v5.2's ear) | 24 / 19 | 29 / 20 | 29 / 20 |
