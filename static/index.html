@@ -374,7 +374,7 @@ function markOf(y,f){const n=y&&y.n||0,sk=y&&y.skel!=null?y.skel:null,ft=f&&f.fi
    this word (nats; only the line's largest drop may flag, and only when it stands clear of the second); swap = how
    much it prefers the two neighbours the other way round; gap = what the written line costs per frame against the
    free path (a different text costs ~1 nat/frame, the right line under 0.1). Thresholds from exam_alouf.py. */
-const RULE={drop:10,margin:4,swap:8,rival:0.3,altFit:0.4,hear:0.3,share:0.35,half:0.5,swap2:12};
+const RULE={drop:20,margin:4,swap:8,rival:0.3,altFit:0.4,hear:0.3,share:0.35,half:0.5,swap2:12};
 /* v4.4: the letter head's median score over the line's words (2+ consonants), the lowest word left out when there are
    three or more — one wrong word must not make a good recording look poor. Clean = median >= .7 (the finer signals
    are trusted); under .3 the head barely hears the words: nothing goes red, the doubtful words stay "not sure". */

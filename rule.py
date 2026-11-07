@@ -21,7 +21,14 @@ def mark_of(y, f, clean):
         return 'ok'
     return 'unsure' if sk < .2 and not sure else 'ok'
 
-RULE = {'drop': 10, 'margin': 4, 'swap': 8, 'rival': 0.3, 'altFit': 0.4, 'hear': 0.3, 'share': 0.35, 'half': 0.5, 'swap2': 12}   # kept in step with static/index.html and embed.js
+# drop (v5.6): a word is "not heard" (red, "dropped") when the line is at least 20 nats better without it (was 10). On a voice
+# the checker never heard (Faraj Samra, every pasuk: 13,498 right words) 47 of his 50 red words were this call, at 10-29
+# nats; at 20, 39 of them go (25 to ok, 14 to "not sure"), while a word cut out of his audio is still red 344 of 500
+# times (was 350; the 6 become "not sure", none passes), and Rabbi Alouf's, the Israelis' and the archive's exams
+# keep every skipped and swapped word they caught (one replaced word of 60 goes red -> "not sure") (LAB_NOTES §39).
+# The skip-vs-swap guard below also reads this bar, but cannot move with it: a swap that could fire has swap >= 8, and
+# the guard needs swap < 0.35 x the drop, so a drop above 22.9 — over both bars.
+RULE = {'drop': 20, 'margin': 4, 'swap': 8, 'rival': 0.3, 'altFit': 0.4, 'hear': 0.3, 'share': 0.35, 'half': 0.5, 'swap2': 12}   # kept in step with static/index.html and embed.js
 
 def head_median(TW):
     """the letter head's score on the line's words (2+ consonants), the median — with the lowest word left out when

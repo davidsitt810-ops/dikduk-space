@@ -46,6 +46,7 @@ RAW = bool(os.environ.get('RAW'))   # RAW=1: each row also keeps the vowel ear's
 # the take's audio (its aligned span, a 10 ms crossfade at the join); the page and the hazzan unchanged, so run it
 # WITHOUT NO_REF. Rows get 'planted' [the word] and 'skip_t'; with RAW=1 also each word's drop / swap evidence.
 SKIP = PLANT == 'SKIP'
+FINALS = str.maketrans('ךםןףץ', 'כמנפצ')   # the alignment writes every letter in its plain form, and the Name as אדני
 if PLANT and not SKIP:
     assert PLANT in ('OU', 'IE', 'EI', 'EA', 'UO'), 'PLANT=OU, IE, EI, EA, UO or SKIP'
     import nikud as NK
@@ -157,7 +158,7 @@ for done, (n, i) in enumerate(jobs, 1):
                  'throat': sm['throat'], 'vowels': sm['vowels'], 'shva': sm['shva'], 'rival': sm['rival'], 'gap': sm['gap'],
                  'strict': rule.strict_of(sm['marks'], sm['why'], sm['clean'], sm['cant_hear'])[0],
                  **({'planted': planted, 'nw': nw} if PLANT else {}),
-                 **({'skip_t': skip_t, 'skip_ok': len(out['words']) == nw and out['words'][planted[0]] == p['words'][planted[0]]['w']} if SKIP else {}),
+                 **({'skip_t': skip_t, 'skip_ok': len(out['words']) == nw and (lambda a, b: a == b or (b.startswith('אדני') or 'אדני' in b) and 'יהוה' in a)(out['words'][planted[0]].translate(FINALS), p['words'][planted[0]]['w'].translate(FINALS))} if SKIP else {}),
                  **({'raw': {'nikud': nik, 'tw': [[(v['k'], v['heard'], v['mass'], v['p']) for v in (w.get('vow') or [])] for w in out['take']['words']],
                              'rw': [[(v['k'], v['heard'], v['mass'], v['p']) for v in (w.get('vow') or [])] for w in ((out.get('ref') or {}).get('words') or [])],
                              'sv': out.get('vowels'), 'svn': out.get('vowels_nikud'),
