@@ -1516,6 +1516,19 @@ other), but take away only 30 of the 52 false notes that thirty take away, and t
 "o where the page says u" on his correct reading 9 → 15, u for o told two fewer. Thirty pesukim (about 4½ minutes of
 reading) is the length; ten would be a start, not the end.
 
+**…and on the phone** (`samra_calphone`, `samra_calphone_oneei`: the head calibrated on his 30 recorded pesukim,
+judged on the phone's version of the 234 takes, `DEGRADE=phone`): no gain. On the 140 takes clean in all four runs
+(1,083 words of his correct reading; 130 planted e for i):
+
+| | shipped head, as recorded | calibrated, as recorded | shipped head, on the phone | calibrated, on the phone |
+|---|---|---|---|---|
+| his correct reading: words with a vowel note | 26 = 2.4% | 22 = 2.0% | 23 = 2.1% | 23 = 2.1% |
+| planted e for i told | 84.6% | 87.7% | 88.5% | 84.6% |
+
+Small numbers, but the calibration's gain does not carry over from his recordings to the phone's sound of them. A
+student's enrollment would be on his own phone, so the calibration would hear what it is judged on — the matched
+case, not measured here.
+
 **A phone in a room** (`exam_voice.py DEGRADE=phone`: a small room's early echoes, pink noise 20 dB under the
 singing, Opus at 24 kbps; seeded by take; the hazzan's recording as it is; the shipped heads through the v5.6 server;
 `big/phonecmp.py`, `big/throatcmp.py`, `big/cal56.py`), on the 234 takes of 56–150 that carry the planted e-for-i:
@@ -1637,9 +1650,10 @@ the Zami split above is not touched by it: no head but nv6 trained on the aliyot
 - **What moves both at once is the ear hearing the student**: 30 of his pesukim (4½ minutes) take a third of Faraj's
   false notes away and a quarter of Shmuelof's, with every kind of real mistake told as often or more; 10 pesukim a
   little over half of it. A product, not a rule: an enrollment, a head per student (10 MB, 5 minutes on 2 cores),
-  safe3 against learning a mistake he makes every time (§33). Not built. Zami says the same from the other side: a
-  head that never heard a reader gives him about 1% false notes whatever the other 23 readers in it; one that heard
-  his other recordings, a fifth to two-fifths fewer.
+  safe3 against learning a mistake he makes every time (§33). Not built, and shown only where the calibration and
+  the check hear the same kind of audio (calibrated on his recordings, judged on the phone: no gain). Zami says the
+  same from the other side: a head that never heard a reader gives him about 1% false notes whatever the other 23
+  readers in it; one that heard his other recordings, a fifth to two-fifths fewer.
 - **A phone in a room takes the vowel check away, not its accuracy**: a third of Faraj's takes and half of
   Shmuelof's fall under the clean bar (the noise most, the room the rest, the codec nothing); with the noise 10 dB
   under, four in five. The bar replayed lower for the vowel notes alone, with a gap condition, brings most of it back
