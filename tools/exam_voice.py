@@ -8,7 +8,7 @@ usage: exam_voice.py <align dir> <audio> <name> [N=150] [seed=7]
 writes exam_<name>.json next to this script and prints the summary"""
 import sys, os, json, random, subprocess, time, collections
 import requests
-REPO = '/home/claude/dikduk-space'; sys.path.insert(0, REPO)
+REPO = os.environ.get('DK_REPO', '/home/claude/dikduk-space'); sys.path.insert(0, REPO)   # DK_REPO: the code whose rule.py makes the page's marks
 import rule
 HERE = os.path.dirname(os.path.abspath(__file__)); S = os.path.dirname(HERE)
 AL, SRC, NAME = sys.argv[1:4]; N = int(sys.argv[4]) if len(sys.argv) > 4 else 150; SEED = int(sys.argv[5]) if len(sys.argv) > 5 else 7
