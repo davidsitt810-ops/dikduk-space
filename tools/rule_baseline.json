@@ -20,8 +20,8 @@
    },
    "takes": 80,
    "wrong": {
-    "off": 78,
-    "unsure": 2
+    "off": 75,
+    "unsure": 5
    }
   },
   "swap": {
@@ -85,8 +85,8 @@
    },
    "takes": 80,
    "wrong": {
-    "off": 78,
-    "unsure": 2
+    "off": 75,
+    "unsure": 5
    }
   },
   "swap": {
@@ -137,8 +137,8 @@
    "line_wrong": 1,
    "right": {
     "off": 9,
-    "ok": 234,
-    "unsure": 275
+    "ok": 235,
+    "unsure": 274
    },
    "takes": 98,
    "wrong": {}
@@ -192,9 +192,9 @@
    "clean": 36,
    "line_wrong": 0,
    "right": {
-    "off": 64,
-    "ok": 2437,
-    "unsure": 702
+    "off": 62,
+    "ok": 2438,
+    "unsure": 703
    },
    "takes": 199,
    "wrong": {}
@@ -249,9 +249,9 @@
    "clean": 2,
    "line_wrong": 0,
    "right": {
-    "off": 8,
+    "off": 7,
     "ok": 851,
-    "unsure": 412
+    "unsure": 413
    },
    "takes": 80,
    "wrong": {}
@@ -276,9 +276,9 @@
    "clean": 1,
    "line_wrong": 0,
    "right": {
-    "off": 6,
+    "off": 5,
     "ok": 730,
-    "unsure": 368
+    "unsure": 369
    },
    "takes": 79,
    "wrong": {
@@ -306,9 +306,9 @@
    "clean": 15,
    "line_wrong": 0,
    "right": {
-    "off": 16,
+    "off": 15,
     "ok": 991,
-    "unsure": 264
+    "unsure": 265
    },
    "takes": 80,
    "wrong": {}
@@ -339,9 +339,9 @@
    },
    "takes": 79,
    "wrong": {
-    "off": 118,
+    "off": 117,
     "ok": 4,
-    "unsure": 36
+    "unsure": 37
    }
   },
   "wrongline": {
@@ -419,9 +419,9 @@
    },
    "takes": 70,
    "wrong": {
-    "off": 53,
+    "off": 52,
     "ok": 5,
-    "unsure": 12
+    "unsure": 13
    }
   }
  },
