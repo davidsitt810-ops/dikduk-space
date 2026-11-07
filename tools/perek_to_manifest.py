@@ -48,7 +48,35 @@ if os.path.exists(MAN):
 
 def decode(path, t0=None, t1=None):
     cmd = ['ffmpeg', '-v', 'error'] + (['-ss', f'{t0:.3f}'] if t0 is not None else []) + ['-i', path] + (['-t', f'{t1 - t0:.3f}'] if t0 is not None else []) + ['-ac', '1', '-ar', '16000', '-f', 'f32le', '-']
-    return np.frombuffer(subprocess.run(cmd, capture_output=True, timeout=1800).stdout, dtype=np.float32).copy()
+    x = np.frombuffer(subprocess.run(cmd, capture_output=True, timeout=1800).stdout, dtype=np.float32).copy()
+    return degrade(x, path) if DG else x
+
+# DEGRADE=phone|noisy|room,snr=<dB>,kbps=<n> (LAB_NOTES §39, as exam_voice.py's): the whole perek as a phone in a room
+# would send it, before the ear hears it — a student's enrollment made on his phone. Seeded by the file's name.
+DG = {}
+if os.environ.get('DEGRADE'):
+    for part in {'phone': 'room,snr=20,kbps=24', 'noisy': 'room,snr=10,kbps=24'}.get(os.environ['DEGRADE'], os.environ['DEGRADE']).split(','):
+        k, _, v = part.partition('='); DG[k] = float(v) if v else 1.0
+    assert set(DG) <= {'room', 'snr', 'kbps'}, os.environ['DEGRADE']
+def degrade(x, path, sr=16000):
+    import zlib
+    x = x * 32768.0; y = x.copy()
+    if DG.get('room'):
+        for ms, g in ((11, .35), (23, .22), (37, .14), (53, .08)):   # early reflections of a small room
+            d = int(sr * ms / 1000); y[d:] += g * x[:-d]
+    if 'snr' in DG:
+        n = len(y); rng = np.random.default_rng(zlib.crc32(os.path.basename(path).encode())); f = np.fft.rfftfreq(n, 1 / sr)
+        spec = rng.normal(size=len(f)) + 1j * rng.normal(size=len(f)); spec[0] = 0; spec[1:] /= np.sqrt(f[1:])   # pink: power 1/f
+        noise = np.fft.irfft(spec, n).astype(np.float32)
+        e = (y[: n // 320 * 320].reshape(-1, 320) ** 2).mean(1); act = e[e >= .2 * np.percentile(e, 95)]   # the singing's own level
+        y = y + noise * np.sqrt(float(act.mean()) / max(1e-9, float((noise ** 2).mean())) / 10 ** (DG['snr'] / 10))
+    y = y * min(1.0, 30000 / max(1.0, float(np.abs(y).max())))
+    raw = np.clip(y, -32768, 32767).astype(np.int16).tobytes()
+    if 'kbps' in DG:
+        ogg = subprocess.run(['ffmpeg', '-v', 'error', '-f', 's16le', '-ar', str(sr), '-ac', '1', '-i', 'pipe:0', '-c:a', 'libopus', '-b:a', f'{int(DG["kbps"])}k', '-f', 'ogg', 'pipe:1'],
+                             input=raw, capture_output=True, timeout=1800).stdout
+        raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', 'pipe:0', '-ac', '1', '-ar', str(sr), '-f', 's16le', 'pipe:1'], input=ogg, capture_output=True, timeout=1800).stdout
+    return np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
 
 def ear(x, win=20.0, pad=1.0):
     """the Arabic ear over the whole stretch: log-probs and layer 12, the windows' context dropped"""
