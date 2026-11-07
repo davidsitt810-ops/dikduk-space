@@ -22,8 +22,10 @@ def expected_vowels(units):
        puts it before its own consonant) is expected where it is said, in the slot after the letter before it: the
        ear's template has a vowel slot only AFTER each letter, so the "ah" lands in the slot of the vowel before it
        and the slot after the final letter is empty. That made a false "you said ah where the page says eh" on
-       לַמְנַצֵּחַ, the first word of 55 perakim, and on כֹּחַ, בוֹטֵחַ, יָרֵחַ, שָׁמֵעַ… (Faraj Samra, never heard: 13 of his 198
-       false notes on Tehillim 1-55, all gone, none added, no planted mistake missed; tools/LAB_NOTES.md §39)."""
+       לַמְנַצֵּחַ, which opens more than fifty perakim, and on כֹּחַ, בוֹטֵחַ, יָרֵחַ, שָׁמֵעַ… Faraj Samra (never heard), Tehillim
+       1-55 where this was found: 13 of his 198 false notes go, none is added; 56-150, held out: 11 of 170 go, 1 is
+       added. Of 1,450 planted i-for-e it stops telling one, לַשְׁמִעַ, whose old note was this very artifact ("ah where
+       the page says eh"); tools/LAB_NOTES.md §39."""
     out = []
     for j, u in enumerate(units):
         if u['kind'] != 'vowel': continue

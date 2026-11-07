@@ -42,8 +42,12 @@ print(f'{NAME}: {len(jobs)} pesukim', flush=True)
 # drops a nikud note the hazzan shares) would hide every planted mistake. Rows get 'planted' (word indices) and 'nw'.
 PLANT = os.environ.get('PLANT'); NO_REF = bool(os.environ.get('NO_REF'))
 RAW = bool(os.environ.get('RAW'))   # RAW=1: each row also keeps the vowel ear's slots (take and hazzan) and the server's notes, to try other note rules offline
-if PLANT:
-    assert PLANT in ('OU', 'IE', 'EI', 'EA', 'UO'), 'PLANT=OU, IE, EI, EA or UO'
+# PLANT=SKIP: a skipped word — one word of two letters or more, chosen at random (seeded by perek and pasuk), cut out of
+# the take's audio (its aligned span, a 10 ms crossfade at the join); the page and the hazzan unchanged, so run it
+# WITHOUT NO_REF. Rows get 'planted' [the word] and 'skip_t'; with RAW=1 also each word's drop / swap evidence.
+SKIP = PLANT == 'SKIP'
+if PLANT and not SKIP:
+    assert PLANT in ('OU', 'IE', 'EI', 'EA', 'UO'), 'PLANT=OU, IE, EI, EA, UO or SKIP'
     import nikud as NK
     O_MARKS = {NK.HOLAM, NK.HOLAM_VAV, NK.QAMATS_QATAN, NK.HAT_QAM}
     def plant_word(w):
@@ -106,6 +110,22 @@ def cut(n, a, b):
     else: path, off = SRC, A['book_t0']
     return subprocess.run(['ffmpeg', '-v', 'error', '-ss', f'{max(0, off + a):.3f}', '-i', path, '-t', f'{b - a:.3f}', '-ac', '1', '-ar', '16000', '-f', 'wav', '-'],
                           capture_output=True, timeout=120).stdout
+def cut_skip(n, a, b, wa, wb):
+    """the take [a, b] with the span [wa, wb] cut out (a 10 ms crossfade at the join), as a 16 kHz mono wav"""
+    import numpy as np, struct
+    A = align(n)
+    if '{n' in SRC: path, off = SRC.format(n=n), 0.0
+    else: path, off = SRC, A['book_t0']
+    raw = subprocess.run(['ffmpeg', '-v', 'error', '-ss', f'{max(0, off + a):.3f}', '-i', path, '-t', f'{b - a:.3f}', '-ac', '1', '-ar', '16000', '-f', 's16le', '-'],
+                         capture_output=True, timeout=120).stdout
+    x = np.frombuffer(raw, dtype=np.int16).astype(np.float32)
+    i0 = max(0, int(round((wa - a) * 16000))); i1 = min(len(x), max(i0, int(round((wb - a) * 16000)))); f = 160
+    head, tail = x[:i0], x[i1:]
+    if len(head) >= f and len(tail) >= f:
+        r = np.linspace(0, 1, f, dtype=np.float32); y = np.concatenate([head[:-f], head[-f:] * (1 - r) + tail[:f] * r, tail[f:]])
+    else: y = np.concatenate([head, tail])
+    pcm = np.clip(y, -32768, 32767).astype(np.int16).tobytes()
+    return b'RIFF' + struct.pack('<I', 36 + len(pcm)) + b'WAVEfmt ' + struct.pack('<IHHIIHH', 16, 1, 1, 16000, 32000, 2, 16) + b'data' + struct.pack('<I', len(pcm)) + pcm
 # rows are kept as they come (exam_<name>.jsonl), so a stopped run picks up where it was
 JL = os.path.join(HERE, f'exam_{NAME}.jsonl'); rows = []
 if os.path.exists(JL):
@@ -115,10 +135,14 @@ def keep(r):
     rows.append(r); jl.write(json.dumps(r, ensure_ascii=False) + '\n'); jl.flush()
 for done, (n, i) in enumerate(jobs, 1):
     if (n, i) in have: continue
-    A = align(n); R = IDX[str(n)]; p = A['pesukim'][i]; q = R['pesukim'][i]
-    wav = cut(n, p['t0'] - .25, p['t1'] + .25)
+    A = align(n); R = IDX[str(n)]; p = A['pesukim'][i]; q = R['pesukim'][i]; skip_t = None
+    if SKIP:
+        cand = [j for j, w in enumerate(p['words']) if len(w['w']) >= 2]
+        j = random.Random(n * 1000 + i).choice(cand); skip_t = [p['words'][j]['t0'], p['words'][j]['t1']]
+        wav = cut_skip(n, p['t0'] - .25, p['t1'] + .25, *skip_t); nik, planted, nw = q['nikud'], [j], len(p['words'])
+    else: wav = cut(n, p['t0'] - .25, p['t1'] + .25)
     alts = '|'.join(x['text'] for k, x in enumerate(R['pesukim']) if k != i and x.get('text'))
-    nik, planted, nw = (plant(q['nikud'], random.Random(n * 1000 + i) if os.environ.get('PLANT_ONE') else None) if PLANT else (q['nikud'], None, None))
+    if not SKIP: nik, planted, nw = (plant(q['nikud'], random.Random(n * 1000 + i) if os.environ.get('PLANT_ONE') else None) if PLANT else (q['nikud'], None, None))
     prm = {'words': q['text'], 'nikud': nik, 'alts': alts}
     if not NO_REF: prm.update({'ref': R['file'], 't0': q['t0'], 't1': q['t1']})
     try:
@@ -133,9 +157,13 @@ for done, (n, i) in enumerate(jobs, 1):
                  'throat': sm['throat'], 'vowels': sm['vowels'], 'shva': sm['shva'], 'rival': sm['rival'], 'gap': sm['gap'],
                  'strict': rule.strict_of(sm['marks'], sm['why'], sm['clean'], sm['cant_hear'])[0],
                  **({'planted': planted, 'nw': nw} if PLANT else {}),
+                 **({'skip_t': skip_t, 'skip_ok': len(out['words']) == nw and out['words'][planted[0]] == p['words'][planted[0]]['w']} if SKIP else {}),
                  **({'raw': {'nikud': nik, 'tw': [[(v['k'], v['heard'], v['mass'], v['p']) for v in (w.get('vow') or [])] for w in out['take']['words']],
                              'rw': [[(v['k'], v['heard'], v['mass'], v['p']) for v in (w.get('vow') or [])] for w in ((out.get('ref') or {}).get('words') or [])],
-                             'sv': out.get('vowels'), 'svn': out.get('vowels_nikud')}} if RAW else {})})
+                             'sv': out.get('vowels'), 'svn': out.get('vowels_nikud'),
+                             # the word rule's inputs (rule.marks_of), to try other drop / swap bars offline
+                             'rule_in': {'tw': [{k: w.get(k) for k in ('n', 'skel', 'kept', 'pw', 'hskel', 'drop', 'swap')} for w in out['take']['words']],
+                                         'fit': [(f or {}).get('fit') for f in (out.get('fit') or [])]}}} if RAW else {})})
     if done % 10 == 0: print(f'  {done}/{len(jobs)}  [{int(time.time() - t_start)} s]', flush=True)
 jl.close(); want = set(jobs); rows = [r for r in rows if (r['per'], r['ps']) in want]
 json.dump(rows, open(os.path.join(HERE, f'exam_{NAME}.json'), 'w', encoding='utf-8'), ensure_ascii=False)
