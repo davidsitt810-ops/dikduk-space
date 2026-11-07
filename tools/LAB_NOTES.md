@@ -1520,14 +1520,16 @@ reading) is the length; ten would be a start, not the end.
 judged on the phone's version of the 234 takes, `DEGRADE=phone`): no gain. On the 140 takes clean in all four runs
 (1,083 words of his correct reading; 130 planted e for i):
 
-| | shipped head, as recorded | calibrated, as recorded | shipped head, on the phone | calibrated, on the phone |
-|---|---|---|---|---|
-| his correct reading: words with a vowel note | 26 = 2.4% | 22 = 2.0% | 23 = 2.1% | 23 = 2.1% |
-| planted e for i told | 84.6% | 87.7% | 88.5% | 84.6% |
+| | shipped head, as recorded | calibrated, as recorded | shipped head, on the phone | calibrated on his recordings, on the phone | calibrated on the phone, on the phone |
+|---|---|---|---|---|---|
+| his correct reading: words with a vowel note | 26 = 2.4% | 22 = 2.0% | 23 = 2.1% | 23 = 2.1% | 23 = 2.1% |
+| planted e for i told | 84.6% | 87.7% | 88.5% | 84.6% | 89.2% |
 
-Small numbers, but the calibration's gain does not carry over from his recordings to the phone's sound of them. A
-student's enrollment would be on his own phone, so the calibration would hear what it is judged on — the matched
-case, not measured here.
+The last column is the matched case — an enrollment made on the phone (`perek_to_manifest.py` with `DEGRADE=phone`
+on the same perakim 1–10, 30 of those pesukim, calhead's recipe; `samra_calph30`, `samra_calph30_oneei`): it keeps
+the catches the mismatched head loses, but on the phone no calibration takes a false note away on these 1,083
+words (the phone's noise already blurs some of his eh / ee: 26 → 23 with no calibration at all). Small numbers;
+what can be said is that the gain shown on his recordings is not shown on the phone.
 
 **A phone in a room** (`exam_voice.py DEGRADE=phone`: a small room's early echoes, pink noise 20 dB under the
 singing, Opus at 24 kbps; seeded by take; the hazzan's recording as it is; the shipped heads through the v5.6 server;
@@ -1651,8 +1653,8 @@ the Zami split above is not touched by it: no head but nv6 trained on the aliyot
 - **What moves both at once is the ear hearing the student**: 30 of his pesukim (4½ minutes) take a third of Faraj's
   false notes away and a quarter of Shmuelof's, with every kind of real mistake told as often or more; 10 pesukim a
   little over half of it. A product, not a rule: an enrollment, a head per student (10 MB, 5 minutes on 2 cores),
-  safe3 against learning a mistake he makes every time (§33). Not built, and shown only where the calibration and
-  the check hear the same kind of audio (calibrated on his recordings, judged on the phone: no gain). Zami says the
+  safe3 against learning a mistake he makes every time (§33). Not built, and shown on recordings only: on the phone
+  no calibration, on his recordings or on the phone, took a false note away (1,083 words). Zami says the
   same from the other side: a head that never heard a reader gives him about 1% false notes whatever the other 23
   readers in it; one that heard his other recordings, a fifth to two-fifths fewer.
 - **A phone in a room takes the vowel check away, not its accuracy**: a third of Faraj's takes and half of
