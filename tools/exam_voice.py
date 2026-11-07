@@ -46,6 +46,29 @@ RAW = bool(os.environ.get('RAW'))   # RAW=1: each row also keeps the vowel ear's
 # the take's audio (its aligned span, a 10 ms crossfade at the join); the page and the hazzan unchanged, so run it
 # WITHOUT NO_REF. Rows get 'planted' [the word] and 'skip_t'; with RAW=1 also each word's drop / swap evidence.
 SKIP = PLANT == 'SKIP'
+# DEGRADE=phone: the take as a phone in a room would send it — a small room's early echoes, pink noise 20 dB under the
+# singing, and Opus at 24 kbps (what a browser's recorder sends); DEGRADE=noisy: the same with the noise 10 dB under.
+# Seeded by perek and pasuk; the hazzan's recording is left as it is (it is the site's own).
+DEGRADE = os.environ.get('DEGRADE')
+def degrade(wav, seed):
+    import numpy as np
+    pcm = subprocess.run(['ffmpeg', '-v', 'error', '-i', 'pipe:0', '-ac', '1', '-ar', '16000', '-f', 's16le', 'pipe:1'], input=wav, capture_output=True, timeout=120).stdout
+    x = np.frombuffer(pcm, dtype=np.int16).astype(np.float32); sr = 16000
+    if len(x) < sr // 10: return wav
+    y = x.copy()
+    for ms, g in ((11, .35), (23, .22), (37, .14), (53, .08)):   # early reflections of a small room
+        d = int(sr * ms / 1000); y[d:] += g * x[:-d]
+    n = len(y); rng = np.random.default_rng(seed); f = np.fft.rfftfreq(n, 1 / sr)
+    spec = rng.normal(size=len(f)) + 1j * rng.normal(size=len(f)); spec[0] = 0; spec[1:] /= np.sqrt(f[1:])   # pink: power 1/f
+    noise = np.fft.irfft(spec, n).astype(np.float32)
+    e = (y[: n // 320 * 320].reshape(-1, 320) ** 2).mean(1); act = e[e >= .2 * np.percentile(e, 95)]   # the singing's own level
+    snr = {'phone': 20.0, 'noisy': 10.0}[DEGRADE]
+    y = y + noise * np.sqrt(float(act.mean()) / max(1e-9, float((noise ** 2).mean())) / 10 ** (snr / 10))
+    y = y * min(1.0, 30000 / max(1.0, float(np.abs(y).max())))
+    raw = np.clip(y, -32768, 32767).astype(np.int16).tobytes()
+    ogg = subprocess.run(['ffmpeg', '-v', 'error', '-f', 's16le', '-ar', '16000', '-ac', '1', '-i', 'pipe:0', '-c:a', 'libopus', '-b:a', '24k', '-f', 'ogg', 'pipe:1'],
+                         input=raw, capture_output=True, timeout=120).stdout
+    return subprocess.run(['ffmpeg', '-v', 'error', '-i', 'pipe:0', '-ac', '1', '-ar', '16000', '-f', 'wav', 'pipe:1'], input=ogg, capture_output=True, timeout=120).stdout
 FINALS = str.maketrans('ךםןףץ', 'כמנפצ')   # the alignment writes every letter in its plain form, and the Name as אדני
 if PLANT and not SKIP:
     assert PLANT in ('OU', 'IE', 'EI', 'EA', 'UO'), 'PLANT=OU, IE, EI, EA, UO or SKIP'
@@ -142,7 +165,8 @@ for done, (n, i) in enumerate(jobs, 1):
         j = random.Random(n * 1000 + i).choice(cand); skip_t = [p['words'][j]['t0'], p['words'][j]['t1']]
         wav = cut_skip(n, p['t0'] - .25, p['t1'] + .25, *skip_t); nik, planted, nw = q['nikud'], [j], len(p['words'])
     else: wav = cut(n, p['t0'] - .25, p['t1'] + .25)
-    alts = '|'.join(x['text'] for k, x in enumerate(R['pesukim']) if k != i and x.get('text'))
+    if DEGRADE: wav = degrade(wav, n * 1000 + i)
+    alts ='|'.join(x['text'] for k, x in enumerate(R['pesukim']) if k != i and x.get('text'))
     if not SKIP: nik, planted, nw = (plant(q['nikud'], random.Random(n * 1000 + i) if os.environ.get('PLANT_ONE') else None) if PLANT else (q['nikud'], None, None))
     prm = {'words': q['text'], 'nikud': nik, 'alts': alts}
     if not NO_REF: prm.update({'ref': R['file'], 't0': q['t0'], 't1': q['t1']})
