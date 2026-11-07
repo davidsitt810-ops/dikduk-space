@@ -17,6 +17,8 @@ SYM = ['<b>', ' '] + LETTERS + (VOWELS if MODE == 'full' else []); S2I = {s: i f
 rows = [json.loads(l) for l in open(os.path.join(HERE, 'manifest.jsonl'), encoding='utf-8')]
 rows += [json.loads(l) for l in open(os.path.join(HERE, 'manifest_alouf.jsonl'), encoding='utf-8')] if os.path.exists(os.path.join(HERE, 'manifest_alouf.jsonl')) else []
 rows += [json.loads(l) for l in open(os.path.join(HERE, 'manifest_voices.jsonl'), encoding='utf-8')] if os.path.exists(os.path.join(HERE, 'manifest_voices.jsonl')) else []   # readers the heads never heard (Be'eri, Ben Haim, Tawil: voice_register / perek_to_manifest)
+for _m in [m for m in os.environ.get('HEAD_MAN_EXTRA', '').split(',') if m]:   # more items kept apart from the shared manifests (a test voice's calibration pesukim: they never reach the other runs)
+    rows += [json.loads(l) for l in open(_m, encoding='utf-8')]
 # HEAD_NV_PRON=map.json {id: pron | null}: another pronounced sequence for these items (a planted mistake, a filtered
 # calibration — tools/mistake_lab.py); null leaves the item out of training (after HEAD_NV_KEEP has chosen)
 PRON = json.load(open(os.environ['HEAD_NV_PRON'], encoding='utf-8')) if os.environ.get('HEAD_NV_PRON') else {}
@@ -231,7 +233,15 @@ if iq and not QUICK:
         exam(f'held-out IqraEval clips, {kind} (ع ح said from the throat)', [r for r in iq if r['rec'] in iq_hold and r.get('kind') == kind], 'text', [('ע', 'א'), ('ח', 'כ')])
 for vname in sorted(set(r['voice'] for r in test_nv)) if not QUICK else []:
     exam(f'held-out {vname} pesukim', [r for r in test_nv if r['voice'] == vname], 'pron' if MODE == 'full' else 'text', [('ע', 'א'), ('ח', 'כ')] + ([('A', 'E', 'I', 'O', 'U')] if MODE == 'full' else []))
-if MODE == 'full':
+SPLIT = [v for v in os.environ.get('HEAD_NV_SPLIT', '').split(',') if v]
+if MODE == 'full' and SPLIT:
+    # LAB_NOTES §39: a voice left out (HEAD_NV_SKIP), examined recording by recording, and nothing else (EPOCHS 0) —
+    # for Zami, his archive Torah (zami_<parasha>.mp3, which nv4-nv6 trained on) against batch 2's aliyot (only nv6)
+    for vname in SPLIT:
+        its = [r for r in test_nv if r['voice'] == vname]; arch = {id(r) for r in its if (r.get('rec') or '').startswith(vname + '_')}
+        exam_vowel_ear([r for r in its if id(r) in arch], f'{vname} split, archive recordings')
+        exam_vowel_ear([r for r in its if id(r) not in arch], f'{vname} split, the other recordings')
+elif MODE == 'full':
     exam_vowel_ear(test_al)
     for vname in sorted(set(r['voice'] for r in test_nv)): exam_vowel_ear([r for r in test_nv if r['voice'] == vname], f'held-out {vname}')
 out = HEAD_OUT or os.path.join(HERE, '..', 'space', 'letter_head.pt' if MODE == 'letters' else 'full_head.pt')
