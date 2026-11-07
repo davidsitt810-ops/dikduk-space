@@ -189,3 +189,7 @@ Base: `https://davidsitt-pizmonim-dikduk.hf.space`. All JSON, CORS `*`. No keys.
 ## v5.6 (Nov 7)
 - Server only: no more false "ah where the page says eh" on a furtive patah (לַמְנַצֵּחַ, רוּחַ, בֹּטֵחַ…). Nothing to change
   on the site.
+- Server and embed: a word is marked red as "not heard" only on stronger evidence — on a reader the checker never
+  heard, four of every five right words it marked red are no longer red, and a skipped word is still caught. **The
+  site's copy of `embed.js` needs copying again** (one number in its rule); if the site loads it from jsDelivr
+  `@main`, it updates by itself once v5.6 is merged.

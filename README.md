@@ -215,6 +215,10 @@ Faraj Samra's Tehillim (1,683 takes, 13,498 words; a reader the ear never heard)
 345 (perakim 1–55, where it was found: 198 → 185; 56–150, held out: 170 → 160, one added); a mistake planted one word
 per pasuk is told as often as before (i for e 88.1%, e for a 83.8%, u for o 92.7%; e for i 78.1% → 76.8%, the six it
 stops telling having been "told" by this very artifact) (LAB_NOTES §39). `vowels.expected_vowels`.
+And a word is called "not heard" (red, dropped) only when the line is at least 20 nats better without it (was 10;
+`rule.RULE['drop']`, the page and the embed alike): Faraj's right words marked red 50 → 11 of 13,498 (25 now ok, 14
+"not sure"), while a word cut out of his audio is still red 344 of 500 times (was 350; the six are "not sure", none
+passes), and Rabbi Alouf's, the Israelis' and the archive's exams keep every skipped and swapped word they caught.
 
 
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
