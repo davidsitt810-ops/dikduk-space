@@ -36,7 +36,7 @@ def expected_vowels(units, sk=None):
 
 # (v5.8) two rules from David's listening (LAB_NOTES §41), applied where the line has nikud (vowel_context):
 #  - a kamats katan said "a" is right too ("both are right" where he learns, on all four he heard: before a hataf
-#    kamats, with a meteg, before a shva) — no "ah where the page / the hazzan says oh" on a letter that carries one;
+#    kamats, with a meteg, before a shva) — no "ah where the page / the hazzan says oh" there (qq_letters);
 #  - on an unstressed vowel in a closed syllable, "eh where the page says ah" or "eh where it says ee" only when the
 #    ear is very sure (its winner at least SURE_UNST of the slot's mass): Hazzan Faraj Samra's "a" there, and his "i"
 #    before a shva, he heard as written or swallowed (7 of the 8), and those are where these false notes are (144 of
@@ -78,12 +78,23 @@ def vowel_context(pv):
             after = us[jj + 1] if jj + 1 < len(us) else None
             closed[u['k']] = bool(c.get('dagesh') and c['c'] not in 'אהחער') or after is None or after['kind'] == 'cons'
         ctx['closed'][i] = closed
-        k = -1; q = set()
-        for ch in w:
-            if '\u05D0' <= ch <= '\u05EA': k += 1
-            elif ch == QAMATS_QATAN and k >= 0: q.add(k)
-        ctx['qq'][i] = q
+        ctx['qq'][i] = qq_letters(w)
     return ctx
+
+def qq_letters(word):
+    """the letters (k, as nikud.parse_word counts them) whose kamats katan may be said "a": the kinds David heard
+       (Faraj's "a" and Rabbi Alouf's "o" both right) — before a hataf kamats (צׇהֳרָיִם, פׇּעֳלֶךָ), with a meteg
+       (שׇֽׁמְרֵנִי), before a shva inside the word (שׇׁפְטֵנִי, חׇכְמָה). Not כׇּל and the like: not asked"""
+    g = []
+    for ch in word:
+        if '\u05D0' <= ch <= '\u05EA': g.append([ch, ''])
+        elif g: g[-1][1] += ch
+    q = set()
+    for k, (_, ms) in enumerate(g):
+        if QAMATS_QATAN not in ms or k + 1 >= len(g): continue
+        nxt = g[k + 1][1]
+        if '\u05B3' in nxt or '\u05BD' in ms or ('\u05B0' in nxt and k + 2 < len(g)): q.add(k)
+    return q
 
 def keep_note(st, rs, i, ctx):
     """the two v5.8 rules above, for one note: st the student's slot, rs the page's vowel or the hazzan's slot"""
