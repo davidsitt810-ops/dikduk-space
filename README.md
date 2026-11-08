@@ -235,13 +235,14 @@ server estimates each take's noise (`take.snr`, `app.snr_of`: the singing over t
 dB); under 26 dB on a take that lost its vowel check (or its words), the page and the embed say there is background
 noise and to try a quieter spot with the phone close to the mouth — on 43 of the 44 phone takes that kept no vowel
 check (Faraj as recorded: median 36 dB; through the phone 24; with the noise 10 dB under 15). **Learn my voice**
-(the lab page only, off unless he turns it on): his clear, fully right takes of a pointed line (30 needed, 40 kept) teach a copy of the vowel head his voice
-(`student.py`, the recipe of §39's calibration, with safe3 keeping a vowel he says wrong most of the time out of it);
-his later takes' vowels are heard with it, the word marks keep the shipped head. Faraj, 40 takes of perakim 1–10 kept
-through the server, his head made in 14 minutes (12 of them the anchor, once per server): on his 234 takes of 56–150,
-words with a false vowel note 2.8% → 1.8% and a planted e for i told 77.7% → 83.6%, against the shipped head at the
-same bar. On the phone this calibration showed no gain (§39), so it stays his choice; he can switch it off, or have
-everything kept for him forgotten. A server keeps at most 100 voices (27 MB each).
+(the lab page only, off unless he turns it on): his clear, fully right takes of a pointed line (30 needed, 40 kept)
+teach a copy of the vowel head his voice (`student.py`, the recipe of §39's calibration, with safe3 keeping a vowel he
+says wrong most of the time out of it); his later takes' vowels are heard with it, the word marks keep the shipped
+head. Faraj, 40 takes of perakim 1–10 kept through the server, his head made in 14 minutes (12 of them the anchor,
+once per server): on his 234 takes of 56–150, words with a false vowel note 2.8% → 1.8% and a planted e for i told
+77.7% → 83.6%, against the shipped head at the same bar. On the phone this calibration showed no gain (§39), so it
+stays his choice; he can switch it off, or have everything kept for him forgotten. A server keeps at most 100 voices
+(27 MB each).
 
 
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
