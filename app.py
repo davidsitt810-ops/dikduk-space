@@ -946,18 +946,23 @@ def student_anchor():
             if k < 0 or k >= len(s_.get('ln') or []) or i + 1 >= len(ev): continue
             a_, b_ = t / 10, ev[i + 1][0] / 10
             if 1.5 <= b_ - a_ <= 25: lines.append((f, k, a_, b_, s_['ln'][k]))
-    random.Random(2).shuffle(lines); out = []; audio = {}
+    random.Random(2).shuffle(lines); pick = []   # the first N_ANCHOR in that order (with a few to spare for a line too short)
     for f, k, a_, b_, nik in lines:
-        if len(out) >= student_mod.N_ANCHOR: break
+        if len(pick) >= student_mod.N_ANCHOR + 20: break
         pron = pron_of(nik)
-        if not pron: continue
-        if f not in audio: audio = {f: decode_audio(open(tehillim_file(f), 'rb').read())}
-        x = audio[f][int(a_ * SR):int(b_ * SR)]
-        if x.shape[0] < SR: continue
-        _, _, AH = arabic_lp(x); h = AH.get(FULL_LAYER)
-        if h is None: continue
-        sc = np.maximum(np.abs(h).max(1), 1e-6).astype(np.float32); path = os.path.join(d, f'{len(out)}.npz')
-        np.savez(path, h12q=np.round(h / sc[:, None] * 127).astype(np.int8), h12s=sc.astype(np.float16)); out.append((path, pron, int(h.shape[0])))
+        if pron: pick.append((len(pick), f, a_, b_, pron))
+    got = []
+    for f in sorted({p[1] for p in pick}):   # each mp3 decoded once
+        x_all = decode_audio(open(tehillim_file(f), 'rb').read())
+        for j, _, a_, b_, pron in (p for p in pick if p[1] == f):
+            x = x_all[int(a_ * SR):int(b_ * SR)]
+            if x.shape[0] < SR: continue
+            _, _, AH = arabic_lp(x); h = AH.get(FULL_LAYER)
+            if h is None: continue
+            sc = np.maximum(np.abs(h).max(1), 1e-6).astype(np.float32); path = os.path.join(d, f'{j}.npz')
+            np.savez(path, h12q=np.round(h / sc[:, None] * 127).astype(np.int8), h12s=sc.astype(np.float16)); got.append((j, path, pron, int(h.shape[0])))
+    out = [g[1:] for g in sorted(got)][:student_mod.N_ANCHOR]
+    if len(out) < student_mod.N_ANCHOR // 2: raise ValueError(f'only {len(out)} of Rabbi Alouf\'s pesukim to anchor the head (the Tehillim audio is not on this server?)')
     json.dump(out, open(idx, 'w', encoding='utf-8'), ensure_ascii=False)
     return out
 

@@ -191,6 +191,8 @@ for done, (n, i) in enumerate(jobs, 1):
                  'line_wrong': sm['line_wrong'], 'cant_hear': sm['cant_hear'], 'no_speech': sm['no_speech'], 'clean': sm['clean'], 'head': rule.head_median(out['take']['words']),
                  'throat': sm['throat'], 'vowels': sm['vowels'], 'shva': sm['shva'], 'rival': sm['rival'], 'gap': sm['gap'],
                  'strict': rule.strict_of(sm['marks'], sm['why'], sm['clean'], sm['cant_hear'])[0],
+                 'vclean': sm.get('vclean'), 'noisy': sm.get('noisy'), 'snr': sm.get('snr'),   # (v5.7) the vowel gate, the too-noisy line, the noise estimate
+                 **({'student': out.get('student'), 'kept': out.get('student_kept')} if os.environ.get('DK_STUDENT') else {}),
                  **({'planted': planted, 'nw': nw} if PLANT else {}),
                  **({'skip_t': skip_t, 'skip_ok': len(out['words']) == nw and (lambda a, b: a == b or (b.startswith('אדני') or 'אדני' in b) and 'יהוה' in a)(out['words'][planted[0]].translate(FINALS), p['words'][planted[0]]['w'].translate(FINALS))} if SKIP else {}),
                  **({'raw': {'nikud': nik, 'tw': [[(v['k'], v['heard'], v['mass'], v['p']) for v in (w.get('vow') or [])] for w in out['take']['words']],

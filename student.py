@@ -66,7 +66,9 @@ class Students:
         """keep one take as his training item when it is clear (the letter head's median >= .7), every word came through,
            and the line has nikud; -> True when kept. h12: the take's Arabic layer 12 (frames x 1024)"""
         if not ok_id(sid) or not nikud or h12 is None: return False
-        if not summary.get('clean') or summary.get('line_wrong') or summary.get('no_speech') or any(m != 'ok' for m in summary.get('marks') or []): return False
+        # every word right ('' is a word too short to judge, like יה or הוא: on Faraj's correct reading 44 of 660 clear
+        # takes have one, so it does not keep a take out)
+        if not summary.get('clean') or summary.get('line_wrong') or summary.get('no_speech') or any(m not in ('ok', '', None) for m in summary.get('marks') or []): return False
         if os.path.exists(os.path.join(self.dir(sid), 'head.pt')): return False   # made: a new enrollment starts with forget
         pron = self.pron_of(nikud)
         if not pron or len(pron) != len(words): return False
