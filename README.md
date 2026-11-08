@@ -234,8 +234,8 @@ on a line without nikud (a pizmon against the hazzan alone), where it was not me
 server estimates each take's noise (`take.snr`, `app.snr_of`: the singing over the floor between the words, in
 dB); under 26 dB on a take that lost its vowel check (or its words), the page and the embed say there is background
 noise and to try a quieter spot with the phone close to the mouth — on 43 of the 44 phone takes that kept no vowel
-check (Faraj as recorded: median 36 dB; through the phone 24; with the noise 10 dB under 15). **Learn my voice** (the lab page only, off unless he turns it
-on): his clear, fully right takes of a pointed line (30 needed, 40 kept) teach a copy of the vowel head his voice
+check (Faraj as recorded: median 36 dB; through the phone 24; with the noise 10 dB under 15). **Learn my voice**
+(the lab page only, off unless he turns it on): his clear, fully right takes of a pointed line (30 needed, 40 kept) teach a copy of the vowel head his voice
 (`student.py`, the recipe of §39's calibration, with safe3 keeping a vowel he says wrong most of the time out of it);
 his later takes' vowels are heard with it, the word marks keep the shipped head. Faraj, 40 takes of perakim 1–10 kept
 through the server, his head made in 14 minutes (12 of them the anchor, once per server): on his 234 takes of 56–150,
