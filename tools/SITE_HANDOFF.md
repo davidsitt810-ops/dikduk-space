@@ -193,3 +193,15 @@ Base: `https://davidsitt-pizmonim-dikduk.hf.space`. All JSON, CORS `*`. No keys.
   heard, four of every five right words it marked red are no longer red, and a skipped word is still caught. **The
   site's copy of `embed.js` needs copying again** (one number in its rule); if the site loads it from jsDelivr
   `@main`, it updates by itself once v5.6 is merged.
+
+## v5.7 (candidate, on branch v57 until David merges it)
+- Server and embed: on a take recorded on a phone in a room, the vowels are checked again. A take the checker hears
+  fairly well, whose line the recording follows closely, now gets its vowel notes; before, a third to a half of a
+  good reader's phone takes got none. The red / "not sure" marks are exactly as before.
+- Server and embed: when background noise is why a take got no vowel check (or its words were hard to make out),
+  the result says so in one line under the summary: "There is background noise in this recording… Try a quieter
+  spot, with the phone close to your mouth." Two new strings in the embed, `noisyVowels` and `noisyWords`, if the
+  site gives the embed its own wording (Hebrew).
+- **The site's copy of `embed.js` needs copying again** (its rule object gained three numbers, and the hint line).
+- The lab page only (not the embed): "Learn my voice", a student's own vowel ear made from his first 30 clear takes.
+  Nothing on the site uses it.
