@@ -16,7 +16,7 @@ VOWEL_NAME = {'A': 'ah (patah / kamatz)', 'E': 'eh (segol / tsere)', 'I': 'ee (h
 # 50 -> 26 words of 1,300, the real ee still told 96.5% as before (tools/LAB_NOTES.md §38).
 EI_MAX_E = 0.005
 
-def expected_vowels(units):
+def expected_vowels(units, sk=None):
     """One word's vowels from the nikud (nikud.parse_word's units), each with the letter it follows (k), as
        vowel_notes wants them. (v5.6) A furtive patah (רוּחַ, לַמְנַצֵּחַ: said BEFORE the final ח / ע / הּ, so the parser
        puts it before its own consonant) is expected where it is said, in the slot after the letter before it: the
@@ -31,8 +31,75 @@ def expected_vowels(units):
         if u['kind'] != 'vowel': continue
         k = u['k']
         if k > 0 and j + 1 < len(units) and units[j + 1]['kind'] == 'cons' and units[j + 1]['k'] == k: k -= 1   # furtive: before its consonant
-        out.append({'heard': u['c'], 'k': k})
+        out.append({'heard': u['c'], 'k': k, **({'stress': u['k'] == sk} if sk is not None else {})})   # (v5.8) sk: vowel_context
     return out
+
+# (v5.8) two rules from David's listening (LAB_NOTES §41), applied where the line has nikud (vowel_context):
+#  - a kamats katan said "a" is right too ("both are right" where he learns, on all four he heard: before a hataf
+#    kamats, with a meteg, before a shva) — no "ah where the page / the hazzan says oh" on a letter that carries one;
+#  - on an unstressed vowel in a closed syllable, "eh where the page says ah" or "eh where it says ee" only when the
+#    ear is very sure (its winner at least SURE_UNST of the slot's mass): Hazzan Faraj Samra's "a" there, and his "i"
+#    before a shva, he heard as written or swallowed (7 of the 8), and those are where these false notes are (144 of
+#    173 on two readers). Replayed: his false notes 2.64% -> 2.25% (Tehillim 1-55), 2.47% -> 2.16% (56-150), Shmuelof
+#    0.85% -> 0.79%; a real "e for i" told 76.8% -> 75.8%, "e for a" 83.8% -> 82.7%, the other kinds as before.
+SURE_UNST = 0.99
+SURE_KINDS = {('A', 'E'), ('I', 'E')}
+QAMATS_QATAN = '\u05C7'
+NOT_STRESS = {'\u05AD', '\u059D', '\u05AE'}            # dehi (before the word), geresh muqdam, tsinnor (after it)
+STRESS_MARKS = {chr(c) for c in range(0x0591, 0x05B0)} - NOT_STRESS
+
+def stress_letter(word, last):
+    """the letter that carries the word's stress accent (Tehillim's poetic te'amim); silluq (a meteg) on the pasuk's
+       last word; None if no accent says (a word joined by maqaf, or only dehi)"""
+    i = -1; got = None; meteg = None
+    for ch in word:
+        if '\u05D0' <= ch <= '\u05EA': i += 1
+        elif ch in STRESS_MARKS and got is None: got = i
+        elif ch == '\u05BD': meteg = i
+    if got is None and last and meteg is not None: got = meteg
+    return got
+
+def vowel_context(pv):
+    """per word of a pointed line (nikud.parse_verse): the stressed letter (or, with no accent, the last vowel's),
+       whether a vowel after letter k closes its syllable (the next consonant doubled, or without a vowel of its own),
+       and the letters that carry a kamats katan"""
+    ctx = {'stress': {}, 'closed': {}, 'qq': {}}
+    for i, (w, _, us) in enumerate(pv):
+        sk = stress_letter(w, i == len(pv) - 1)
+        vk = [u['k'] for u in us if u['kind'] == 'vowel']
+        ctx['stress'][i] = sk if sk is not None else (vk[-1] if vk else None)
+        closed = {}
+        cons = [(j, u) for j, u in enumerate(us) if u['kind'] == 'cons']
+        for j, u in enumerate(us):
+            if u['kind'] != 'vowel': continue
+            nxt = next(((jj, c) for jj, c in cons if jj > j), None)
+            if nxt is None: closed[u['k']] = False; continue   # open at the word's end
+            jj, c = nxt
+            after = us[jj + 1] if jj + 1 < len(us) else None
+            closed[u['k']] = bool(c.get('dagesh') and c['c'] not in 'אהחער') or after is None or after['kind'] == 'cons'
+        ctx['closed'][i] = closed
+        k = -1; q = set()
+        for ch in w:
+            if '\u05D0' <= ch <= '\u05EA': k += 1
+            elif ch == QAMATS_QATAN and k >= 0: q.add(k)
+        ctx['qq'][i] = q
+    return ctx
+
+def keep_note(st, rs, i, ctx):
+    """the two v5.8 rules above, for one note: st the student's slot, rs the page's vowel or the hazzan's slot"""
+    X, Y = rs['heard'], st['heard']
+    if X == 'O' and Y == 'A':
+        q = ctx['qq'].get(i, ())
+        if rs.get('k') in q or st['k'] in q: return False
+    if (X, Y) in SURE_KINDS:
+        s = rs.get('stress')
+        if s is None: s = st['k'] == ctx['stress'].get(i)
+        if not s:
+            cl = ctx['closed'].get(i, {})
+            if cl.get(rs['k'], cl.get(st['k'])):
+                mm = st['mass']
+                return mm[Y] >= SURE_UNST * max(1e-6, sum(mm.values()))
+    return True
 
 def ctc_align_opt(lp, toks, blank, optional=None, band=None, skip_cost=0.0):
     """Viterbi forced alignment on the blank-interleaved trellis; `optional` = set of token positions the path may
@@ -157,7 +224,7 @@ def compat(a, b, letters):
     hi = max(a, b)
     return abs(a - b) == 1 and hi < len(letters) and (letters[hi] in 'ויא' or (letters[hi] == 'ה' and hi == len(letters) - 1))
 
-def compare_aligned(student, ref, letters, ratio=2.0, with_pairs=False, skip=0.5, sub=0.9):
+def compare_aligned(student, ref, letters, ratio=2.0, with_pairs=False, skip=0.5, sub=0.9, ctx=None):
     """(v5.3) student: slots per word (vowel_place); ref: per word the expected vowels with the letter each follows (k):
        the hazzan's slots, or the nikud's vowels. Each word's two lists are lined up in order — a slot may pair only
        with a vowel after a compatible letter, passing over one costs `skip`, a pair of different vowels `sub` (less
@@ -191,18 +258,20 @@ def compare_aligned(student, ref, letters, ratio=2.0, with_pairs=False, skip=0.5
             if rs.get('mass') is not None and not clear(rs, ratio): continue
             mm = st['mass']
             if rs['heard'] == 'E' and st['heard'] == 'I' and mm.get('E', 0) > EI_MAX_E * sum(mm.values()): continue   # v5.5, below
+            if ctx is not None and not keep_note(st, rs, i, ctx): continue   # v5.8, above
             out.setdefault(i, []).append({'k': st['k'], 'you': st['heard'], 'ref': rs['heard'], 'm': round(mm[st['heard']] / max(1e-6, sum(mm.values())), 2)})
     return (out, pairs) if with_pairs else out
 
-def vowel_notes(student, hazzan, expected, letters):
+def vowel_notes(student, hazzan, expected, letters, ctx=None):
     """(v5.3) the take's vowel notes against the hazzan and against the nikud, with the two cross-checks:
        a nikud note where the hazzan is heard saying the same vowel there is dropped (v4.9: the ear mishears some of
        the hazzan's vowels the same way, and the student who sings as he does is right), and a hazzan note where the
-       student said the vowel the nikud writes is dropped (v5.1). hazzan / expected may be None.
+       student said the vowel the nikud writes is dropped (v5.1). hazzan / expected may be None. ctx (v5.8, a pointed
+       line's vowel_context): the kamats-katan and very-sure rules, on both comparisons.
        -> (notes against the hazzan or None, notes against the nikud or None)"""
-    vh = compare_aligned(student, hazzan, letters) if hazzan is not None else None
+    vh = compare_aligned(student, hazzan, letters, ctx=ctx) if hazzan is not None else None
     if expected is None: return vh, None
-    vn, pair = compare_aligned(student, expected, letters, with_pairs=True)
+    vn, pair = compare_aligned(student, expected, letters, with_pairs=True, ctx=ctx)
     for i in list(vn):
         hv = (hazzan or {}).get(i) or []
         vn[i] = [d for d in vn[i] if not any(h['heard'] == d['you'] and compat(h['k'], d['k'], letters.get(i, '')) for h in hv)]
