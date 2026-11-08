@@ -30,7 +30,7 @@ def mark_of(y, f, clean):
 # Israeli exam (LAB_NOTES §39).
 # The skip-vs-swap guard below also reads this bar, but cannot move with it: a swap that could fire has swap >= 8, and
 # the guard needs swap < 0.35 x the drop, so a drop above 22.9 — over both bars.
-RULE = {'drop': 20, 'margin': 4, 'swap': 8, 'rival': 0.3, 'altFit': 0.4, 'hear': 0.3, 'share': 0.35, 'half': 0.5, 'swap2': 12}   # kept in step with static/index.html and embed.js
+RULE = {'drop': 20, 'margin': 4, 'swap': 8, 'rival': 0.3, 'altFit': 0.4, 'hear': 0.3, 'share': 0.35, 'half': 0.5, 'swap2': 12, 'vhead': 0.62, 'vgap': 0.17, 'noisy': 26}   # kept in step with static/index.html and embed.js
 
 def head_median(TW):
     """the letter head's score on the line's words (2+ consonants), the median — with the lowest word left out when
@@ -48,6 +48,18 @@ def no_speech_in(take):
 def clean_of(TW):
     """a clean take: the heads hear the line well enough for the finer signals (pw, the whole-line evidence)"""
     m = head_median(TW); return m is not None and m >= .7
+
+# vowel notes (v5.7): on a clean take, and also on a take the letter head hears fairly well (median >= .62) whose written
+# line the audio follows closely (the line gap to free decoding <= .17). A phone in a room puts a third to a half of a
+# good reader's takes under .70 while the vowel ear still hears them as well: on those the notes came back (planted
+# e-for-i told on the phone 52% -> 69% for Faraj Samra, 44% -> 68% for Shmuelof; his correct reading noted 1.5% -> 1.9%),
+# and the gap keeps out a poor recording, where the ear does not (Daya's Tehillim: 1.2% -> 1.8%, against 4.6% with the
+# head alone). The word marks keep the .70 bar: moved for them too, right words red rise (LAB_NOTES §39).
+def vclean_of(TW, gap, clean):
+    """the take is clear enough for the vowel notes (kept in step with vcleanOf in index.html and embed.js)"""
+    if clean: return True
+    m = head_median(TW)
+    return m is not None and m >= RULE['vhead'] and gap is not None and gap <= RULE['vgap']
 
 def marks_of(TW, F, gap, clean, rival=None):
     """the page's verdict per word (markOf + the whole-line evidence on a clean take; the line gap on every take;
@@ -118,7 +130,8 @@ def summarize(out):
             if th['v'] == 'plain': th['raw'] = 'plain'; th['v'] = 'unsure'
     VN = out.get('vowel_names') or {}; nm = lambda k: (VN.get(k) or k).split(' ')[0]
     vow = []
-    for src, against in (((out.get('vowels'), 'hazzan'), (out.get('vowels_nikud'), 'nikud')) if clean else ()):   # vowel notes only on a clean take (another voice with instruments gave one note per 4.5 right words)
+    vclean = vclean_of(TW, out['take'].get('gap'), clean)
+    for src, against in (((out.get('vowels'), 'hazzan'), (out.get('vowels_nikud'), 'nikud')) if vclean else ()):   # vowel notes on a take clear enough for them (vclean_of, v5.7; another voice with instruments gave one note per 4.5 right words)
         for i, ds in (src or {}).items():
             if marks[int(i)] == 'off': continue   # a word that was not there has no vowels to speak of
             for d in ds: vow.append({'w': W[int(i)], 'k': d['k'], 'you': nm(d['you']), 'ref': nm(d['ref']), 'against': against})
@@ -127,7 +140,11 @@ def summarize(out):
     shv = [{'w': W[int(i)], 'k': d['k'], 'c': d['c'], 'you': d['you'], 'want': d['want'], 'rule': d['rule'], 'by': d['by']}
            for i, ds in ((out.get('shva') or {}).items() if clean else ()) if int(i) < len(W) and marks[int(i)] != 'off' for d in ds]
     if cant_hear or no_speech: throat, vow, miss, shv = [], [], {}, []   # the words were not made out: no claims about the letters inside them
-    return {'marks': marks, 'why': why, 'line_wrong': line_wrong, 'cant_hear': cant_hear, 'no_speech': no_speech, 'rival': out['take'].get('rival'), 'gap': out['take'].get('gap'), 'throat': throat, 'vowels': vow, 'shva': shv, 'miss': miss, 'clean': clean, 'head': head_median(TW), 'hazzan': bool(F), 'dur': out['take'].get('dur')}
+    # too noisy (v5.7): background noise where the take lost its vowel check (or its words) — the page says so, with the
+    # remedy. The take's own estimate (app.snr_of) under 26 dB: 93 of the 94 such takes on the phone, 182 of 182 with
+    # the noise 10 dB under, 4 of the 26 as recorded (LAB_NOTES §40)
+    snr = out['take'].get('snr'); noisy = bool(snr is not None and snr < RULE['noisy'] and not no_speech and (not vclean or cant_hear))
+    return {'marks': marks, 'why': why, 'line_wrong': line_wrong, 'cant_hear': cant_hear, 'no_speech': no_speech, 'rival': out['take'].get('rival'), 'gap': out['take'].get('gap'), 'throat': throat, 'vowels': vow, 'shva': shv, 'miss': miss, 'clean': clean, 'vclean': vclean and not (cant_hear or no_speech), 'noisy': noisy, 'snr': snr, 'head': head_median(TW), 'hazzan': bool(F), 'dur': out['take'].get('dur')}
 
 # ---------------------------------------------------------------- the line's score (v5.1)
 # A score out of 100 for a take, and how sure the checker is of it (the reader scores of LAB_NOTES §31, per line):

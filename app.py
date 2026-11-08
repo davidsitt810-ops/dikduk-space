@@ -54,7 +54,7 @@ Endpoints (JSON, CORS open):  GET /health   GET /info   GET /lyrics (the site's 
   GET  /tehillim/audio/<file>                                  a Rabbi Alouf recording
 Nothing here deploys or changes the site.
 """
-import os, re, sys, json, time, hashlib, subprocess, tempfile, threading, queue, uuid, shutil
+import os, random, re, sys, json, time, hashlib, subprocess, tempfile, threading, queue, uuid, shutil
 import numpy as np
 import torch
 import requests
@@ -655,12 +655,23 @@ def ft_lps(x: np.ndarray):
         h = FT(inp.input_values).last_hidden_state; lo_l, lo_f = FT_HEADS(h)
     return torch.log_softmax(lo_l[0], -1).numpy(), torch.log_softmax(lo_f[0], -1).numpy()
 
-def full_lp(AH):
+def full_lp(AH, head=None):
+    """the vowel head over the Arabic layer: the shipped one, or (v5.7) a student's own (student.py)"""
     if FULL is None or FULL_LAYER not in AH: return None
     with torch.inference_mode():
-        return torch.log_softmax(FULL(torch.from_numpy(AH[FULL_LAYER].astype(np.float32))[None]), -1)[0].numpy()
+        return torch.log_softmax((head or FULL)(torch.from_numpy(AH[FULL_LAYER].astype(np.float32))[None]), -1)[0].numpy()
 
-def analyse(x: np.ndarray, words, want_emb=False, alts=None):
+def snr_of(x: np.ndarray):
+    """the take's background noise against its singing, in dB: the 95th percentile of the 20 ms frames' energy (the
+       singing) minus the 10th (the floor between the words). Faraj Samra's takes as recorded: median 36 dB; through a
+       phone in a room (pink noise 20 dB under the singing): 24; 10 dB under: 15; the room's echoes alone do not move it
+       (LAB_NOTES §40). None for a take under a second."""
+    f = int(SR * 0.02); n = x.shape[0] // f
+    if n < 50: return None
+    e = (x[:n * f].reshape(n, f).astype(np.float64) ** 2).mean(1) + 1e-10
+    db = 10 * np.log10(e); return round(float(np.percentile(db, 95) - np.percentile(db, 10)), 1)
+
+def analyse(x: np.ndarray, words, want_emb=False, alts=None, full=None, keep=None):
     """everything the page needs about one audio: where each word is, the phones heard in it, the throat letters, the vowels"""
     t = time.time()
     lp, spf, H = run_model(x)
@@ -668,7 +679,8 @@ def analyse(x: np.ndarray, words, want_emb=False, alts=None):
     W = place_words(lp, spf, words)
     ar_lp, ar_spf, AH = arabic_lp(x); ar_hits = arabic_place(ar_lp, words)
     if FT is not None: hlp, flp = ft_lps(x)
-    else: hlp, flp = head_lp(AH), full_lp(AH)
+    else: hlp, flp = head_lp(AH), full_lp(AH, full)
+    if keep is not None: keep['h12'] = AH.get(FULL_LAYER)   # (v5.7) the take's Arabic layer, for a student's enrollment
     hw, hl = head_place(hlp, words) if hlp is not None else ({}, {})
     # which letters were actually heard: every letter optional at a cost of 3 nats on the letter head (measured on
     # Rabbi Alouf: right words keep 98% of their letters, the words of another pasuk 33%, a skipped word 20-50%)
@@ -705,7 +717,7 @@ def analyse(x: np.ndarray, words, want_emb=False, alts=None):
             w['vskel'] = vl.get(i)
         for th in w['throat']:
             th.update(throat_probe(lp, spf, H, th, ar_lp, ar_spf, ar_hits.get((i, th['k'])), want_emb, AH, hl.get((i, th['k'])))); th['heard'] = heard_in(seq, th['t0'], th['t1'])
-    return {'dur': round(x.shape[0] / SR, 3), 'spf': round(spf, 5), 'words': W, 'phones': seq, 'gap': ev_h['gap'] if ev_h else None, 'gap_ph': ev_p['gap'] if ev_p else None,
+    return {'dur': round(x.shape[0] / SR, 3), 'snr': snr_of(x), 'spf': round(spf, 5), 'words': W, 'phones': seq, 'gap': ev_h['gap'] if ev_h else None, 'gap_ph': ev_p['gap'] if ev_p else None,
             'rival': ({'gain': rival['gain'], 'n': rival['n'], 'head': rival.get('head'), 'line': ' '.join(alts[rival['best']])} if rival else None), 'ms': int((time.time() - t) * 1000)}, lp, spf
 
 # A combined "this word was not sung" score: logistic on the word's reference-free signals (skel, letter head, vowel
@@ -860,7 +872,7 @@ def health():
     return {'ok': True, 'version': VERSION, 'build': {'commit': COMMIT, 'commit_from': COMMIT_FROM, 'files': FILES, 'models': MODEL_REV, 'rule': RULE_HASH, 'ref_tag': REF_TAG},
             'storage': storage(), 'device': DEV, 'threads': THREADS, 'cpu_count': os.cpu_count(), 'uptime_s': int(time.time() - T_START), 'phone_model': PH_ID, 'arabic_model': AR_ID, 'vocab': len(VOCAB), 'classifiers': list(CLF),
             'page_from': 'github' if (_PAGES.get('index.html') or {}).get('body') else 'local', 'jobs': {'queued': sum(1 for v in JOBS.values() if v['state'] == 'queued'), 'running': sum(1 for v in JOBS.values() if v['state'] == 'running')},
-            'letters': sorted(LT.BY_C), 'follow': True, 'reviews': True, 'ears': {'letter_head': HEAD is not None, 'vowel_head': FULL is not None, 'fine_tuned': FT is not None, 'classifier_v2': bool(CLF2), 'tehillim_lyrics': len(TEHILLIM_LYR), 'tehillim_audio': os.path.isdir(TEHILLIM_DIR) and len(os.listdir(TEHILLIM_DIR)) or (TEHILLIM_BASE or 0),
+            'letters': sorted(LT.BY_C), 'follow': True, 'reviews': True, 'ears': {'letter_head': HEAD is not None, 'vowel_head': FULL is not None, 'student': STU is not None, 'fine_tuned': FT is not None, 'classifier_v2': bool(CLF2), 'tehillim_lyrics': len(TEHILLIM_LYR), 'tehillim_audio': os.path.isdir(TEHILLIM_DIR) and len(os.listdir(TEHILLIM_DIR)) or (TEHILLIM_BASE or 0),
                      'tehillim_perakim': sorted(int(m.group(1)) for m in (re.match(r'tehillim-(\d{3})\.mp3$', f) for f in (os.listdir(TEHILLIM_DIR) if os.path.isdir(TEHILLIM_DIR) else [])) if m)}}
 
 @app.get('/info')
@@ -900,6 +912,75 @@ try:
 except Exception as e:
     parse_verse = None; print('no nikud parser:', e, flush=True)
 
+# ---------------------------------------------------------------- the student's own vowel ear (v5.7, student.py)
+def pron_of(nikud):
+    """a pointed line -> its words as the vowel head's training labels (letters with their vowel classes), or None"""
+    try:
+        from nikud import clean_verse
+        return [''.join(u['c'] for u in us) for _, _, us in parse_verse(clean_verse(nikud))]
+    except Exception:
+        return None
+STU = None
+try:
+    import student as student_mod
+    if FULL is not None and parse_verse is not None:
+        from vowels import clear as vowel_clear
+        STU = student_mod.Students(KEEP_DIR, LetterHead, FULL_SYM, os.environ.get('DK_FULL_HEAD') or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'full_head.pt'), vowel_clear, pron_of)
+        print('student ears: on', flush=True)
+except Exception as e:
+    print('no student ears:', e, flush=True)
+def STUDENT_OK(sid): return STU is not None and student_mod.ok_id(sid)
+
+def student_anchor():
+    """Rabbi Alouf's pesukim that anchor a student's head: student.N_ANCHOR lines of his Tehillim (seeded), their Arabic
+       layer made once from this server's own audio and kept under students/_anchor -> [(npz path, pron, frames)]"""
+    d = os.path.join(KEEP_DIR, 'students', '_anchor'); os.makedirs(d, exist_ok=True); idx = os.path.join(d, 'index.json')
+    try: return [tuple(x) for x in json.load(open(idx, encoding='utf-8'))]
+    except Exception: pass
+    lines = []
+    for key in sorted(TEHILLIM_LYR, key=lambda k: int(k[1:]) if k[1:].isdigit() else 0):
+        s_ = TEHILLIM_LYR[key]; n = int(key[1:]) if key[1:].isdigit() else 0; f = f'tehillim-{n:03d}.mp3'
+        if not n or not tehillim_file(f) or f not in (s_.get('t') or {}): continue
+        ev = [tuple(map(int, e.split(','))) for e in s_['t'][f].split(';') if e]
+        for i, (t, k) in enumerate(ev):
+            if k < 0 or k >= len(s_.get('ln') or []) or i + 1 >= len(ev): continue
+            a_, b_ = t / 10, ev[i + 1][0] / 10
+            if 1.5 <= b_ - a_ <= 25: lines.append((f, k, a_, b_, s_['ln'][k]))
+    random.Random(2).shuffle(lines); out = []; audio = {}
+    for f, k, a_, b_, nik in lines:
+        if len(out) >= student_mod.N_ANCHOR: break
+        pron = pron_of(nik)
+        if not pron: continue
+        if f not in audio: audio = {f: decode_audio(open(tehillim_file(f), 'rb').read())}
+        x = audio[f][int(a_ * SR):int(b_ * SR)]
+        if x.shape[0] < SR: continue
+        _, _, AH = arabic_lp(x); h = AH.get(FULL_LAYER)
+        if h is None: continue
+        sc = np.maximum(np.abs(h).max(1), 1e-6).astype(np.float32); path = os.path.join(d, f'{len(out)}.npz')
+        np.savez(path, h12q=np.round(h / sc[:, None] * 127).astype(np.int8), h12s=sc.astype(np.float16)); out.append((path, pron, int(h.shape[0])))
+    json.dump(out, open(idx, 'w', encoding='utf-8'), ensure_ascii=False)
+    return out
+
+def _sid_err(): return JSONResponse({'err': 'a student id is 8-64 letters, digits, - or _ (and this server needs its vowel head)'}, status_code=400)
+@app.get('/student')
+def student_get(id: str):
+    """how far his own vowel ear is: takes kept of the 30 needed, made or not, in use or not, what it did not learn"""
+    return STU.status(id) if STUDENT_OK(id) else _sid_err()
+@app.post('/student/train')
+def student_train(id: str):
+    """make his head now (one at a time on this server; a few minutes), from his kept takes"""
+    if not STUDENT_OK(id): return _sid_err()
+    ok, why = STU.train_async(id, student_anchor)
+    return JSONResponse({**STU.status(id), 'started': ok, 'why': why}, status_code=202 if ok else 409)
+@app.post('/student/use')
+def student_use(id: str, on: int = 1):
+    """switch his own head on or off for his checks"""
+    return STU.set_on(id, bool(on)) if STUDENT_OK(id) else _sid_err()
+@app.post('/student/forget')
+def student_forget(id: str):
+    """everything kept for him, gone"""
+    return {'forgotten': STU.forget(id)} if STUDENT_OK(id) else _sid_err()
+
 @app.get('/tehillim/audio/{fname}')
 def tehillim_audio(fname: str):
     tf = tehillim_file(fname)
@@ -928,7 +1009,7 @@ def lyrics():
     return _LYR['data']
 
 # ---- what this server is: the code, the heads and the models it runs, so every verdict can be traced to them
-VERSION = 5.6
+VERSION = 5.7
 HERE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def file_sha(path, n=12):
@@ -1133,7 +1214,7 @@ def job_status(jid: str):
     return out
 
 @app.post('/check')
-async def check(request: Request, words: str = Query(...), ref: str = None, t0: float = 0, t1: float = 0, emb: int = 0, drill: str = None, nikud: str = None, job: int = 0, pid: str = None, alts: str = None, key: str = None, vc: str = None):
+async def check(request: Request, words: str = Query(...), ref: str = None, t0: float = 0, t1: float = 0, emb: int = 0, drill: str = None, nikud: str = None, job: int = 0, pid: str = None, alts: str = None, key: str = None, vc: str = None, student: str = None, enroll: int = 0):
     W = he_words(words)
     VC = voice_card(vc)
     # a drill take is kept for training: only with the key, so nobody else can add to (or poison) the training data
@@ -1158,7 +1239,7 @@ async def check(request: Request, words: str = Query(...), ref: str = None, t0: 
     if x.shape[0] > SR * 40:
         x = x[:SR * 40].copy()
     def work(progress):
-        out = run_check(x, W, ref, t0, t1, emb, drill, nikud, progress, ALT, VC)
+        out = run_check(x, W, ref, t0, t1, emb, drill, nikud, progress, ALT, VC, student if student and STUDENT_OK(student) else None, bool(enroll))
         if drill_err: out['drill_err'] = drill_err
         return out
     if job:
@@ -1185,10 +1266,14 @@ def drop_card(vn, VC):
         if keep: out[i] = keep
     return out, n
 
-def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None, alts=None, VC=None):
+def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None, alts=None, VC=None, student=None, enroll=False):
     if isinstance(alts, str): alts = other_lines(alts, W)   # the text's id -> its other lines (may fetch the site's lyrics: not on the event loop)
     progress('listening to your take')
-    take, lp, spf = analyse(x, W, bool(emb) or bool(drill), alts)
+    # (v5.7) a student with a head of his own is heard with it (the hazzan keeps the shipped one); while he enrolls,
+    # the take's Arabic layer is kept aside, to be saved if the take turns out clear and every word right
+    mine = STU.head(student) if (STU and student) else None
+    keep = {} if (STU and student and enroll and mine is None) else None
+    take, lp, spf = analyse(x, W, bool(emb) or bool(drill), alts, full=mine, keep=keep)
     out = {'words': W, 'take': take, 'server': STAMP}
     for w in take['words']: w['pw'] = word_pw(w, None)
     if drill in ('throat', 'plain'):
@@ -1260,6 +1345,12 @@ def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None, alt
         out['score'] = score_of(out['score_parts'], sm['marks'])
     except Exception as e:
         out['score_err'] = str(e)[:200]
+    if STU and student:
+        try:
+            if keep is not None and keep.get('h12') is not None: out['student_kept'] = STU.keep(student, keep['h12'], nikud, W, take['words'], summarize(out))
+            out['student'] = {**STU.status(student), 'heard_with_own': mine is not None}
+        except Exception as e:
+            out['student_err'] = str(e)[:200]
     return out
 
 # ================================================================= the recording booth (/record)

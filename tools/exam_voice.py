@@ -178,6 +178,7 @@ for done, (n, i) in enumerate(jobs, 1):
     alts ='|'.join(x['text'] for k, x in enumerate(R['pesukim']) if k != i and x.get('text'))
     if not SKIP: nik, planted, nw = (plant(q['nikud'], random.Random(n * 1000 + i) if os.environ.get('PLANT_ONE') else None) if PLANT else (q['nikud'], None, None))
     prm = {'words': q['text'], 'nikud': nik, 'alts': alts}
+    if os.environ.get('DK_STUDENT'): prm.update({'student': os.environ['DK_STUDENT'], **({'enroll': 1} if os.environ.get('DK_ENROLL') else {})})   # (v5.7) a student's own vowel ear (DK_ENROLL=1: his enrollment)
     if not NO_REF: prm.update({'ref': R['file'], 't0': q['t0'], 't1': q['t1']})
     try:
         r = requests.post(BASE + '/check', params=prm, data=wav, headers={'Content-Type': 'application/octet-stream'}, timeout=900)

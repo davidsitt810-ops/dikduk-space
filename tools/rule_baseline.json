@@ -8,6 +8,7 @@
     "ok": 656
    },
    "takes": 80,
+   "vclean": 80,
    "wrong": {}
   },
   "skip": {
@@ -19,6 +20,7 @@
     "unsure": 5
    },
    "takes": 80,
+   "vclean": 78,
    "wrong": {
     "off": 75,
     "unsure": 5
@@ -32,6 +34,7 @@
     "ok": 482
    },
    "takes": 78,
+   "vclean": 70,
    "wrong": {
     "off": 155,
     "ok": 1
@@ -43,6 +46,7 @@
    "line_wrong": 0,
    "right": {},
    "takes": 79,
+   "vclean": 1,
    "wrong": {
     "off": 29,
     "ok": 71,
@@ -57,6 +61,7 @@
     "ok": 576
    },
    "takes": 80,
+   "vclean": 80,
    "wrong": {
     "off": 56,
     "ok": 3,
@@ -73,6 +78,7 @@
     "ok": 656
    },
    "takes": 80,
+   "vclean": 80,
    "wrong": {}
   },
   "skip": {
@@ -84,6 +90,7 @@
     "unsure": 4
    },
    "takes": 80,
+   "vclean": 78,
    "wrong": {
     "off": 75,
     "unsure": 5
@@ -98,6 +105,7 @@
     "unsure": 1
    },
    "takes": 78,
+   "vclean": 71,
    "wrong": {
     "off": 154,
     "ok": 1,
@@ -110,6 +118,7 @@
    "line_wrong": 79,
    "right": {},
    "takes": 79,
+   "vclean": 1,
    "wrong": {
     "off": 76,
     "unsure": 561
@@ -123,6 +132,7 @@
     "ok": 576
    },
    "takes": 80,
+   "vclean": 80,
    "wrong": {
     "off": 57,
     "ok": 3,
@@ -141,6 +151,7 @@
     "unsure": 274
    },
    "takes": 98,
+   "vclean": 25,
    "wrong": {}
   },
   "skip": {
@@ -153,6 +164,7 @@
     "unsure": 27
    },
    "takes": 15,
+   "vclean": 5,
    "wrong": {
     "off": 4,
     "unsure": 11
@@ -167,6 +179,7 @@
     "unsure": 19
    },
    "takes": 15,
+   "vclean": 5,
    "wrong": {
     "off": 15,
     "ok": 2,
@@ -179,6 +192,7 @@
    "line_wrong": 9,
    "right": {},
    "takes": 72,
+   "vclean": 0,
    "wrong": {
     "off": 16,
     "ok": 34,
@@ -197,6 +211,7 @@
     "unsure": 703
    },
    "takes": 199,
+   "vclean": 63,
    "wrong": {}
   },
   "skip": {
@@ -209,6 +224,7 @@
     "unsure": 782
    },
    "takes": 199,
+   "vclean": 22,
    "wrong": {
     "off": 92,
     "unsure": 107
@@ -224,6 +240,7 @@
     "unsure": 660
    },
    "takes": 196,
+   "vclean": 27,
    "wrong": {
     "off": 276,
     "ok": 19,
@@ -236,6 +253,7 @@
    "line_wrong": 153,
    "right": {},
    "takes": 199,
+   "vclean": 0,
    "wrong": {
     "off": 426,
     "ok": 82,
@@ -254,6 +272,7 @@
     "unsure": 413
    },
    "takes": 80,
+   "vclean": 3,
    "wrong": {}
   },
   "skip": {
@@ -266,6 +285,7 @@
     "unsure": 453
    },
    "takes": 80,
+   "vclean": 1,
    "wrong": {
     "off": 27,
     "unsure": 53
@@ -281,6 +301,7 @@
     "unsure": 369
    },
    "takes": 79,
+   "vclean": 1,
    "wrong": {
     "off": 59,
     "ok": 9,
@@ -293,6 +314,7 @@
    "line_wrong": 23,
    "right": {},
    "takes": 78,
+   "vclean": 0,
    "wrong": {
     "off": 81,
     "ok": 75,
@@ -311,6 +333,7 @@
     "unsure": 265
    },
    "takes": 80,
+   "vclean": 30,
    "wrong": {}
   },
   "skip": {
@@ -323,6 +346,7 @@
     "unsure": 309
    },
    "takes": 80,
+   "vclean": 9,
    "wrong": {
     "off": 37,
     "unsure": 43
@@ -338,6 +362,7 @@
     "unsure": 239
    },
    "takes": 79,
+   "vclean": 13,
    "wrong": {
     "off": 117,
     "ok": 4,
@@ -350,6 +375,7 @@
    "line_wrong": 60,
    "right": {},
    "takes": 78,
+   "vclean": 2,
    "wrong": {
     "off": 153,
     "ok": 46,
@@ -367,6 +393,7 @@
     "unsure": 2
    },
    "takes": 70,
+   "vclean": 70,
    "wrong": {}
   },
   "skip": {
@@ -378,6 +405,7 @@
     "unsure": 7
    },
    "takes": 69,
+   "vclean": 66,
    "wrong": {
     "off": 67,
     "unsure": 2
@@ -392,6 +420,7 @@
     "unsure": 4
    },
    "takes": 68,
+   "vclean": 62,
    "wrong": {
     "off": 130,
     "ok": 1,
@@ -404,6 +433,7 @@
    "line_wrong": 70,
    "right": {},
    "takes": 70,
+   "vclean": 0,
    "wrong": {
     "off": 65,
     "unsure": 474
@@ -418,6 +448,7 @@
     "unsure": 3
    },
    "takes": 70,
+   "vclean": 67,
    "wrong": {
     "off": 52,
     "ok": 5,

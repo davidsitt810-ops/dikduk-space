@@ -141,10 +141,13 @@ textarea{width:100%;min-height:80px;font:12px/1.4 ui-monospace,Menlo,monospace;c
   <div class="body">
    <h2><span class="n">4</span>How it went</h2>
    <p class="say" id="say"></p>
+   <p class="hint" id="noisy" hidden></p>
    <label class="strict"><input type="checkbox" id="strict"><span>Strict check: only what is clearly right counts</span></label>
+   <label class="strict"><input type="checkbox" id="learn"><span>Learn my voice: my clear takes teach the checker how I sound (their sound features are kept on the server)</span></label>
    <div class="words" id="res"></div>
    <p class="hint" id="tapHint">Tap a word to hear the hazzan sing it, then you.</p>
    <ul class="notes" id="notes"></ul>
+   <div class="sub" id="meP" hidden><h3 style="margin-top:0">Your own voice</h3><p class="hint" id="meTxt" style="margin:0 0 10px"></p><div class="after" id="meBtns" style="margin:0"></div></div>
    <div class="sub" id="thP" hidden><h3 style="margin-top:0">Throat letters ע and ח</h3><div id="th"></div></div>
    <div class="after"><button class="btn gold" id="againLine" type="button">Sing it again</button><button class="btn" id="otherLine" type="button">Another line</button></div>
    <details class="lab-only" id="detP"><summary>Details: numbers, vowels, every sound heard</summary>
@@ -231,6 +234,8 @@ $('#kindTh').onclick=()=>setKind('th');
 $('#kindAny').onclick=()=>setKind('any');
 /* ---------- lyrics ---------- */
 let LY=null,P=null,REC=null,LINE=null,TAKE=null,RESULT=null;let STRICT=false;try{STRICT=localStorage.getItem('dk.strict')==='1';}catch(e){}
+/* v5.7: the student's own vowel ear (server: student.py). An id of his own, kept in this browser; while learning is on, every take goes with it, and the server keeps the clear, fully right ones until 30, then learns his voice when he asks */
+let LEARN=ls('dk.learn')==='1';const SID=(()=>{let s=ls('dk.student');if(!s){s='s_'+Math.random().toString(36).slice(2,12)+Date.now().toString(36);ls('dk.student',s);}return s;})();
 const NIK=/[֑-ׇ]/g,FIN={'ך':'כ','ם':'מ','ן':'נ','ף':'פ','ץ':'צ'};
 const heL=w=>String(w||'').replace(NIK,'').replace(/[ךםןףץ]/g,c=>FIN[c]).replace(/[^א-ת]/g,'');
 const heWords=t=>String(t||'').replace(/[־\-]/g,' ').split(/[\s,.;:!?"'״׳()\[\]{}|/\\]+/).filter(w=>heL(w));
@@ -347,6 +352,7 @@ async function waitJob(id){const t0=Date.now();let misses=0;
 $('#check').onclick=async()=>{if(!TAKE||!LINE)return;busyText('sending your recording');$('#busy').hidden=false;$('#check').disabled=true;err('');
  try{const q=new URLSearchParams({words:LINE.text,job:1});if(REC&&LINE.t0!=null){q.set('ref',REC);q.set('t0',LINE.t0);q.set('t1',LINE.t1);}
   if(P&&P.s.ln&&P.s.ln[LINE.k])q.set('nikud',P.s.ln[LINE.k]);if(P&&P.id&&!P.any)q.set('pid',P.id);
+  if(LEARN){q.set('student',SID);q.set('enroll','1');}
   if(P&&P.any){q.set('words',LINE.words);const o=P.s.l.filter((x,i)=>i!==LINE.k&&x).slice(0,30);if(o.length)q.set('alts',o.join('|'));}   /* any line: the passage's other verses are the rivals */   /* the text's id: the server scores its other lines against this one (rival) */
   const r=await fetch(url('/check?'+q),{method:'POST',body:TAKE.blob,headers:{'content-type':TAKE.blob.type||'application/octet-stream'}});
   let j=await r.json();if(!r.ok||j.err)throw new Error(j.err||('server said '+r.status));
@@ -374,11 +380,13 @@ function markOf(y,f){const n=y&&y.n||0,sk=y&&y.skel!=null?y.skel:null,ft=f&&f.fi
    this word (nats; only the line's largest drop may flag, and only when it stands clear of the second); swap = how
    much it prefers the two neighbours the other way round; gap = what the written line costs per frame against the
    free path (a different text costs ~1 nat/frame, the right line under 0.1). Thresholds from exam_alouf.py. */
-const RULE={drop:20,margin:4,swap:8,rival:0.3,altFit:0.4,hear:0.3,share:0.35,half:0.5,swap2:12};
+const RULE={drop:20,margin:4,swap:8,rival:0.3,altFit:0.4,hear:0.3,share:0.35,half:0.5,swap2:12,vhead:0.62,vgap:0.17,noisy:26};
 /* v4.4: the letter head's median score over the line's words (2+ consonants), the lowest word left out when there are
    three or more — one wrong word must not make a good recording look poor. Clean = median >= .7 (the finer signals
    are trusted); under .3 the head barely hears the words: nothing goes red, the doubtful words stay "not sure". */
 function headMedian(TW){let hs=TW.filter(t=>(t.n||0)>=2&&t.hskel!=null).map(t=>t.hskel).sort((a,b)=>a-b);if(!hs.length)return null;if(hs.length>=3)hs=hs.slice(1);return hs[Math.floor((hs.length-1)/2)];}   /* the lower middle: one well-heard word does not make a short line clean */
+/* v5.7: the vowel notes also on a take the head hears fairly well (median ≥ .62) whose line the audio follows closely (gap ≤ .17) — the phone's takes; the word marks keep .70. Server: rule.vclean_of */
+function vcleanOf(TW,gap){if(CLEAN)return true;const m=headMedian(TW);return m!=null&&m>=RULE.vhead&&gap!=null&&gap<=RULE.vgap;}
 function marksOf(TW,F,gap,rival){const marks=TW.map((t,i)=>markOf(t,F&&F[i]));const why=TW.map(()=>null);let lineWrong=false,cantHear=false;
  if(CLEAN){const ds=TW.map(t=>t.drop==null?-1e9:t.drop);const top=ds.indexOf(Math.max(...ds));const second=Math.max(...ds.filter((d,i)=>i!==top),-1e9);
   const dropped=top>=0&&(TW[top].n||0)>=2&&ds[top]>=RULE.drop&&ds[top]-second>=RULE.margin;const heard=dropped&&(TW[top].skel||0)>=.8&&(TW[top].kept||0)>=.6;   /* consonants found in place, most letters kept: doubtful at most */
@@ -410,7 +418,7 @@ const SHVA_WHY={start:'a shva at the start of a word is said',second:'the second
  final:'a shva at the end of a word is silent',hazzan:'listen to the hazzan here'};
 const prac=c=>` <a class="prac" href="${API||''}/letters?c=${encodeURIComponent(c)}" target="_blank" rel="noopener">practice ${esc(c)} ›</a>`;
 function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(j.fit&&j.fit.length)?j.fit:null;   /* an empty fit list is no fit */
- const HM=headMedian(TW);CLEAN=HM!=null&&HM>=.7;
+ const HM=headMedian(TW);CLEAN=HM!=null&&HM>=.7;const VCLEAN=vcleanOf(TW,j.take.gap);
  let {marks,why,lineWrong,cantHear}=marksOf(TW,F,j.take.gap,j.take.rival);
  /* no singing in the recording at all: the phone recognizer hears nothing (reading ~4 phones a second, slow singing 1.5, noise and silence 0) */
  const noSpeech=(j.take.phones||[]).length<Math.max(3,0.5*(j.take.dur||0));if(noSpeech){marks=marks.map(m=>m?'unsure':m);why=why.map(()=>null);lineWrong=false;cantHear=false;}
@@ -438,7 +446,7 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
    parts.push((th.c==='ע'?'the ע was said like alef':'the ח was not from the throat')+prac(th.c));});
   if(SON&&marks[i]!=='off')(t.throat||[]).forEach(th=>{if(th.v==='unsure')parts.push((th.c==='ע'?'the ע was not clearly from the throat':'the ח was not clearly from the throat')+prac(th.c));});
   (t.notes||[]).forEach(n=>{if(n.say==='sav')parts.push('the ת sounded like a samekh'+prac('ת'));});
-  const vd=(marks[i]==='off'||!CLEAN)?[]:((j.vowels&&j.vowels[i])||[]),vn=(marks[i]==='off'||!CLEAN)?[]:((j.vowels_nikud&&j.vowels_nikud[i])||[]);
+  const vd=(marks[i]==='off'||!VCLEAN)?[]:((j.vowels&&j.vowels[i])||[]),vn=(marks[i]==='off'||!VCLEAN)?[]:((j.vowels_nikud&&j.vowels_nikud[i])||[]);
   vd.forEach(d=>parts.push(`you sang ${vname(d.you)} where the hazzan sings ${vname(d.ref)}`));
   vn.forEach(d=>{if(!vd.some(x=>x.k===d.k))parts.push(`you sang ${vname(d.you)} where the nikud says ${vname(d.ref)}`);});
   const sv=(marks[i]==='off'||!CLEAN)?[]:((j.shva&&j.shva[i])||[]);sv.forEach(d=>parts.push((d.want==='vowel'?`say a short “e” after the ${he(d.c)} (shva na)`:`no vowel after the ${he(d.c)} — its shva is silent (shva nah)`)+' — '+(SHVA_WHY[d.rule]||SHVA_WHY.hazzan)));
@@ -453,7 +461,11 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
  else if(off){const ow=W.filter((w,i)=>marks[i]==='off'),uw=W.filter((w,i)=>marks[i]==='unsure');say.className='say bad';say.innerHTML=(W.length-off)+' of '+W.length+(SON?' words came through clearly. Not clearly right: ':' words came through. Not heard: ')+ow.map(he).join(', ')+(uw.length?'. Not sure: '+uw.map(he).join(', '):'')+'.';}
  else if(uns){const uw=W.filter((w,i)=>marks[i]==='unsure');say.className='say warn';say.innerHTML='The words are there; not sure about '+uw.map(he).join(', ')+'.';}
  else{say.className='say warn';say.textContent='The words are there, with a few things to hear.';}
+ /* v5.7: background noise where the take lost its vowel check (or its words): say so, with the remedy (server: rule.summarize 'noisy') */
+ const NOISY=!noSpeech&&j.take.snr!=null&&j.take.snr<RULE.noisy&&(!VCLEAN||cantHear);$('#noisy').hidden=!NOISY;
+ if(NOISY)$('#noisy').textContent='There is background noise in this recording'+(cantHear?'':', so your vowels were not checked this time')+'. Try a quieter spot, with the phone close to your mouth.';
  $('#notes').innerHTML=lines.join('');
+ meShow(j.student||null);
  /* throat letters: the verdict per ע / ח, you and the hazzan */
  const rows=[];TW.forEach((t,i)=>{if(marks[i]==='off'||cantHear||noSpeech)return;(t.throat||[]).forEach(th=>{const r=RW&&RW[i]&&(RW[i].throat||[]).find(x=>x.k===th.k);rows.push({w:W[i],c:th.c,you:th,him:r});});});
  if(rows.length){$('#th').innerHTML=rows.map(x=>{const a=thSay(x.you),b=thSay(x.him);
@@ -463,7 +475,7 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
  const f2=x=>x==null?'–':(+x).toFixed(2);
  $('#nums').innerHTML='<tr><th>word</th><th>cons</th><th>fit</th><th>head</th><th>kept</th><th>pw</th><th>drop</th><th>swap→</th><th>not heard</th></tr>'+W.map((w,i)=>{const t=TW[i],f=F&&F[i];return `<tr><td class="he" lang="he">${esc(w)}</td><td>${f2(t.skel)}</td><td>${f2(f&&f.fit)}</td><td>${f2(t.hskel)}</td><td>${f2(t.kept)}</td><td>${f2(t.pw)}</td><td>${t.drop==null?'–':t.drop.toFixed(0)}</td><td>${t.swap==null?'–':t.swap.toFixed(0)}</td><td class="he" lang="he">${esc((t.miss||[]).join(' '))}</td></tr>`;}).join('')+`<tr><td colspan="9">clean take: ${CLEAN?'yes':'no'} (head ${HM==null?'–':HM.toFixed(2)}) · line gap ${j.take.gap==null?'–':j.take.gap.toFixed(2)}${j.take.rival?` · best other line ${j.take.rival.gain>=0?'+':''}${j.take.rival.gain.toFixed(2)} (${esc(j.take.rival.line)})`:''} · took ${j.take.ms} ms</td></tr>`;
  const vrows=[];const addV=(src,label)=>{for(const i in (src||{}))for(const d of src[i])vrows.push({w:W[i],d,label});};
- if(CLEAN&&!cantHear&&!noSpeech){addV(j.vowels,'the hazzan');addV(j.vowels_nikud,'the nikud');}
+ if(VCLEAN&&!cantHear&&!noSpeech){addV(j.vowels,'the hazzan');addV(j.vowels_nikud,'the nikud');}
  if(j.vowel_names){$('#vw').innerHTML=vrows.length?vrows.map(x=>`<div class="tr"><div class="hd"><span class="lt">${esc(heL(x.w)[x.d.k]||'')}</span><span>in ${he(x.w)}</span></div><div><span class="k">you</span><span class="v warn">${esc(VN[x.d.you]||x.d.you)}</span></div><div><span class="k">${esc(x.label)}</span><span class="v">${esc(VN[x.d.ref]||x.d.ref)}</span></div></div>`).join('')
    :'<p class="hint" style="margin:0">No clear vowel differences from the hazzan'+(j.vowels_nikud?' or the nikud':'')+'.</p>';$('#vwP').hidden=false;}else $('#vwP').hidden=true;
  /* shva na / nah (v4.9 servers): every sheva of a pointed line — the rule, what was heard in you and in the hazzan */
@@ -478,6 +490,19 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
  $('#vnote').value='';$('#vdP').hidden=false;
  foldStep('s3');$('#s4').hidden=false;$('#s4').querySelector('.body').hidden=false;$('#s4').scrollIntoView({behavior:'smooth',block:'start'});}
 $('#detP').addEventListener('toggle',()=>document.body.classList.toggle('showEars',$('#detP').open));
+const VNAME={A:'ah',E:'eh',I:'ee',O:'oh',U:'oo'};
+$('#learn').checked=LEARN;$('#learn').onchange=()=>{LEARN=$('#learn').checked;ls('dk.learn',LEARN?'1':'0');meShow(null);};
+async function meCall(path,method){try{const r=await fetch(url(path),{method:method||'GET',cache:'no-store'});const j=await r.json();if(j&&j.id)meShow(j);else if(j&&j.forgotten!=null)meShow(null);return j;}catch(e){$('#meTxt').textContent='The server did not answer: '+e.message;return null;}}
+function meShow(st){const box=$('#meP');box.hidden=!LEARN;if(!LEARN)return;const t=$('#meTxt'),b=$('#meBtns');b.innerHTML='';
+ const btn=(lab,fn,gold)=>{const x=document.createElement('button');x.type='button';x.className='btn'+(gold?' gold':'');x.textContent=lab;x.onclick=fn;b.appendChild(x);};
+ if(!st){t.textContent='Each take of a pointed line that comes through clearly, every word right, teaches the checker how you sound. After 30, it can learn your voice.';meCall('/student?id='+encodeURIComponent(SID));return;}
+ if(st.state==='enrolling')t.textContent=`Learning your voice: ${st.kept} of ${st.need} clear takes kept. A take counts when every word came through clearly.`;
+ else if(st.state==='ready'){t.textContent=`${st.kept} clear takes kept: enough to learn your voice. It takes a few minutes on the server.`;btn('Learn my voice now',()=>meCall('/student/train?id='+encodeURIComponent(SID),'POST'),true);}
+ else if(st.state==='training'){t.textContent='Learning your voice: '+(st.stage||'starting')+'…';setTimeout(()=>{if(LEARN)meCall('/student?id='+encodeURIComponent(SID));},6000);}
+ else if(st.state==='trained'){const nl=(st.not_learned||[]).map(x=>`“${VNAME[x.page]||x.page}” heard as “${VNAME[x.heard]||x.heard}” (${x.slots} of ${x.of})`);
+  t.textContent=(st.on?'Your takes are now heard with your own voice model.':'Your own voice model is switched off: your takes are heard as everyone’s.')+(nl.length?' It did not learn '+nl.join(', ')+': that is most of the time you say that vowel, so it may be a habit to fix, and the checker will keep telling you about it.':'');
+  btn(st.on?'Switch it off':'Switch it on',()=>meCall('/student/use?id='+encodeURIComponent(SID)+'&on='+(st.on?0:1),'POST'));btn('Forget my voice',()=>meCall('/student/forget?id='+encodeURIComponent(SID),'POST'));}
+ else t.textContent='Learning your voice did not work this time'+(st.error?': '+st.error:'')+'.';}
 $('#strict').checked=STRICT;$('#strict').onchange=()=>{STRICT=$('#strict').checked;try{localStorage.setItem('dk.strict',STRICT?'1':'0');}catch(e){}if(RESULT)render(RESULT);};
 $('#againLine').onclick=()=>{resetTake();openStep('s3');$('#s3').scrollIntoView({behavior:'smooth',block:'start'});};
 $('#otherLine').onclick=()=>{openStep('s2');$('#s2').scrollIntoView({behavior:'smooth',block:'start'});};

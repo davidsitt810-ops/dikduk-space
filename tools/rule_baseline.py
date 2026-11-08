@@ -24,8 +24,8 @@ def words_suite(R):
         F = [{'fit': t.get('fit')} for t in TW] if any(t.get('fit') is not None for t in TW) else None
         rival = {'gain': TW[0]['rival'], 'head': TW[0].get('rival_head')} if TW and TW[0].get('rival') is not None else None
         clean = rule.clean_of(TW); marks, why, lw, cant = rule.marks_of(TW, F, TW[0].get('gap'), clean, rival)
-        c = out.setdefault(TW[0]['case'], {'takes': 0, 'clean': 0, 'line_wrong': 0, 'cant_hear': 0, 'right': collections.Counter(), 'wrong': collections.Counter()})
-        c['takes'] += 1; c['clean'] += clean; c['line_wrong'] += lw; c['cant_hear'] += cant
+        c = out.setdefault(TW[0]['case'], {'takes': 0, 'clean': 0, 'vclean': 0, 'line_wrong': 0, 'cant_hear': 0, 'right': collections.Counter(), 'wrong': collections.Counter()})
+        c['takes'] += 1; c['clean'] += clean; c['vclean'] += rule.vclean_of(TW, TW[0].get('gap'), clean) and not cant; c['line_wrong'] += lw; c['cant_hear'] += cant
         for t, m in zip(TW, marks):
             if (t.get('n') or 0) < 1: continue
             c['wrong' if t.get('bad') else 'right'][m or 'ok'] += 1

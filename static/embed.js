@@ -117,6 +117,8 @@ const T = {   /* every piece of text, so a site can translate or reword (Dikduk.
  strictL: 'Strict check: only what is clearly right counts', labelUnclear: 'not clear', wUnclear: 'not clearly right',
  someOffStrict: '{n} of {N} words came through clearly. Not clearly right: {off}', ayinUnclear: 'the ע was not clearly from the throat', hetUnclear: 'the ח was not clearly from the throat', thUnclear: 'not clearly ✕',
  strictUnclear: 'This take is not clear enough for a strict check. Record again in a quiet room, phone close to your mouth — or turn the strict check off.',
+ noisyVowels: 'There is background noise in this recording, so your vowels were not checked this time. Try a quieter spot, with the phone close to your mouth.',
+ noisyWords: 'There is background noise in this recording. Try a quieter spot, with the phone close to your mouth.',
  practice: 'practice {c} ›', shvaNa: 'say a short “e” after the {c} (shva na)', shvaNah: 'no vowel after the {c} — its shva is silent (shva nah)',
  shvaWhy: {start: 'a shva at the start of a word is said', second: 'the second of two shvas in a row is said', twin: 'a shva under the first of two identical letters is said',
   dagesh: 'a shva under a doubled letter (dagesh) is said', short: 'after a short vowel the shva closes the syllable', first: 'the first of two shvas in a row is silent',
@@ -190,6 +192,7 @@ const HTML = `
  <div class="dk-body">
   <h3><span class="dk-n">4</span><span data-t="s4"></span></h3>
   <p class="dk-say" data-r="say"></p>
+  <p class="dk-hint" data-r="noisy" hidden></p>
   <p class="dk-score" data-r="score" hidden></p>
   <label class="dk-strict"><input type="checkbox" data-r="strict"><span data-t="strictL"></span></label>
   <div class="dk-opts"><span data-t="notesL"></span><label class="dk-strict"><input type="checkbox" data-r="nLet"><span data-t="notesLetters"></span></label><label class="dk-strict"><input type="checkbox" data-r="nVow"><span data-t="notesVowels"></span></label></div>
@@ -349,8 +352,10 @@ function mount(root, opts) {
   const sure = CLEAN && kp != null && kp >= .75 && hs != null && hs >= .6 && (pw == null || pw < .8);
   if (n >= 2) { if (sk < .2 && (ft == null || ft < .15)) { if (ft == null && CLEAN && !(kp != null && kp < .75)) return 'unsure'; if (!CLEAN && kp != null && kp >= .5) return 'unsure'; return 'off'; } if (CLEAN && pw != null && pw >= .95 && (ft == null || ft < .5)) return 'off'; if (sure) return 'ok'; if (sk < .4 || (ft != null && ft < .2) || (kp != null && kp < .5) || (pw != null && pw >= .8)) return 'unsure'; return 'ok'; } return sk < .2 && !sure ? 'unsure' : 'ok'; }
  /* whole-line evidence on a clean take (server: order.py); thresholds from exam_alouf.py — kept in step with index.html */
- const RULE = {drop: 20, margin: 4, swap: 8, rival: 0.3, altFit: 0.4, hear: 0.3, share: 0.35, half: 0.5, swap2: 12};
+ const RULE = {drop: 20, margin: 4, swap: 8, rival: 0.3, altFit: 0.4, hear: 0.3, share: 0.35, half: 0.5, swap2: 12, vhead: 0.62, vgap: 0.17, noisy: 26};
  function headMedian(TW) { let hs = TW.filter(t => (t.n || 0) >= 2 && t.hskel != null).map(t => t.hskel).sort((a, b) => a - b); if (!hs.length) return null; if (hs.length >= 3) hs = hs.slice(1); return hs[Math.floor((hs.length - 1) / 2)]; }
+ /* v5.7: the vowel notes also on a take the head hears fairly well (median >= .62) whose line the audio follows closely (gap <= .17) — the phone's takes; the word marks keep .70. Server: rule.vclean_of */
+ function vcleanOf(TW, gap) { if (CLEAN) return true; const m = headMedian(TW); return m != null && m >= RULE.vhead && gap != null && gap <= RULE.vgap; }
  function marksOf(TW, F, gap, rival) { const marks = TW.map((t, i) => markOf(t, F && F[i])); const why = TW.map(() => null); let lineWrong = false, cantHear = false;
   if (CLEAN) { const ds = TW.map(t => t.drop == null ? -1e9 : t.drop); const top = ds.indexOf(Math.max(...ds)); const second = Math.max(...ds.filter((d, i) => i !== top), -1e9);
    const dropped = top >= 0 && (TW[top].n || 0) >= 2 && ds[top] >= RULE.drop && ds[top] - second >= RULE.margin; const heard = dropped && (TW[top].skel || 0) >= .8 && (TW[top].kept || 0) >= .6;
@@ -376,7 +381,7 @@ function mount(root, opts) {
  const VCLS = {throat: 'good', plain: 'bad', unsure: 'warn'};
  const thLead = t => !t || !t.v ? '–' : t.v === 'throat' ? S.thThroat : t.v === 'plain' ? (t.c === 'ע' ? S.thAlef : S.thPlain) : S.thUnsure;
  function render(j) { const W = j.words, TW = j.take.words, RW = j.ref ? j.ref.words : null, F = (j.fit && j.fit.length) ? j.fit : null;
-  const HM = headMedian(TW); CLEAN = HM != null && HM >= .7;
+  const HM = headMedian(TW); CLEAN = HM != null && HM >= .7; const VCLEAN = vcleanOf(TW, j.take.gap);
   let {marks, why, lineWrong, cantHear} = marksOf(TW, F, j.take.gap, j.take.rival);
   const noSpeech = (j.take.phones || []).length < Math.max(3, 0.5 * (j.take.dur || 0)); if (noSpeech) { marks = marks.map(m => m ? 'unsure' : m); why = why.map(() => null); lineWrong = false; cantHear = false; }
   let SON = false; if (STRICT && !noSpeech) { const st = strictOf(marks, why, CLEAN, cantHear); marks = st.marks; why = st.why; SON = st.on; }
@@ -397,9 +402,9 @@ function mount(root, opts) {
    if (NOTES.l && marks[i] !== 'off') (t.throat || []).forEach(th => { if (th.v !== 'plain') return; const r = RW && RW[i] && (RW[i].throat || []).find(x => x.k === th.k); if (r && r.v === 'plain') return; parts.push((th.c === 'ע' ? S.ayinAlef : S.hetPlain) + practice(th.c)); });
    if (NOTES.l && SON && marks[i] !== 'off') (t.throat || []).forEach(th => { if (th.v === 'unsure') parts.push((th.c === 'ע' ? S.ayinUnclear : S.hetUnclear) + practice(th.c)); });
    if (NOTES.l) (t.notes || []).forEach(nn => { if (nn.say === 'sav') parts.push(S.tavSamekh + practice('ת')); });
-   const vOK = NOTES.v && CLEAN && marks[i] !== 'off'; const vd = vOK ? ((j.vowels && j.vowels[i]) || []) : [], vn = vOK ? ((j.vowels_nikud && j.vowels_nikud[i]) || []) : [];
+   const vOK = NOTES.v && VCLEAN && marks[i] !== 'off', sOK = NOTES.v && CLEAN && marks[i] !== 'off'; const vd = vOK ? ((j.vowels && j.vowels[i]) || []) : [], vn = vOK ? ((j.vowels_nikud && j.vowels_nikud[i]) || []) : [];
    vd.forEach(d => parts.push(fmt(S.vowHaz, {you: vname(d.you), ref: vname(d.ref)}))); vn.forEach(d => { if (!vd.some(x => x.k === d.k)) parts.push(fmt(S.vowNik, {you: vname(d.you), ref: vname(d.ref)})); });
-   const sv = vOK ? ((j.shva && j.shva[i]) || []) : []; sv.forEach(d => { const SW = S.shvaWhy || {}, why = SW[d.rule] || SW.hazzan; parts.push(fmt(d.want === 'vowel' ? S.shvaNa : S.shvaNah, {c: he(d.c)}) + (why ? ' — ' + esc(why) : '')); });   /* v4.9 servers */
+   const sv = sOK ? ((j.shva && j.shva[i]) || []) : []; sv.forEach(d => { const SW = S.shvaWhy || {}, why = SW[d.rule] || SW.hazzan; parts.push(fmt(d.want === 'vowel' ? S.shvaNa : S.shvaNah, {c: he(d.c)}) + (why ? ' — ' + esc(why) : '')); });   /* v4.9 servers */
    if (!parts.length) return; const txt = (() => { const d = document.createElement('div'); d.innerHTML = parts.join('; '); return d.textContent; })(), key = i + '|' + txt;
    allNotes.push({i, w, text: txt}); if (HIDDEN.has(key)) return;
    lines.push(`<li data-key="${esc(key)}">${he(w)}: ${parts.join('; ')}.<button class="dk-x" type="button" title="${esc(S.dismiss)}" aria-label="${esc(S.dismiss)}">×</button></li>`); });
@@ -413,6 +418,8 @@ function mount(root, opts) {
   else if (offW.length) { say.className = 'dk-say bad'; say.innerHTML = fmt(SON ? S.someOffStrict : S.someOff, {n: W.length - offW.length, N: W.length, off: offW.map(he).join(', ')}) + (unsW.length ? fmt(S.notSure, {uns: unsW.map(he).join(', ')}) : '') + '.'; }
   else if (unsW.length) { say.className = 'dk-say warn'; say.innerHTML = fmt(S.unsureOnly, {uns: unsW.map(he).join(', ')}); }
   else { say.className = 'dk-say warn'; say.textContent = S.few; }
+  /* v5.7: background noise where the take lost its vowel check (or its words): say so, with the remedy (server: rule.summarize 'noisy') */
+  const NOISY = !noSpeech && j.take.snr != null && j.take.snr < RULE.noisy && (!VCLEAN || cantHear); $('noisy').hidden = !NOISY; if (NOISY) $('noisy').textContent = cantHear ? S.noisyWords : S.noisyVowels;
   $('notes').innerHTML = lines.join('');
   $('notes').querySelectorAll('.dk-x').forEach(b => b.onclick = () => { const li = b.closest('li'); HIDDEN.add(li.dataset.key); li.remove(); if (!SHARED && TAKE && SRV && SRV.reviews) $('share').hidden = false; });
   $('askBtn').hidden = !(SRV && SRV.reviews) || !$('askForm').hidden;   /* a server before v5 has no /review or /feedback */
