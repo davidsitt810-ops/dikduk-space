@@ -229,7 +229,8 @@ marks as the replays above, take for take; the page tests (`t_rule`, `t_canthear
 - `GET /letters` — the letter checker; `POST /letter?c=<letter>[&want=…][&strict=1]` with a short take as the body; `GET /letters.json`, `GET /letters/audio/<name>.mp3` — Rabbi Alouf's example words.
 - `GET /health`, `GET /info`, `GET /lyrics` (the site's lyrics.json + the Tehillim perakim, with CORS).
 - `GET /ref?f=<archive mp3 | tehillim-NNN.mp3>&t0=&t1=&words=<line>` — the hazzan's line, analysed and cached.
-- `POST /check?words=<line>[&ref=<f>&t0=&t1=][&nikud=<pointed line>][&pid=<text id>][&job=1][&drill=throat|plain&key=]` with the audio as the body — the take.
+- `POST /check?words=<line>[&ref=<f>&t0=&t1=][&nikud=<pointed line>][&pid=<text id>][&job=1][&drill=throat|plain&key=][&student=<id>[&enroll=1]]` with the audio as the body — the take (v5.7: `take.snr`, the noise estimate; with `student`, heard with his own vowel head when it is made, and kept for it while `enroll=1`).
+- `GET /student?id=`, `POST /student/train?id=`, `POST /student/use?id=&on=0|1`, `POST /student/forget?id=` — a student's own vowel ear (v5.7, `student.py`): how far it is, make it, switch it, forget all of it.
 - `GET /drill?key=`, `GET /drill/export?key=` — the throat-drill recordings kept here (features, audio, labels) for the next classifier.
 - `GET /record?set=<name>`, `POST /submit`, `GET /takes?key=`, `GET /score` — the recording booth and its scoreboard.
 - `GET /tehillim/audio/<file>` — a Rabbi Alouf recording (when present).

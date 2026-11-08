@@ -51,6 +51,8 @@ Endpoints (JSON, CORS open):  GET /health   GET /info   GET /lyrics (the site's 
        take, against the hazzan when ref is given (fit, throat letters, vowels), against the nikud when given;
        with job=1 the answer is {"job": id} and GET /job/<id> returns {state, stage, result} when done
   GET  /drill, /drill/export                                   the drill recordings kept here (features + labels)
+  GET  /student?id=   POST /student/train?id=   POST /student/use?id=&on=   POST /student/forget?id=   a student's own
+       vowel ear (v5.7, student.py); /check takes student=<id> (and enroll=1 while his takes are being kept)
   GET  /tehillim/audio/<file>                                  a Rabbi Alouf recording
 Nothing here deploys or changes the site.
 """
@@ -679,13 +681,17 @@ def analyse(x: np.ndarray, words, want_emb=False, alts=None, full=None, keep=Non
     W = place_words(lp, spf, words)
     ar_lp, ar_spf, AH = arabic_lp(x); ar_hits = arabic_place(ar_lp, words)
     if FT is not None: hlp, flp = ft_lps(x)
-    else: hlp, flp = head_lp(AH), full_lp(AH, full)
+    else: hlp, flp = head_lp(AH), full_lp(AH)
+    # (v5.7) a student's own vowel head gives his vowel slots only: each word's vskel (in the word marks' pw) stays the
+    # shipped head's, as the word rule was measured (his head moved 6 of 234 marks of Faraj's, 5 to ok, 1 to not sure)
+    flp_own = full_lp(AH, full) if (full is not None and FT is None) else None
     if keep is not None: keep['h12'] = AH.get(FULL_LAYER)   # (v5.7) the take's Arabic layer, for a student's enrollment
     hw, hl = head_place(hlp, words) if hlp is not None else ({}, {})
     # which letters were actually heard: every letter optional at a cost of 3 nats on the letter head (measured on
     # Rabbi Alouf: right words keep 98% of their letters, the words of another pasuk 33%, a skipped word 20-50%)
     kp = letters_kept(hlp, words, HEAD_S2I, he_read, 3.0) if hlp is not None else {}
     vs, vl = vowel_place(flp, words, FULL_S2I, he_read) if flp is not None else ({}, {})
+    if flp_own is not None: vs, _ = vowel_place(flp_own, words, FULL_S2I, he_read)
     # whole-line evidence: does the audio prefer the line with a word left out, or two neighbours swapped? (order.py)
     try:
         ev_h = order_evidence(hlp, words, HEAD_S2I, he_read, 0) if hlp is not None else None
