@@ -659,7 +659,7 @@ def full_lp(AH, head=None):
     """the vowel head over the Arabic layer: the shipped one, or (v5.7) a student's own (student.py)"""
     if FULL is None or FULL_LAYER not in AH: return None
     with torch.inference_mode():
-        return torch.log_softmax((head or FULL)(torch.from_numpy(AH[FULL_LAYER].astype(np.float32))[None]), -1)[0].numpy()
+        return torch.log_softmax((FULL if head is None else head)(torch.from_numpy(AH[FULL_LAYER].astype(np.float32))[None]), -1)[0].numpy()
 
 def snr_of(x: np.ndarray):
     """the take's background noise against its singing, in dB: the 95th percentile of the 20 ms frames' energy (the

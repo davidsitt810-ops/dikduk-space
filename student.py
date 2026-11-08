@@ -23,6 +23,7 @@ W_STUDENT = 5     # his takes x5 ...
 N_ANCHOR = 300    # ... with 300 of Rabbi Alouf's pesukim
 EPOCHS, LR, BS = 6, 3e-4, 12
 USUAL = 0.5       # safe3: a confusion in at least half of a vowel's clearly heard slots is his usual way: not learned
+MAX_STUDENTS = 300   # voices one server keeps at most (about 12 MB each): /check is open to anyone, so a new id stops here
 ID_RE = re.compile(r'^[A-Za-z0-9_-]{8,64}$')
 VOWELS = 'AEIOU'
 
@@ -54,13 +55,18 @@ class Students:
         tmp = os.path.join(self.dir(sid), 'status.json.tmp'); json.dump(st, open(tmp, 'w', encoding='utf-8'), ensure_ascii=False); os.replace(tmp, os.path.join(self.dir(sid), 'status.json'))
         return st
 
+    def n_students(self):
+        try: return sum(1 for d in os.listdir(self.root) if not d.startswith('_') and os.path.isdir(os.path.join(self.root, d)))
+        except Exception: return 0
+
     def status(self, sid):
         """what the page shows: how many takes are kept, whether his head is made and in use, what it did not learn"""
         st = self._status(sid); n = len(self._items(sid)); trained = os.path.exists(os.path.join(self.dir(sid), 'head.pt'))
         job = self.job if self.job and self.job.get('id') == sid else None
         state = 'training' if job else 'trained' if trained else 'failed' if st.get('error') else 'ready' if n >= N_READY else 'enrolling'
         return {'id': sid, 'kept': n, 'need': N_READY, 'state': state, 'on': bool(trained and st.get('on', True)), 'stage': job.get('stage') if job else None,
-                'not_learned': st.get('not_learned', []), 'learned': st.get('learned', []), 'trained_at': st.get('trained_at'), 'error': st.get('error'), 'kept_here': self.durable}
+                'not_learned': st.get('not_learned', []), 'learned': st.get('learned', []), 'trained_at': st.get('trained_at'), 'error': st.get('error'), 'kept_here': self.durable,
+                'room': os.path.isdir(self.dir(sid)) or self.n_students() < MAX_STUDENTS}
 
     # ------------------------------------------------------------------ enrollment
     def keep(self, sid, h12, nikud, words, take_words, summary):
@@ -71,6 +77,7 @@ class Students:
         # takes have one, so it does not keep a take out)
         if not summary.get('clean') or summary.get('line_wrong') or summary.get('no_speech') or any(m not in ('ok', '', None) for m in summary.get('marks') or []): return False
         if os.path.exists(os.path.join(self.dir(sid), 'head.pt')): return False   # made: a new enrollment starts with forget
+        if not os.path.isdir(self.dir(sid)) and self.n_students() >= MAX_STUDENTS: return False
         pron = self.pron_of(nikud)
         if not pron or len(pron) != len(words): return False
         y = [self.s2i[c] for c in ' '.join(pron) if c in self.s2i]

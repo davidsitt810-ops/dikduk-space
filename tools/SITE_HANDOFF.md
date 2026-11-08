@@ -195,9 +195,10 @@ Base: `https://davidsitt-pizmonim-dikduk.hf.space`. All JSON, CORS `*`. No keys.
   `@main`, it updates by itself once v5.6 is merged.
 
 ## v5.7 (candidate, on branch v57 until David merges it)
-- Server and embed: on a take recorded on a phone in a room, the vowels are checked again. A take the checker hears
-  fairly well, whose line the recording follows closely, now gets its vowel notes; before, a third to a half of a
-  good reader's phone takes got none. The red / "not sure" marks are exactly as before.
+- Server and embed: on a take of a pointed line (Tehillim, any line with nikud) recorded on a phone in a room, the
+  vowels are checked again. A take the checker hears fairly well, whose line the recording follows closely, now gets
+  its vowel notes; before, a third to a half of a good reader's phone takes got none. Pizmonim (no nikud): as before.
+  The red / "not sure" marks are exactly as before.
 - Server and embed: when background noise is why a take got no vowel check (or its words were hard to make out),
   the result says so in one line under the summary: "There is background noise in this recording… Try a quieter
   spot, with the phone close to your mouth." Two new strings in the embed, `noisyVowels` and `noisyWords`, if the

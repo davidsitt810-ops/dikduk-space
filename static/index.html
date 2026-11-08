@@ -494,15 +494,17 @@ const VNAME={A:'ah',E:'eh',I:'ee',O:'oh',U:'oo'};
 $('#learn').checked=LEARN;$('#learn').onchange=()=>{LEARN=$('#learn').checked;ls('dk.learn',LEARN?'1':'0');meShow(null);};
 async function meCall(path,method){try{const r=await fetch(url(path),{method:method||'GET',cache:'no-store'});const j=await r.json();if(j&&j.id)meShow(j);else if(j&&j.forgotten!=null)meShow(null);else if(j&&j.err)$('#meTxt').textContent='Not on this server: '+j.err;return j;}catch(e){$('#meTxt').textContent='The server did not answer: '+e.message;return null;}}
 function meShow(st){const box=$('#meP');box.hidden=!LEARN;if(!LEARN)return;const t=$('#meTxt'),b=$('#meBtns');b.innerHTML='';
- const btn=(lab,fn,gold)=>{const x=document.createElement('button');x.type='button';x.className='btn'+(gold?' gold':'');x.textContent=lab;x.onclick=fn;b.appendChild(x);};
+ const btn=(lab,fn,gold)=>{const x=document.createElement('button');x.type='button';x.className='btn'+(gold?' gold':'');x.textContent=lab;x.onclick=fn;b.appendChild(x);return x;};
  if(!st){t.textContent='Each take of a pointed line that comes through clearly, every word right, teaches the checker how you sound. After 30, it can learn your voice.';meCall('/student?id='+encodeURIComponent(SID));return;}
- if(st.state==='enrolling')t.textContent=`Learning your voice: ${st.kept} of ${st.need} clear takes kept. A take counts when every word came through clearly.`;
- else if(st.state==='ready'){t.textContent=`${st.kept} clear takes kept: enough to learn your voice. It takes a few minutes on the server.`;btn('Learn my voice now',()=>meCall('/student/train?id='+encodeURIComponent(SID),'POST'),true);}
+ /* what is kept for him can go at any time, not only once his voice is learned; a second tap within 5 s does it */
+ const fgt=lab=>{let armed=false;const x=btn(lab,()=>{if(!armed){armed=true;x.textContent='Tap again to forget (it cannot be undone)';setTimeout(()=>{armed=false;x.textContent=lab;},5000);return;}meCall('/student/forget?id='+encodeURIComponent(SID),'POST');});};
+ if(st.state==='enrolling'){t.textContent=st.room===false?'This server is not taking new voices right now.':`Learning your voice: ${st.kept} of ${st.need} clear takes kept. A take counts when every word came through clearly.`;if(st.kept)fgt('Forget my takes');}
+ else if(st.state==='ready'){t.textContent=`${st.kept} clear takes kept: enough to learn your voice. It takes a few minutes on the server (up to a quarter of an hour the first time).`;btn('Learn my voice now',()=>meCall('/student/train?id='+encodeURIComponent(SID),'POST'),true);fgt('Forget my takes');}
  else if(st.state==='training'){t.textContent='Learning your voice: '+(st.stage||'starting')+'…';setTimeout(()=>{if(LEARN)meCall('/student?id='+encodeURIComponent(SID));},6000);}
  else if(st.state==='trained'){const nl=(st.not_learned||[]).map(x=>`“${VNAME[x.page]||x.page}” heard as “${VNAME[x.heard]||x.heard}” (${x.slots} of ${x.of})`);
   t.textContent=(st.on?'Your takes are now heard with your own voice model.':'Your own voice model is switched off: your takes are heard as everyone’s.')+(nl.length?' It did not learn '+nl.join(', ')+': that is most of the time you say that vowel, so it may be a habit to fix, and the checker will keep telling you about it.':'');
-  btn(st.on?'Switch it off':'Switch it on',()=>meCall('/student/use?id='+encodeURIComponent(SID)+'&on='+(st.on?0:1),'POST'));btn('Forget my voice',()=>meCall('/student/forget?id='+encodeURIComponent(SID),'POST'));}
- else t.textContent='Learning your voice did not work this time'+(st.error?': '+st.error:'')+'.';
+  btn(st.on?'Switch it off':'Switch it on',()=>meCall('/student/use?id='+encodeURIComponent(SID)+'&on='+(st.on?0:1),'POST'));fgt('Forget my voice');}
+ else{t.textContent='Learning your voice did not work this time'+(st.error?': '+st.error:'')+'.';btn('Try again',()=>meCall('/student/train?id='+encodeURIComponent(SID),'POST'),true);fgt('Forget my takes');}
  if(st.started===false&&st.why)t.textContent+=' (Not started: '+st.why+'.)';
  if(st.kept_here===false)t.textContent+=' This server does not keep it after a restart: it may start again from 0.';}
 $('#strict').checked=STRICT;$('#strict').onchange=()=>{STRICT=$('#strict').checked;try{localStorage.setItem('dk.strict',STRICT?'1':'0');}catch(e){}if(RESULT)render(RESULT);};
