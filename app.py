@@ -925,7 +925,7 @@ try:
     import student as student_mod
     if FULL is not None and parse_verse is not None:
         from vowels import clear as vowel_clear
-        STU = student_mod.Students(KEEP_DIR, LetterHead, FULL_SYM, os.environ.get('DK_FULL_HEAD') or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'full_head.pt'), vowel_clear, pron_of)
+        STU = student_mod.Students(KEEP_DIR, LetterHead, FULL_SYM, os.environ.get('DK_FULL_HEAD') or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'full_head.pt'), vowel_clear, pron_of, DURABLE_DISK)
         print('student ears: on', flush=True)
 except Exception as e:
     print('no student ears:', e, flush=True)

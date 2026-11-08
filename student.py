@@ -29,15 +29,16 @@ VOWELS = 'AEIOU'
 def ok_id(sid): return bool(sid) and bool(ID_RE.match(sid))
 
 class Students:
-    def __init__(self, root, head_cls, sym, shipped_path, clear, pron_of):
+    def __init__(self, root, head_cls, sym, shipped_path, clear, pron_of, durable=True):
         """root: the folder; head_cls: the head's class (app.LetterHead); sym: the vowel head's symbols; shipped_path:
            the shipped vowel head; clear(slot, ratio): vowels.clear; pron_of(nikud) -> the pronounced words with their
-           vowel classes, as the training manifests write them"""
+           vowel classes, as the training manifests write them; durable: this server's disk keeps it across restarts"""
         self.root = os.path.join(root, 'students'); os.makedirs(self.root, exist_ok=True)
         self.Head, self.sym, self.shipped, self.clear, self.pron_of = head_cls, list(sym), shipped_path, clear, pron_of
         self.s2i = {c: i for i, c in enumerate(self.sym)}
         self.lock = threading.Lock(); self.train_lock = threading.Lock(); self.heads = collections.OrderedDict()
         self.job = None   # the one training under way: {'id', 'stage', 't'}
+        self.durable = bool(durable)
 
     # ------------------------------------------------------------------ files
     def dir(self, sid): return os.path.join(self.root, sid)
@@ -59,7 +60,7 @@ class Students:
         job = self.job if self.job and self.job.get('id') == sid else None
         state = 'training' if job else 'trained' if trained else 'failed' if st.get('error') else 'ready' if n >= N_READY else 'enrolling'
         return {'id': sid, 'kept': n, 'need': N_READY, 'state': state, 'on': bool(trained and st.get('on', True)), 'stage': job.get('stage') if job else None,
-                'not_learned': st.get('not_learned', []), 'learned': st.get('learned', []), 'trained_at': st.get('trained_at'), 'error': st.get('error')}
+                'not_learned': st.get('not_learned', []), 'learned': st.get('learned', []), 'trained_at': st.get('trained_at'), 'error': st.get('error'), 'kept_here': self.durable}
 
     # ------------------------------------------------------------------ enrollment
     def keep(self, sid, h12, nikud, words, take_words, summary):
