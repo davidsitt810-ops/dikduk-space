@@ -55,9 +55,14 @@ def clean_of(TW):
 # e-for-i told on the phone 52% -> 69% for Faraj Samra, 44% -> 68% for Shmuelof; his correct reading noted 1.5% -> 1.9%),
 # and the gap keeps out a poor recording, where the ear does not (Daya's Tehillim: 1.2% -> 1.8%, against 4.6% with the
 # head alone). The word marks keep the .70 bar: moved for them too, right words red rise (LAB_NOTES §39).
-def vclean_of(TW, gap, clean):
-    """the take is clear enough for the vowel notes (kept in step with vcleanOf in index.html and embed.js)"""
+def vclean_of(TW, gap, clean, nikud=True):
+    """the take is clear enough for the vowel notes (kept in step with vcleanOf in index.html and embed.js). The lower
+       bar only where the line has nikud, where it was measured (Tehillim; the nikud cross-checks the hazzan's notes).
+       Against another hazzan alone (a pizmon) it is not measured: on the archive's accompanied takes it opened 9 right
+       takes of 98 with notes on 7 of their 54 words (the clean ones: 12 of 86), and there were no mistakes to catch
+       (LAB_NOTES §40)"""
     if clean: return True
+    if not nikud: return False
     m = head_median(TW)
     return m is not None and m >= RULE['vhead'] and gap is not None and gap <= RULE['vgap']
 
@@ -130,7 +135,7 @@ def summarize(out):
             if th['v'] == 'plain': th['raw'] = 'plain'; th['v'] = 'unsure'
     VN = out.get('vowel_names') or {}; nm = lambda k: (VN.get(k) or k).split(' ')[0]
     vow = []
-    vclean = vclean_of(TW, out['take'].get('gap'), clean)
+    vclean = vclean_of(TW, out['take'].get('gap'), clean, out.get('vowels_nikud') is not None)
     for src, against in (((out.get('vowels'), 'hazzan'), (out.get('vowels_nikud'), 'nikud')) if vclean else ()):   # vowel notes on a take clear enough for them (vclean_of, v5.7; another voice with instruments gave one note per 4.5 right words)
         for i, ds in (src or {}).items():
             if marks[int(i)] == 'off': continue   # a word that was not there has no vowels to speak of

@@ -1,6 +1,7 @@
 """Edge-case parity fuzz: the Python rule (rule.py, as t_parity.py uses it) against the page and embed JS
 (cut out of index.html / embed.js, run in node). Compares marks, why, line_wrong, cant_hear, clean, and the noSpeech
-expression, on synthetic boundary inputs that recorded data never covers."""
+expression, on synthetic boundary inputs that recorded data never covers; and (v5.7) whether the take gets its vowel notes
+(vclean_of / vcleanOf: the head median at .62 and the gap at .17, on lines with nikud and without)."""
 import json, os, sys, subprocess, random, itertools
 HERE = os.path.dirname(os.path.abspath(__file__))
 SPACE = os.path.join(HERE, '..', '..')
@@ -16,11 +17,11 @@ NV = [None, 0, 1, 2, 3, 5]
 SK = [None, 0.0, 0.1, 0.19, 0.2, 0.39, 0.4, 0.9, 1.0]
 KP = [None, 0.0, 0.49, 0.5, 0.74, 0.75, 1.0]
 PW = [None, 0.0, 0.79, 0.8, 0.94, 0.95, 1.0]
-HS = [None, 0.0, 0.29, 0.3, 0.49, 0.5, 0.59, 0.6, 0.69, 0.7, 1.0]
+HS = [None, 0.0, 0.29, 0.3, 0.49, 0.5, 0.59, 0.6, 0.61, 0.62, 0.63, 0.69, 0.7, 1.0]
 DR = [None, None, -5.0, 0.0, 9.99, 10.0, 13.99, 14.0, 30.0, 30.0, 1e30]
 SW = [None, None, 0.0, 7.99, 8.0, 11.99, 12.0, 20.0, 1e30]
 FT = [None, 0.0, 0.14, 0.15, 0.19, 0.2, 0.49, 0.5, 1.0]
-GP = [None, None, 0.0, 0.59, 0.6, 1.0]
+GP = [None, None, 0.0, 0.16, 0.17, 0.18, 0.59, 0.6, 1.0]
 
 def word(i, nw, mode):
     t = {}
@@ -47,7 +48,7 @@ for L in range(N_LINES):
     else: F = [{'fit': random.choice(FT)} for _ in range(nw)]
     gap = random.choice(GP)
     phones = random.choice([None, [], ['a'], ['a'] * 3, ['a'] * 10]); dur = random.choice([None, 0, 2.0, 6.0, 7.0, 30.0])
-    lines.append({'TW': TW, 'F': F, 'gap': gap, 'phones': phones, 'dur': dur})
+    lines.append({'TW': TW, 'F': F, 'gap': gap, 'phones': phones, 'dur': dur, 'nik': random.random() < 0.75})
 
 # the server
 py = []; py_err = []
@@ -58,7 +59,7 @@ for k, l in enumerate(lines):
         if l['phones'] is not None: take['phones'] = l['phones']
         if l['dur'] is not None: take['dur'] = l['dur']
         nosp = ns['no_speech_in'](take)
-        py.append({'marks': marks, 'why': why, 'lw': lw, 'cant': cant, 'clean': clean, 'nosp': nosp})
+        py.append({'marks': marks, 'why': why, 'lw': lw, 'cant': cant, 'clean': clean, 'nosp': nosp, 'vclean': ns['vclean_of'](l['TW'], l['gap'], clean, l['nik'])})
     except Exception as e:
         py.append({'err': type(e).__name__ + ': ' + str(e)}); py_err.append((k, type(e).__name__, str(e)))
 import tempfile; TMP = tempfile.mkdtemp(prefix='dk_fuzz_')
@@ -67,7 +68,8 @@ print(len(lines), 'lines;', len(py_err), 'python exceptions')
 ok=[p for p in py if 'err' not in p]
 print('  coverage: cant_hear', sum(p['cant'] for p in ok), '| cant_hear with an off->unsure flip', sum(1 for p,l in zip(py,lines) if 'err' not in p and p['cant'] and any(ns['mark_of'](t, (l['F'][i] if l['F'] and i < len(l['F']) else None), p['clean'])=='off' for i,t in enumerate(l['TW']))),
       '| dropped', sum('dropped' in p['why'] for p in ok), '| swapped', sum('swapped' in p['why'] for p in ok), '| swapped&dropped', sum('swapped' in p['why'] and 'dropped' in p['why'] for p in ok),
-      '| line_wrong', sum(p['lw'] for p in ok), '| clean', sum(p['clean'] for p in ok), '| nosp', sum(p['nosp'] for p in ok), '| 1-word', sum(len(l['TW'])==1 for l in lines), '| 0-word', sum(len(l['TW'])==0 for l in lines))
+      '| line_wrong', sum(p['lw'] for p in ok), '| clean', sum(p['clean'] for p in ok), '| vowels checked', sum(p['vclean'] for p in ok), '(not clean', sum(p['vclean'] and not p['clean'] for p in ok), end=') ')
+print( '| nosp', sum(p['nosp'] for p in ok), '| 1-word', sum(len(l['TW'])==1 for l in lines), '| 0-word', sum(len(l['TW'])==0 for l in lines))
 from collections import Counter
 print('  python exception kinds:', Counter((e[1], e[2][:60]) for e in py_err).most_common(8))
 
@@ -78,7 +80,7 @@ const lines = JSON.parse(require('fs').readFileSync(process.argv[2], 'utf8')); c
 for (const l of lines) { try { const HM = headMedian(l.TW); CLEAN = HM != null && HM >= .7; const r = marksOf(l.TW, l.F, l.gap);
   const take = {words: l.TW, gap: l.gap}; if (l.phones !== null) take.phones = l.phones; if (l.dur !== null) take.dur = l.dur;
   const noSpeech = (take.phones || []).length < Math.max(3, 0.5 * (take.dur || 0));
-  out.push({marks: r.marks.map(m => m || ''), why: r.why, lw: r.lineWrong, cant: r.cantHear, clean: CLEAN, nosp: noSpeech}); }
+  out.push({marks: r.marks.map(m => m || ''), why: r.why, lw: r.lineWrong, cant: r.cantHear, clean: CLEAN, nosp: noSpeech, vclean: vcleanOf(l.TW, l.gap, l.nik)}); }
   catch (e) { out.push({err: e.constructor.name + ': ' + e.message}); } }
 process.stdout.write(JSON.stringify(out));"""
     fn = os.path.join(TMP, f'_fz_{name}.js'); open(fn, 'w').write(prog)
@@ -90,7 +92,7 @@ process.stdout.write(JSON.stringify(out));"""
         if 'err' in p or 'err' in j:
             if ('err' in p) != ('err' in j): bad.append((i, 'one side threw', p, j))
             continue
-        for key in ('marks', 'why', 'lw', 'cant', 'clean', 'nosp'):
+        for key in ('marks', 'why', 'lw', 'cant', 'clean', 'nosp', 'vclean'):
             if p[key] != j[key]: bad.append((i, key, p, j)); break
     print(f'{name}: {len(lines) - len(bad)}/{len(lines)} agree with the server;', Counter(b[1] for b in bad).most_common())
     failed = failed or bool(bad) or bool(js_err)

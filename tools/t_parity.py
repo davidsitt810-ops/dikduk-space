@@ -22,18 +22,18 @@ for f in files:
         # so every branch of the wrong-line rule is compared
         k = len(lines) % 3
         rival = {'gain': TW[0]['rival'], 'head': TW[0].get('rival_head'), 'n': 5} if TW[0].get('rival') is not None else None if k == 0 else {'gain': (TW[0].get('gap') or 0) - 0.1 if k == 1 else -0.3, 'n': 5}
-        lines.append({'TW': TW, 'F': F, 'gap': TW[0].get('gap'), 'rival': rival})
+        lines.append({'TW': TW, 'F': F, 'gap': TW[0].get('gap'), 'rival': rival, 'nik': len(lines) % 4 != 3})   # (v5.7) a line without nikud one time in four
 print(len(lines), 'lines')
 failed = False
 py = []
 for l in lines:
-    clean = ns['clean_of'](l['TW']); marks, why, lw, cant = ns['marks_of'](l['TW'], l['F'], l['gap'], clean, l['rival']); sm, sw, son = ns['strict_of'](marks, why, clean, cant); py.append({'marks': marks, 'lw': lw, 'cant': cant, 'clean': clean, 'vclean': ns['vclean_of'](l['TW'], l['gap'], clean), 'strict': [m or '' for m in sm], 'swhy': [w or '' for w in sw]})
+    clean = ns['clean_of'](l['TW']); marks, why, lw, cant = ns['marks_of'](l['TW'], l['F'], l['gap'], clean, l['rival']); sm, sw, son = ns['strict_of'](marks, why, clean, cant); py.append({'marks': marks, 'lw': lw, 'cant': cant, 'clean': clean, 'vclean': ns['vclean_of'](l['TW'], l['gap'], clean, l['nik']), 'strict': [m or '' for m in sm], 'swhy': [w or '' for w in sw]})
 import tempfile; TMP = tempfile.mkdtemp(prefix='dk_parity_')   # the node programs and their input, outside the repo
 json.dump(lines, open(os.path.join(TMP, 'lines.json'), 'w'))
 for name, js in JS.items():
     prog = js + """
 const lines = JSON.parse(require('fs').readFileSync(process.argv[2], 'utf8')); const out = [];
-for (const l of lines) { const HM = headMedian(l.TW); CLEAN = HM != null && HM >= .7; const r = marksOf(l.TW, l.F, l.gap, l.rival); const st = strictOf(r.marks, r.why, CLEAN, r.cantHear); out.push({marks: r.marks.map(m => m || ''), lw: r.lineWrong, cant: r.cantHear, clean: CLEAN, vclean: vcleanOf(l.TW, l.gap), strict: st.marks.map(m => m || ''), swhy: st.why.map(w => w || '')}); }
+for (const l of lines) { const HM = headMedian(l.TW); CLEAN = HM != null && HM >= .7; const r = marksOf(l.TW, l.F, l.gap, l.rival); const st = strictOf(r.marks, r.why, CLEAN, r.cantHear); out.push({marks: r.marks.map(m => m || ''), lw: r.lineWrong, cant: r.cantHear, clean: CLEAN, vclean: vcleanOf(l.TW, l.gap, l.nik), strict: st.marks.map(m => m || ''), swhy: st.why.map(w => w || '')}); }
 process.stdout.write(JSON.stringify(out));"""
     open(os.path.join(TMP, f'{name}.js'), 'w').write(prog)
     res = json.loads(subprocess.run(['node', os.path.join(TMP, f'{name}.js'), os.path.join(TMP, 'lines.json')], capture_output=True, text=True, check=True).stdout)

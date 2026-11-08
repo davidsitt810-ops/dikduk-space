@@ -354,8 +354,8 @@ function mount(root, opts) {
  /* whole-line evidence on a clean take (server: order.py); thresholds from exam_alouf.py — kept in step with index.html */
  const RULE = {drop: 20, margin: 4, swap: 8, rival: 0.3, altFit: 0.4, hear: 0.3, share: 0.35, half: 0.5, swap2: 12, vhead: 0.62, vgap: 0.17, noisy: 26};
  function headMedian(TW) { let hs = TW.filter(t => (t.n || 0) >= 2 && t.hskel != null).map(t => t.hskel).sort((a, b) => a - b); if (!hs.length) return null; if (hs.length >= 3) hs = hs.slice(1); return hs[Math.floor((hs.length - 1) / 2)]; }
- /* v5.7: the vowel notes also on a take the head hears fairly well (median >= .62) whose line the audio follows closely (gap <= .17) — the phone's takes; the word marks keep .70. Server: rule.vclean_of */
- function vcleanOf(TW, gap) { if (CLEAN) return true; const m = headMedian(TW); return m != null && m >= RULE.vhead && gap != null && gap <= RULE.vgap; }
+ /* v5.7: the vowel notes also on a take the head hears fairly well (median >= .62) whose line the audio follows closely (gap <= .17) — the phone's takes — where the line has nikud (nik); the word marks keep .70. Server: rule.vclean_of */
+ function vcleanOf(TW, gap, nik) { if (CLEAN) return true; if (!nik) return false; const m = headMedian(TW); return m != null && m >= RULE.vhead && gap != null && gap <= RULE.vgap; }
  function marksOf(TW, F, gap, rival) { const marks = TW.map((t, i) => markOf(t, F && F[i])); const why = TW.map(() => null); let lineWrong = false, cantHear = false;
   if (CLEAN) { const ds = TW.map(t => t.drop == null ? -1e9 : t.drop); const top = ds.indexOf(Math.max(...ds)); const second = Math.max(...ds.filter((d, i) => i !== top), -1e9);
    const dropped = top >= 0 && (TW[top].n || 0) >= 2 && ds[top] >= RULE.drop && ds[top] - second >= RULE.margin; const heard = dropped && (TW[top].skel || 0) >= .8 && (TW[top].kept || 0) >= .6;
@@ -381,7 +381,7 @@ function mount(root, opts) {
  const VCLS = {throat: 'good', plain: 'bad', unsure: 'warn'};
  const thLead = t => !t || !t.v ? '–' : t.v === 'throat' ? S.thThroat : t.v === 'plain' ? (t.c === 'ע' ? S.thAlef : S.thPlain) : S.thUnsure;
  function render(j) { const W = j.words, TW = j.take.words, RW = j.ref ? j.ref.words : null, F = (j.fit && j.fit.length) ? j.fit : null;
-  const HM = headMedian(TW); CLEAN = HM != null && HM >= .7; const VCLEAN = vcleanOf(TW, j.take.gap);
+  const HM = headMedian(TW); CLEAN = HM != null && HM >= .7; const VCLEAN = vcleanOf(TW, j.take.gap, j.vowels_nikud != null);
   let {marks, why, lineWrong, cantHear} = marksOf(TW, F, j.take.gap, j.take.rival);
   const noSpeech = (j.take.phones || []).length < Math.max(3, 0.5 * (j.take.dur || 0)); if (noSpeech) { marks = marks.map(m => m ? 'unsure' : m); why = why.map(() => null); lineWrong = false; cantHear = false; }
   let SON = false; if (STRICT && !noSpeech) { const st = strictOf(marks, why, CLEAN, cantHear); marks = st.marks; why = st.why; SON = st.on; }

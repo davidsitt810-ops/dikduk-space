@@ -1,5 +1,5 @@
 """v5.7 in the embed: the vowel notes on a take clear enough for them (rule.vclean_of: clean, or the letter head's median
->= .62 with the line gap <= .17) and the too-noisy hint (rule.summarize 'noisy': the take's noise estimate under 26 dB
+>= .62 with the line gap <= .17 on a line with nikud) and the too-noisy hint (rule.summarize 'noisy': the take's noise estimate under 26 dB
 where it lost its vowel check or its words). Each take is checked on the demo site; from the server's own JSON the
 test works out what the page must show, and compares: the hint shown or not, the vowel notes present only when the
 gate is open. The takes: Rabbi Alouf's 23:1 as recorded, through a phone in a room, and with the noise 10 dB under
@@ -28,7 +28,7 @@ async def one(pw, page, take):
     await P.wait_for_function("()=>{const b=document.querySelector('.dk [data-r=busy]');return b&&b.hidden===true&&document.querySelector('.dk [data-r=say]').textContent}", timeout=300000)
     v = await P.evaluate(VIEW); j = got.get('j')
     if not j: fails.append((take, 'no result JSON seen')); await b.close(); return
-    TW = j['take']['words']; clean = rule.clean_of(TW); vclean = rule.vclean_of(TW, j['take'].get('gap'), clean)
+    TW = j['take']['words']; clean = rule.clean_of(TW); vclean = rule.vclean_of(TW, j['take'].get('gap'), clean, j.get('vowels_nikud') is not None)
     sm = rule.summarize(j); snr = j['take'].get('snr')
     print(f"\n== {take}: head {rule.head_median(TW)}, gap {j['take'].get('gap')}, snr {snr} dB, clean {clean}, vowel gate {vclean}, server says noisy {sm['noisy']}")
     print(f"   say: {v['say'][:120]}\n   noisy hint: {v['noisy']}\n   notes: {v['notes'][:160]}")

@@ -17,7 +17,7 @@ jobs:
           node-version: '22'
       - run: pip install numpy
       - name: python files compile
-        run: python -m compileall -q app.py rule.py order.py vowels.py nikud.py letters.py tools
+        run: python -m compileall -q app.py rule.py order.py vowels.py nikud.py letters.py student.py tools
       - name: the pages' scripts and the JSON files parse
         run: python -B tools/t_static.py
       - name: the word rule agrees in rule.py, index.html and embed.js
