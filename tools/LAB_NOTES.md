@@ -1663,3 +1663,101 @@ the Zami split above is not touched by it: no head but nv6 trained on the aliyot
   at a small cost on these voices. Held for real student phone takes — David's own 23:2 takes sit under even that.
 - Open: Faraj's kamats katan (a reading tradition — David's call); the vowel right before a furtive patah is never
   checked; a skipped word under 0.2 s passes 44% of the time.
+
+## 40. v5.7: the vowel check on the phone, a too-noisy line, the student's own vowel ear (Nov 8)
+
+David (Nov 8): "All three build all of them" — the three things §39 ended on, built on branch `v57` and run end to
+end through v5.7's own dev server before any merge.
+
+**1. The vowel notes on a phone take** (`rule.vclean_of`; `vcleanOf` in index.html and embed.js). A take gets its
+vowel notes when it is clean (the letter head's median ≥ .70, as before) or when the head hears it fairly well
+(median ≥ .62), the written line explains its audio closely (line gap ≤ .17) **and the line has nikud**. Everything
+else keeps the .70 bar: the word marks, the "dropped" / "swapped" calls of the clean kind, strict, the shva notes.
+The three copies agree on every take of the committed exams (`t_parity`, 1,737 lines, a line without nikud one time
+in four) and on 20,000 synthetic edge cases with the head at .61/.62/.63 and the gap at .16/.17/.18 (`fuzz3`).
+- Why nikud only: .62 and .17 were measured on Tehillim (§39's table), where the nikud cross-checks the hazzan's notes.
+  On a pizmon there is only the hazzan: the archive's accompanied takes on the v5.7 code (`exam_archive57.py`, 226
+  takes, other hazzanim against one) — the lower bar would open 9 of the 98 right takes, with notes on 7 of their 54
+  words (the clean ones: 12 of 86), and the archive holds no vowel mistakes to catch. Not measured → not opened.
+- With the noise 10 dB under (Faraj, 234 takes, replayed): vowels checked on 22% → 41% of the takes, a planted e for i
+  told 18% → 35%, other words noted 0.4% → 0.9% (on his correct takes 0.3% → 0.9%) — under his rate as recorded
+  (2.5%). One case seen on the page: Rabbi Alouf's own 23:1 with that noise opens at .648 and draws a false "ah where
+  the hazzan sings eh" on אחסר.
+- Through the v5.7 server (`v57_phone`, `v57_phone_ei`: Faraj's 234 takes of the e-for-i list through the simulated
+  phone, the same seeds as v5.6's `samra_phone_B` / `samra_phone_oneei`): the vowel gate, the words noted and every word
+  mark exactly as the replay, on 234 of 234 takes of each. Vowels checked on 59.8% → 81.2% of the takes; his
+  correct reading's words with a vowel note 23 → 29 of 1,862 (1.2% → 1.6%); the planted e for i told 115 → 151 of 220 (52.3% → 68.6%), the other words noted 1.0% → 1.3%.
+
+**2. A too-noisy line.** The server measures each take's noise (`app.snr_of`: 20 ms frames, the 95th percentile of
+their level minus the 10th — the singing over the floor between the words, in dB). Faraj's 234 takes: as recorded,
+median 36 dB (26 under 26 dB); in a room, 35; through the simulated phone (room, pink noise 20 dB under, Opus 24
+kbps), 24 (227 under 26); with the noise 10 dB under, 15 (all). Under 26 dB **on a take that lost its vowel check (or
+its words)**, the page and the embed say: "There is background noise in this recording, so your vowels were not
+checked this time. Try a quieter spot, with the phone close to your mouth." (when the words were not made out, which
+the page already says above it, without the middle clause). Never on a take with no speech. `t_noisy_ui`: Rabbi
+Alouf's 23:1 as recorded (31 dB), through the phone (22 dB, clean), with the noise 10 dB under (15 dB: its vowel check kept at .648) — no line;
+5 dB under (10 dB, head .57) — the line, and no vowel notes; the page and the server agree on each. Through the
+server, the 234 phone takes: the line on 43 — 43 of the 44 that kept no vowel check (the 44th at 26.2 dB); noise
+estimate median 24.1 dB, as measured offline. As recorded (`v57_stu`): the line on 1 of the 11 takes without a vowel
+check (19.7 dB; the other ten 27.7–39.9 dB: not noise, and no line).
+
+**3. The student's own vowel ear** (`student.py`; the lab page's "Learn my voice"; the embed does not have it). His
+choice, off by default. While it is on, each check goes with an id of his own (kept in his browser); the server keeps
+a take as a training item when it is clean, every word is right (a word too short to judge, like יה or הוא, does
+not keep it out: 44 of Faraj's 660 clear right takes have one), and the line has nikud — its Arabic layer-12
+features as int8 with a scale per frame (about 400 KB) and the shipped head's vowel slots. At 30 kept (at most 40)
+he can ask for his head: safe3 (§33) relabels a confusion that is his usual way of saying a vowel (at least half of
+its clearly heard slots) to what the shipped head hears, so that it is not learned and the page keeps telling him;
+then 6 epochs from the shipped head on his takes ×5 with 300 of Rabbi Alouf's pesukim to anchor it (LR 3e-4, AdamW,
+OneCycle, batch 12) — the recipe of §39's cal30. One training at a time on a server, in a thread; Rabbi Alouf's
+anchor pesukim are made once per server from its own Tehillim audio (12 minutes on two cores, 117 MB). His later takes are heard with his
+head (the hazzan's line keeps the shipped head). He can switch it off and on, or have everything kept for him
+forgotten — at any stage, with a second tap. The panel says when the server does not keep it past a restart (no
+/data, not the Mac's kept disk), why a training did not start, and when the server is full: one server keeps at most
+100 voices (/check is open to anyone; a new id stops there) — a voice is about 27 MB (its 40 takes' features 16, its
+head 10.5), the anchor 117 MB once. Endpoints: `GET /student?id=`, `POST /student/train`,
+`POST /student/use?on=`, `POST /student/forget`; `/check` takes `student=<id>` and `enroll=1`.
+Through the server, Faraj (`faraj_test_0001`; scratch `v57test/run57.sh`, `drive57.sh`): 60 of his pesukim of perakim 1–10 checked
+with learning on (`v57_enroll`): 55 clear, 40 kept (the cap). His head made in 14 minutes on the dev server's two
+cores, 12 of them Rabbi Alouf's anchor (made once per server; a second student's takes about 3). It learned two sometimes-confusions (his
+eh heard as ee in 8 of 91 clear slots, ah as eh in 2 of 271) and left none out. Then his 234 takes of the e-for-i
+list (perakim 56–150, never enrolled), heard with it, against the shipped head on the same takes:
+
+| Faraj as recorded, 234 takes | v5.6 | v5.7, the shipped head | v5.7, his own head |
+|---|---|---|---|
+| correct: words with a vowel note | 48 = 2.6% | 53 = 2.8% | **33 = 1.8%** |
+| planted e for i: told | 72.3% | 77.7% | **83.6%** |
+| … other words noted | 2.2% | 2.4% | **1.6%** |
+
+(v5.6 and the shipped head's column: the clean-bar replay of the v5.6 server runs `samra_v56B`, `samra_oneei`, at
+.70 and at .62/.17; his column: the v5.7 server, `v57_stu`, `v57_stu_ei`.) A third fewer false notes and six points
+more of the planted mistake told — the offline cal30 head (30 other pesukim, §39) gave 2.0% on the same takes. His
+head also moved the word marks a little, through each word's vskel (an input of pw): 6 of the 234 takes, 5 words
+"not sure" → ok and 1 ok → "not sure"; 7 of the planted ones. Skipped words were not tried with it, so the word marks
+keep the shipped head's vskel: his head gives his vowel slots only (`app.analyse`, `flp_own`); the numbers above
+are the same with that (the notes do not move, and the marks become v5.6's exactly — `v57_stu_fix`, 30 takes with those six among them,
+through the fixed server: the marks v5.6's on 30 of 30, his vowel slots and notes as before on 30 of 30).
+On the phone this gain was not shown (§39: calibrated on recordings or on his phone, judged on the phone, no false note
+fewer on 1,083 words), and that is where students record. So it stays the student's choice, on the lab page only.
+
+**Page tests** (the v5.7 dev server, the v5.7 demo site): `t_rule`, `t_canthear`, `t_wrongline` (each word for word
+as v5.6's), `t_noaudio` (on perek 69, whose audio this server lacks), `t_strict_ui`, `t_v5_ui`, `t_shva_ui`,
+`t_follow_ui` — all pass; the new `t_noisy_ui` and `t_learn_ui` pass, the second also with a made head (Faraj's)
+switched off and on. CI (compile, parse, the three copies on 1,737 lines and 20,000 synthetic ones, the score, the
+baseline) green on every push. The five recordings the page tests needed and the repo lacked (Rabbi Alouf's 23:1
+with a word skipped and two swapped, his 23:2, a take of noise) are now in `tools/`; `t_strict_ui` also needs an
+archive take (Shrem, pizmon 200 line 2) that stays out of the repo.
+
+**What it means.**
+- **v5.7 is ready to merge on David's word**: every word mark as v5.6's on every take tried through its server, the
+  vowel notes as the replays, every page test passing. The site's copy of `embed.js` needs copying again (SITE_HANDOFF).
+- **The phone**: the lower bar brings back half of the vowel check the simulated phone took away (94 takes without it
+  → 44), for a quarter more false notes on a correct reader (1.2% → 1.6% of his words). Real students' phones are still not measured — David's own
+  23:2 takes (Nov 1) sit under even this bar.
+- **The noise line** says why the vowels were not checked where noise is the reason (43 of 44 on the phone; as
+  recorded, 1 of 11, the one noisy take). Its 26 dB comes from simulated noise.
+- **Learn my voice**: on recordings, a gain both ways (a third fewer false notes, six points more of the planted
+  mistake told); on the phone none was shown (§39). It costs the server 14 minutes the first time (3 after) and 27 MB
+  a voice; the embed does not offer it.
+- Open: his head's effect on skipped words (until then the word marks do not use it); its gain on real phones; the
+  lower bar on pizmonim (it needs vowel mistakes in accompanied takes to measure).

@@ -224,6 +224,25 @@ Both checked end to end through v5.6's own server (Faraj's perakim 56–150, 831
 marks as the replays above, take for take; the page tests (`t_rule`, `t_canthear`, `t_wrongline`, `t_noaudio`,
 `t_strict_ui`, `t_v5_ui`) pass as before.
 
+v5.7 (Nov 8): three things (LAB_NOTES §40). **The vowel notes reach the phone**: a take the letter head hears fairly
+well (median ≥ .62, under the clean bar's .70) gets its vowel notes when the written line explains its audio closely
+(line gap ≤ .17) and the line has nikud; the word marks, the dropped / swapped calls, strict and the shva notes keep
+the .70 bar (`rule.vclean_of`, the page and the embed alike). Faraj through a simulated phone in a room (234 takes,
+through v5.7's own server, take for take as the replay): vowels checked on 60% → 81% of the takes, a planted e for i
+told 52% → 69% (the other words noted 1.0% → 1.3%), his correct reading's words with a vowel note 1.2% → 1.6%. Not
+on a line without nikud (a pizmon against the hazzan alone), where it was not measured. **A too-noisy line**: the
+server estimates each take's noise (`take.snr`, `app.snr_of`: the singing over the floor between the words, in
+dB); under 26 dB on a take that lost its vowel check (or its words), the page and the embed say there is background
+noise and to try a quieter spot with the phone close to the mouth — on 43 of the 44 phone takes that kept no vowel
+check (Faraj as recorded: median 36 dB; through the phone 24; with the noise 10 dB under 15). **Learn my voice** (the lab page only, off unless he turns it
+on): his clear, fully right takes of a pointed line (30 needed, 40 kept) teach a copy of the vowel head his voice
+(`student.py`, the recipe of §39's calibration, with safe3 keeping a vowel he says wrong most of the time out of it);
+his later takes' vowels are heard with it, the word marks keep the shipped head. Faraj, 40 takes of perakim 1–10 kept
+through the server, his head made in 14 minutes (12 of them the anchor, once per server): on his 234 takes of 56–150,
+words with a false vowel note 2.8% → 1.8% and a planted e for i told 77.7% → 83.6%, against the shipped head at the
+same bar. On the phone this calibration showed no gain (§39), so it stays his choice; he can switch it off, or have
+everything kept for him forgotten. A server keeps at most 100 voices (27 MB each).
+
 
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
 - `GET /letters` — the letter checker; `POST /letter?c=<letter>[&want=…][&strict=1]` with a short take as the body; `GET /letters.json`, `GET /letters/audio/<name>.mp3` — Rabbi Alouf's example words.

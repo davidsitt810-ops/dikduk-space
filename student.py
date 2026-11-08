@@ -23,7 +23,8 @@ W_STUDENT = 5     # his takes x5 ...
 N_ANCHOR = 300    # ... with 300 of Rabbi Alouf's pesukim
 EPOCHS, LR, BS = 6, 3e-4, 12
 USUAL = 0.5       # safe3: a confusion in at least half of a vowel's clearly heard slots is his usual way: not learned
-MAX_STUDENTS = 300   # voices one server keeps at most (about 12 MB each): /check is open to anyone, so a new id stops here
+MAX_STUDENTS = 100   # voices one server keeps at most: /check is open to anyone, so a new id stops here. A voice is
+                     # about 27 MB (40 takes' features 16, his head 10.5): 2.7 GB at most, and Rabbi Alouf's anchor 117 MB once
 ID_RE = re.compile(r'^[A-Za-z0-9_-]{8,64}$')
 VOWELS = 'AEIOU'
 
