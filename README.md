@@ -244,6 +244,14 @@ once per server): on his 234 takes of 56–150, words with a false vowel note 2.
 stays his choice; he can switch it off, or have everything kept for him forgotten. A server keeps at most 100 voices
 (27 MB each).
 
+v5.8 (Nov 9): two vowel rules from David's second listening test (LAB_NOTES §41), on lines with nikud. A kamats
+katan said "a" is right too where he heard it so (before a hataf kamats, with a meteg, before a shva inside the word;
+not כׇּל: "only kol"). "Eh where the page says ah / ee" on an unstressed vowel in a closed syllable is noted only when
+the vowel ear is very sure (.99 of the slot; the stress from the line's te'amim). Replayed on every exam take, the
+server's code giving the same notes on all 5,470: Faraj's false vowel notes 2.64% → 2.25% and 2.47% → 2.16%,
+Shmuelof's 0.85% → 0.79%; a real e for i told 76.8% → 75.8%, e for a 83.8% → 82.7%, the other kinds as before.
+Server only (`vowels.py`); the pages do not change.
+
 
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
 - `GET /letters` — the letter checker; `POST /letter?c=<letter>[&want=…][&strict=1]` with a short take as the body; `GET /letters.json`, `GET /letters/audio/<name>.mp3` — Rabbi Alouf's example words.

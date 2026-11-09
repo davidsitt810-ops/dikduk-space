@@ -194,7 +194,12 @@ Base: `https://davidsitt-pizmonim-dikduk.hf.space`. All JSON, CORS `*`. No keys.
   site's copy of `embed.js` needs copying again** (one number in its rule); if the site loads it from jsDelivr
   `@main`, it updates by itself once v5.6 is merged.
 
-## v5.7 (candidate, on branch v57 until David merges it)
+## v5.8 (merged Nov 9)
+
+Server only: two vowel-note rules (a kamats katan said "a" accepted in some words; fewer "eh" notes on unstressed
+vowels). `embed.js` is the same file as v5.7 — nothing to copy for this one.
+
+## v5.7 (merged Nov 8)
 - Server and embed: on a take of a pointed line (Tehillim, any line with nikud) recorded on a phone in a room, the
   vowels are checked again. A take the checker hears fairly well, whose line the recording follows closely, now gets
   its vowel notes; before, a third to a half of a good reader's phone takes got none. Pizmonim (no nikud): as before.

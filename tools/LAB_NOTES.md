@@ -1761,3 +1761,46 @@ archive take (Shrem, pizmon 200 line 2) that stays out of the repo.
   a voice; the embed does not offer it.
 - Open: his head's effect on skipped words (until then the word marks do not use it); its gain on real phones; the
   lower bar on pizmonim (it needs vowel mistakes in accompanied takes to measure).
+
+## 41. v5.8: two vowel rules from David's second listening test (Nov 8–9)
+
+David listened to sixteen of Hazzan Faraj Samra's words that the checker noted though he reads right (the listening
+page "Sixteen words from Faraj Samra") and answered each:
+- **e heard as i** (10:11 לָנֶצַח, 47:3 הָאָרֶץ, 21:10 לְעֵת, 45:18 וָעֶד): all four "like the page" — with the first
+  test, 8 of 8. The ear mishears his e; no rule tells these from a real "i for e" (88% told), so nothing changes for
+  everyone. Learn my voice (§40) is the cure for his voice.
+- **unstressed a heard as e** (31:5 אַתָּה, 27:3 אֲנִי, 31:4 תַּנְחֵנִי, 22:26 אֲשַׁלֵּם): all four "like the page".
+- **i before a shva heard as e** (38:13 וּמִרְמוֹת, 35:22 תִּרְחַק, 2:11 עִבְדוּ: "quick, swallowed"; 46:1 לִבְנֵי:
+  "what the checker heard").
+- **kamats katan said a** (91:6 צׇהֳרָיִם, 90:16 פׇעֳלֶךָ, 16:1 שׇׁמְרֵנִי, 7:9 שׇׁפְטֵנִי): all four "both are right".
+
+**What v5.8 does** (`vowels.py`: `vowel_context`, `keep_note`, `qq_letters`; on lines with nikud, against the page
+and against the hazzan alike):
+1. A kamats katan said "a" is not noted where David heard it right: before a hataf kamats, with a meteg, before a
+   shva inside the word. Asked afterwards about כׇּל and the like: "Only 'kol'" — those stay noted.
+2. "eh where the page says ah" and "eh where it says ee" on an **unstressed vowel in a closed syllable** only when
+   the ear is very sure: its winner at least .99 of the slot's mass (`SURE_UNST`). The stress is read from the
+   line's te'amim (the pages already send them); David chose this over dropping these notes outright.
+
+**Measured** (the replay of every Faraj and Shmuelof exam, `big/table.py`, variants `furtive` → `furtive,qq` →
+`furtive,qq,sure=0.99/AE+IE`, and `furtive,qq,unstc=AE+IE` for dropping outright):
+
+| | v5.7 | kamats katan | + very sure (v5.8) | dropped outright |
+|---|---|---|---|---|
+| Faraj 1–55, words with a false note | 2.64% | 2.57% | **2.25%** | 2.00% |
+| Faraj 56–150 | 2.47% | 2.41% | **2.16%** | 1.96% |
+| Shmuelof | 0.85% | 0.82% | **0.79%** | 0.79% |
+| Faraj: a real e for i told | 76.8% | 76.8% | **75.8%** | 69.5% |
+| Faraj: e for a | 83.8% | 83.8% | **82.7%** | 75.2% |
+| Shmuelof: e for i / e for a | 78.8 / 79.7% | same | **78.0 / 78.9%** | 66.5 / 64.9% |
+| i for e, u for o, o for u (both) | | same | same (Faraj i for e 88.1 → 87.9%) | same |
+
+Why .99 and not lower: the ear is as sure on most of these false notes as on the real ones (closed unstressed a→e:
+false median m 1.00) — a lower bar takes nothing away. On the sixteen words: the four kamats katan accepted;
+תַּנְחֵנִי (.91), אֲשַׁלֵּם (.86), תִּרְחַק (.75), עִבְדוּ (.88) no longer noted; לִבְנֵי (.99, the one he heard as the
+checker did) gone too; אַתָּה and וּמִרְמוֹת stay (the ear at 1.00); אֲנִי stays (an open syllable); the four e/i stay.
+
+**Checked**: the server's code gives the replay's notes on every take of the exams (5,470 of 5,470,
+`v58test/parity58.py`), and the live v5.8 dev server on 16 of 16 of Faraj's takes whose notes change (`v58_fix`).
+The word marks and the pages are untouched (no page file changes; CI as before).
+
