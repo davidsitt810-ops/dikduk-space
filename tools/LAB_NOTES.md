@@ -1838,5 +1838,7 @@ is at 1.00). Not measurable yet: a > i on closed unstressed vowels (15 of 23 und
 1.95%) — there is no planted "i for a" exam to say what it costs.
 
 `vowels.SURE_ANY = {('O', 'U'): 0.97}` in `keep_note`; the server's code gives the replay's notes on every exam take
-(`v58test/parity59.py`: 5,470 of 5,470; all the exams' vowel notes together 4,043 in v5.7, 3,813 in v5.8, 3,674 now). Server only; the pages do not change. On branch `v59` until David says merge.
+(`v58test/parity59.py`: 5,470 of 5,470; all the exams' vowel notes together 4,043 in v5.7, 3,813 in v5.8, 3,674 now). The live v5.9 dev server on all 15 of Faraj's takes of 56–150 whose notes
+change (`v59_fix2`): the replay's notes on 15 of 15 (32 notes → 2). Server only; the pages do not change. David:
+"Merge" (Nov 9).
 
