@@ -1804,3 +1804,39 @@ checker did) gone too; אַתָּה and וּמִרְמוֹת stay (the ear at 1.
 `v58test/parity58.py`), and the live v5.8 dev server on 16 of 16 of Faraj's takes whose notes change (`v58_fix`).
 The word marks and the pages are untouched (no page file changes; CI as before).
 
+## 42. v5.9: "oo where the page says oh" only when the ear is sure (Nov 9)
+
+David (Nov 9, after merging v5.8): "You have 16 min to improve this in the greatest ways possible go". The replay
+table takes 11 seconds, so the next cut was looked for where v5.8's false notes are. On the two correct readers
+(Faraj 1–150, Shmuelof), 330 vowels still drew a false note:
+
+| kind (page > heard) | notes | under .99 sure |
+|---|---|---|
+| e > i (stressed 57, unstressed open 58, closed 43) | 158 | 1 |
+| **o > u** (unstressed open 28, stressed 14, closed 13) | **55** | **43** |
+| a > e (closed 19, open 11) | 30 | 2 |
+| a > i (closed unstressed 18, stressed 5) | 23 | 15 |
+| i > e (closed 12, open 3) | 15 | 0 |
+| u > o (closed unstressed) | 12 | 6 |
+
+e > i is the ear being fully sure and wrong (Learn my voice, §40). o > u is the one large kind where the ear is
+mostly *not* sure — and a real "u for o" is. A bar on the winner's share of the slot, for that kind, on any vowel:
+
+| bar on o > u | Faraj 1–55 false | Faraj 56–150 | Shmuelof | u for o told (Faraj / Shmuelof) |
+|---|---|---|---|---|
+| none (v5.8) | 2.25% | 2.16% | 0.79% | 92.7% / 90.6% |
+| .90 | 2.12% | 2.05% | 0.56% | 92.7% / 90.3% |
+| .95 | 2.11% | 1.96% | 0.53% | 92.3% / 90.3% |
+| **.97 (v5.9)** | **2.05%** | **1.93%** | **0.47%** | **92.3% / 90.3%** |
+| .98 | 2.05% | 1.91% | 0.47% | 92.3% / 89.9% |
+| .99 | 2.03% | 1.91% | 0.47% | 91.4% / 89.1% |
+
+Every other kind of planted mistake is told exactly as in v5.8. Tried and left out: the same bar on u > o (o for u
+told 89.1% → 83.5% at .99, 87.5% at .90: real ones are not surer than false ones there); v5.8's unstressed rule
+widened to open syllables (2.25% → 2.22% for two points of e for i and e for a); the same on e > i (nothing: the ear
+is at 1.00). Not measurable yet: a > i on closed unstressed vowels (15 of 23 under .99; with it Faraj 1–55 would be
+1.95%) — there is no planted "i for a" exam to say what it costs.
+
+`vowels.SURE_ANY = {('O', 'U'): 0.97}` in `keep_note`; the server's code gives the replay's notes on every exam take
+(`v58test/parity59.py`: 5,470 of 5,470; all the exams' vowel notes together 4,043 in v5.7, 3,813 in v5.8, 3,674 now). Server only; the pages do not change. On branch `v59` until David says merge.
+

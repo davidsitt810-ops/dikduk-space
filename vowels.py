@@ -44,6 +44,11 @@ def expected_vowels(units, sk=None):
 #    0.85% -> 0.79%; a real "e for i" told 76.8% -> 75.8%, "e for a" 83.8% -> 82.7%, the other kinds as before.
 SURE_UNST = 0.99
 SURE_KINDS = {('A', 'E'), ('I', 'E')}
+# (v5.9) "oo where the page says oh", on any vowel, only when the ear is sure (.97): of the false notes v5.8 left on two
+# correct readers, 55 of 330 were this kind and 43 of them under .99 — while a real "u for o" is almost always heard
+# at 1.00. Replayed: Faraj's false notes 2.25% -> 2.05% (1-55), 2.16% -> 1.93% (56-150), Shmuelof's 0.79% -> 0.47%; a
+# real u for o told 92.7% -> 92.3% (Faraj), 90.6% -> 90.3% (Shmuelof); every other kind as before (LAB_NOTES §42)
+SURE_ANY = {('O', 'U'): 0.97}
 QAMATS_QATAN = '\u05C7'
 NOT_STRESS = {'\u05AD', '\u059D', '\u05AE'}            # dehi (before the word), geresh muqdam, tsinnor (after it)
 STRESS_MARKS = {chr(c) for c in range(0x0591, 0x05B0)} - NOT_STRESS
@@ -102,6 +107,10 @@ def keep_note(st, rs, i, ctx):
     if X == 'O' and Y == 'A':
         q = ctx['qq'].get(i, ())
         if rs.get('k') in q or st['k'] in q: return False
+    b = SURE_ANY.get((X, Y))
+    if b is not None:
+        mm = st['mass']
+        if mm[Y] < b * max(1e-6, sum(mm.values())): return False
     if (X, Y) in SURE_KINDS:
         s = rs.get('stress')
         if s is None: s = st['k'] == ctx['stress'].get(i)

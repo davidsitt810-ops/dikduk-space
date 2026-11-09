@@ -252,6 +252,11 @@ server's code giving the same notes on all 5,470: Faraj's false vowel notes 2.64
 Shmuelof's 0.85% → 0.79%; a real e for i told 76.8% → 75.8%, e for a 83.8% → 82.7%, the other kinds as before.
 Server only (`vowels.py`); the pages do not change.
 
+v5.9 (Nov 9): "oo where the page says oh" is noted only when the vowel ear is sure (.97 of the slot), on any vowel —
+the one large kind of false note where the ear is mostly unsure while a real "u for o" is heard at full strength
+(LAB_NOTES §42). Replayed: Faraj's false vowel notes 2.25% → 2.05% and 2.16% → 1.93%, Shmuelof's 0.79% → 0.47%; a
+real u for o told 92.7% → 92.3% (Faraj), 90.6% → 90.3% (Shmuelof); every other kind as in v5.8. Server only.
+
 
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
 - `GET /letters` — the letter checker; `POST /letter?c=<letter>[&want=…][&strict=1]` with a short take as the body; `GET /letters.json`, `GET /letters/audio/<name>.mp3` — Rabbi Alouf's example words.

@@ -1020,7 +1020,7 @@ def lyrics():
     return _LYR['data']
 
 # ---- what this server is: the code, the heads and the models it runs, so every verdict can be traced to them
-VERSION = 5.8
+VERSION = 5.9
 HERE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def file_sha(path, n=12):
