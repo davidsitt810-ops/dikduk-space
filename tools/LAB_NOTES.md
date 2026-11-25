@@ -1886,3 +1886,74 @@ less well, on every word (דשא .30, על .48, בנאות .50), and the vowel h
 after the ר instead, and the counts came out even), while the phone ear wrote `r b e t e n i` — it heard his "be".
 And it wrote `e l` (.84) for his עַל in the same take, where the vowel head also heard "eh": that note, which looked
 like a false one, has two ears behind it.
+
+**What was not checked is now said.** `rule.summarize` gives `vlost` (the take had vowels to check — a hazzan or a
+nikud to compare with — and was not clear enough, with no noise line, no "can't hear" and no wrong line to say so) and
+the page shows *"Your vowels were not checked this time: the recording was not clear enough for that. Try again with
+the phone close to your mouth."* (hidden under the strict line, which already asks for a clearer take; in the embed
+also when the vowel notes are turned off). The lab's vowel panel no longer says "no clear vowel differences" on a
+take it did not check. And the line score counts the vowel notes wherever they were checked: since v5.7 a phone's
+take under .70 showed vowel notes that its score left out (`score_parts`).
+
+**A second ear.** The phone ear — the IPA recognizer the words are placed with, another network than the two heads —
+writes vowels too, with a time and a confidence. For each vowel note the server now looks up the vowel it wrote in
+the same syllable (`vowels.second_opinion`: the nearest vowel within a quarter of a second with none of its own
+consonants in between — David's long "aah-sar" has the two networks' marks 90 ms apart; `ph`, `phc`, `phd` on the
+note), and `opinion_of` reads it: **you** (the vowel the note says the reader said, and not the page's), **ref**
+(the page's, and not that one), other, none. On Faraj's Tehillim 1–55, 450 pesukim, each as recorded, as a phone in
+a room sends it, and with the noise 10 dB under (`DEGRADE`, §39) — the notes on his correct reading (false) and the
+notes of the planted kind on the planted words (catches), every note the ear gives, shown by v5.9 or not:
+
+| the phone ear heard | false notes: as recorded (71) | phone (56) | noise (83) | catches: as recorded (1,742) | phone (1,703) | noise (1,629) |
+|---|---|---|---|---|---|---|
+| you (it agrees with the note) | 44% | 59% | 54% | 92% | 92% | 90% |
+| ref (it heard the page's vowel) | **42%** | 21% | 23% | 3% | 3% | 3% |
+| other / none | 14% | 20% | 23% | 5% | 5% | 7% |
+
+A catch is confirmed nine times in ten and contradicted three in a hundred; a false note is confirmed about half the
+time (the two ears do share mistakes — a short unstressed "i" is "e" to both) and contradicted two to four times in
+ten. So the second ear is not proof, but it is real evidence, most of all where it is missing.
+
+**Each note rated on its own** (`vowels.note_trust`, `tools/bench/trust.py`). Until v5.9 the TAKE decided: under the
+gate no vowel note, over it all of them. What is known about the note itself says more — a logistic over
+`vowels.note_features`: how well the letter head and the vowel head heard the note's WORD (hskel, vskel), how much
+of the SLOT the winning vowel holds (m), and the phone ear's opinion (at the same moment, within 80 ms, with its
+confidence; or only in the same syllable). Fitted on the 5,284 notes of the three exams above (5,074 catches, 210
+false notes on 11,034 right words), a catch weighed as if a reader misread 5 words in 100, so the number reads as
+"the chance this note is right, for such a reader". What each group of facts adds, out of fold (5 folds by pasuk) —
+planted mistakes told at a given number of false notes per 100 right words:
+
+| facts used | 0.75 | 1.0 | 1.25 | 1.5 |
+|---|---|---|---|---|
+| the take's gate, as v5.9 (its own point: 1.32 false, 69.8% told) | | | | |
+| the gate + the word's two scores + the slot | 49% | 60% | 72% | 81% |
+| the phone ear alone | 63% | 80% | 82% | 86% |
+| the word, the slot, the phone ear (the one built) | 69% | 79% | 83% | 86% |
+| the same + the take's gate, head median and gap | 71% | 79% | 83% | 86% |
+
+The take's own facts add nothing once the word and the second ear are known, so they weigh 0. In their place a take
+under the old gate must clear a higher bar — the one prudent thing while all of this rests on one reader's voice:
+`rule.RULE['vp'] = .4` over the gate, `'vpu' = .6` under it. Without the phone ear's vowel at the same moment a note
+cannot pass .6 (a perfect word and slot give .59), so **under the gate both ears must agree**; over it a clear note
+with no second opinion still shows (David's "ahsar": .53).
+
+`TRUST_W`: bias −3.37, hskel +1.18, vskel +0.54, m +2.03, you +0.92 and +1.06 × its confidence, ref −0.62 and
+−1.25 × its confidence, none −0.15, you in the same syllable only −0.08, ref in the same syllable only −1.15.
+
+**On the pesukim the weights were set on** (Faraj 1–55, 450 pesukim, 3,678 right words, 1,949 planted words, five
+kinds; through `rule.summarize` — `bench/replay.py`), v5.9 → v6.0:
+
+| | false notes per right word | planted mistakes told | on the takes under the gate: false / told |
+|---|---|---|---|
+| as recorded (gate open on 98%) | 1.88% (69) → **1.03%** (38) | 91.1% → 88.9% | 7 takes: 0 → 1 of 53 words / 0 → 19 of 25 |
+| on a phone (87%) | 1.25% (46) → **1.01%** (37) | 79.2% → **86.7%** | 59 takes: 0 → 1.4% / 0 → 80.2% |
+| with noise (43%) | 0.84% (31) → 1.25% (46) | 39.1% → **79.1%** | 258 takes: 0 → 1.3% / 1.0% → 74.8% |
+
+Other bars on the same pesukim (over the gate / under it), all three kinds of recording together — v5.9: 146 false
+notes, 69.8% told: .3/.3 151, 87.4%; .4/.4 132, 85.9%; **.4/.6 121, 84.9%**; .5/.6 109, 82.5%.
+
+**Tried and not built: the phone ear as a vowel checker of its own** (`bench/ear2.py`: its vowels lined up with the
+nikud's between the consonants it placed; a vowel of another class is a note, unless the vowel head heard the page's
+vowel there). It would have caught David's "yarbesseni" — and on Faraj as recorded, at .7 sure, it adds 40 false
+notes (1.1% of the right words, as many as everything v6.0 shows) for 1.5 points of catches; at .8, 22 for 0.9.
+Its short "i" written "e" is the same mistake the vowel head makes, without the cross-checks.

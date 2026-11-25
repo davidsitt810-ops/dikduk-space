@@ -86,6 +86,7 @@ const CSS = `
 .dk .dk-ask{border:0;padding:0}.dk textarea{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;box-sizing:border-box;margin:8px 0}
 .dk .dk-ask input[type=text]{width:100%;box-sizing:border-box;margin:0 0 8px}.dk .dk-qs h4{margin:0 0 6px}.dk .dk-q{border-top:1px solid var(--line);padding:8px 0 4px}.dk .dk-q:first-of-type{border-top:0}
 .dk .dk-q .dk-ans{white-space:pre-wrap;margin:6px 0}.dk .dk-new{color:var(--gold);font-weight:700}
+.dk [data-r=noisy],.dk [data-r=vlost]{margin:2px 0 14px}
 .dk .dk-strict{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--mute,inherit);margin:-4px 0 12px;cursor:pointer}.dk .dk-strict input{width:18px;height:18px;accent-color:var(--gold);margin:0}
 .dk .dk-after{display:flex;gap:8px;margin-top:14px}.dk .dk-after .dk-btn{flex:1;margin-top:0}
 `;

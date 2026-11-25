@@ -14,12 +14,14 @@ From the server's own JSON the test works out what must show (rule.summarize) an
   the noisier take      -> the noise line, saying "only partly checked"; not this line (never both)
   strict on (unclear)   -> the strict line asks for a clearer take; this line is hidden
   embed, vowel notes turned off -> hidden (nothing the person asked for was lost)
-Needs ffmpeg, the local server on 7861 (this checkout) and the demo site on 8099 (tools/bench/demo_site.sh)."""
+Needs ffmpeg, the local server on 7861 (this checkout) and the demo site on 8099 (tools/bench/demo_site.sh); or others
+by DK_URL and DK_DEMO."""
 import asyncio, os, subprocess, sys, tempfile
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 from playwright.async_api import async_playwright
 HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, os.path.join(HERE, '..'))
 import rule
+URL = os.environ.get('DK_URL', 'http://127.0.0.1:7861'); DEMO = os.environ.get('DK_DEMO', 'http://127.0.0.1:8099')   # the server (the lab page) and the demo site (the embed)
 TMP = tempfile.mkdtemp(prefix='dk_vlost_'); UNCLEAR = os.path.join(TMP, 'take_unclear.wav')
 subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', os.path.join(HERE, 'take_alouf_23_1.wav'), '-af', 'asetrate=16000*1.85,aresample=16000', '-ac', '1', UNCLEAR], check=True)
 CLEAR = os.path.join(HERE, 'take_alouf_23_1.wav'); NOISIER = os.path.join(HERE, 'take_alouf_23_1_noisier.wav')
@@ -72,7 +74,7 @@ async def lab(pw):
         got.pop('j', None); await P.set_input_files('#file', path); await P.wait_for_timeout(300); await P.click('#check')
         await P.wait_for_function("()=>document.querySelector('#busy').hidden===true&&document.querySelector('#say').textContent", timeout=300000); await P.wait_for_timeout(800)
         return await P.evaluate(VIEW), got.get('j')
-    await P.goto('http://127.0.0.1:7861/?th=23&line=1'); await P.evaluate("()=>{try{localStorage.removeItem('dk.strict')}catch(e){}}"); await P.reload(); await P.wait_for_timeout(3000)
+    await P.goto(URL + '/?th=23&line=1'); await P.evaluate("()=>{try{localStorage.removeItem('dk.strict')}catch(e){}}"); await P.reload(); await P.wait_for_timeout(3000)
     for name, path, want in (('unclear', UNCLEAR, {'vlost': False, 'vpart': True, 'noisy': False}), ('unclear, no nikud', UNCLEAR, {'vlost': True, 'vpart': False, 'noisy': False}),
                              ('as recorded', CLEAR, {'vlost': False, 'vpart': False, 'noisy': False}), ('noisier', NOISIER, {'vlost': False, 'vpart': True, 'noisy': True})):
         NO_NIKUD['on'] = name.endswith('no nikud')
@@ -101,7 +103,7 @@ async def embed(pw):
         got.pop('j', None); files = await P.query_selector_all('.dk input[type=file]'); await files[0].set_input_files(path); await P.wait_for_timeout(300); await P.click('.dk [data-r=check]')
         await P.wait_for_function(f"()=>{{const b={q('busy')};return b&&b.hidden===true&&{q('say')}.textContent}}", timeout=300000); await P.wait_for_timeout(800)
         return await P.evaluate(VIEW), got.get('j')
-    await P.goto('http://127.0.0.1:8099/demo_th23.html'); await P.evaluate("()=>{try{localStorage.removeItem('dk.strict');localStorage.removeItem('dk.notes')}catch(e){}}"); await P.reload(); await P.wait_for_timeout(2500)
+    await P.goto(DEMO + '/demo_th23.html'); await P.evaluate("()=>{try{localStorage.removeItem('dk.strict');localStorage.removeItem('dk.notes')}catch(e){}}"); await P.reload(); await P.wait_for_timeout(2500)
     for name, path, want in (('unclear', UNCLEAR, {'vlost': False, 'vpart': True, 'noisy': False}), ('unclear, no nikud', UNCLEAR, {'vlost': True, 'vpart': False, 'noisy': False}),
                              ('as recorded', CLEAR, {'vlost': False, 'vpart': False, 'noisy': False}), ('noisier', NOISIER, {'vlost': False, 'vpart': True, 'noisy': True})):
         NO_NIKUD['on'] = name.endswith('no nikud')

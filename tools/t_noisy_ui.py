@@ -11,6 +11,7 @@ import asyncio, os, sys
 from playwright.async_api import async_playwright
 HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, os.path.join(HERE, '..'))
 import rule
+URL = os.environ.get('DK_URL', 'http://127.0.0.1:7861'); DEMO = os.environ.get('DK_DEMO', 'http://127.0.0.1:8099')   # the server (the lab page) and the demo site (the embed)
 CASES = [('demo_th23.html', 'take_alouf_23_1.wav'), ('demo_th23.html', 'take_alouf_23_1_phone.wav'), ('demo_th23.html', 'take_alouf_23_1_noisy.wav'), ('demo_th23.html', 'take_alouf_23_1_noisier.wav')]
 VIEW = """()=>({say: document.querySelector('.dk [data-r=say]').textContent, noisy: document.querySelector('.dk [data-r=noisy]').hidden ? null : document.querySelector('.dk [data-r=noisy]').textContent,
   notes: document.querySelector('.dk [data-r=notes]').textContent})"""
@@ -26,7 +27,7 @@ async def one(pw, page, take):
                 elif isinstance(j.get('result'), dict) and 'take' in j['result']: got['j'] = j['result']
             except Exception: pass
     P.on('response', on_resp)
-    await P.goto(f'http://127.0.0.1:8099/{page}'); await P.wait_for_timeout(2500)
+    await P.goto(f'{DEMO}/{page}'); await P.wait_for_timeout(2500)
     files = await P.query_selector_all('.dk input[type=file]'); await files[0].set_input_files(os.path.join(HERE, take)); await P.wait_for_timeout(300); await P.click('.dk [data-r=check]')
     await P.wait_for_function("()=>{const b=document.querySelector('.dk [data-r=busy]');return b&&b.hidden===true&&document.querySelector('.dk [data-r=say]').textContent}", timeout=300000)
     v = await P.evaluate(VIEW); j = got.get('j')
@@ -50,7 +51,7 @@ async def main():
     async with async_playwright() as pw:
         for page, take in CASES: await one(pw, page, take)
         b = await pw.chromium.launch(); P = await b.new_page(); errs = []; P.on('pageerror', lambda e: errs.append(str(e)))
-        await P.goto('http://127.0.0.1:7861/'); await P.wait_for_timeout(2000)
+        await P.goto(URL + '/'); await P.wait_for_timeout(2000)
         n = await P.evaluate("()=>[!!document.getElementById('noisy'), !!document.getElementById('learn'), !!document.getElementById('meP')]")
         print('\nlab page: noise hint / learn switch / voice panel present', n, '| errors', errs)
         if not all(n) or errs: fails.append(('lab page', n, errs))
