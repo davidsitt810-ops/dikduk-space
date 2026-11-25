@@ -30,7 +30,7 @@ def mark_of(y, f, clean):
 # Israeli exam (LAB_NOTES §39).
 # The skip-vs-swap guard below also reads this bar, but cannot move with it: a swap that could fire has swap >= 8, and
 # the guard needs swap < 0.35 x the drop, so a drop above 22.9 — over both bars.
-RULE = {'drop': 20, 'margin': 4, 'swap': 8, 'rival': 0.3, 'altFit': 0.4, 'hear': 0.3, 'share': 0.35, 'half': 0.5, 'swap2': 12, 'vhead': 0.62, 'vgap': 0.17, 'noisy': 26, 'vp': 0.5}   # kept in step with static/index.html and embed.js
+RULE = {'drop': 20, 'margin': 4, 'swap': 8, 'rival': 0.3, 'altFit': 0.4, 'hear': 0.3, 'share': 0.35, 'half': 0.5, 'swap2': 12, 'vhead': 0.62, 'vgap': 0.17, 'noisy': 26, 'vp': 0.4, 'vpu': 0.6}   # kept in step with static/index.html and embed.js
 
 def head_median(TW):
     """the letter head's score on the line's words (2+ consonants), the median — with the lowest word left out when
@@ -69,7 +69,9 @@ def vclean_of(TW, gap, clean, nikud=True):
 # How far to trust each vowel note (v6.0). Until v5.9 the TAKE alone decided (vclean_of): under the gate no vowel note,
 # over it all of them. Now the server gives every note of a line with nikud its own number ('p', 0..1:
 # vowels.note_trust — how well the two heads heard the note's word, how much of the slot the vowel holds, and whether
-# the phone ear, another network, wrote the same vowel at that moment), and a note shows when it is at least 'vp'.
+# the phone ear, another network, wrote the same vowel at that moment), and a note shows when it is at least 'vp' —
+# or 'vpu', a higher bar, on a take under the old gate, where until now nothing showed (the bars were set on one
+# never-heard reader; a recording the heads hear poorly is where a second one is still to be measured).
 # So a word heard well is checked also in a take that is not clear overall (David's own phone takes of Tehillim 23:2,
 # Nov 1: nothing shown, a real "menohot" among them), and a doubtful note on a clear take is left out.
 # No 'p' (a server before v6.0) or a line without nikud, where it is not measured: the take's gate, as before.
@@ -78,7 +80,7 @@ def note_shown(d, vclean, nikud=True):
        Kept in step with noteShown in index.html and embed.js"""
     p = d.get('p')
     if p is None or not nikud: return bool(vclean)
-    return p >= RULE['vp']
+    return p >= (RULE['vp'] if vclean else RULE['vpu'])
 
 def rate_notes(out):
     """the server's last step on a take's vowel notes (app.run_check; the bench replays answers through the same

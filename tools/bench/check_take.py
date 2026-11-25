@@ -16,9 +16,10 @@ if '--noref' not in flags and k in t: prm.update({'ref': f, 't0': t[k][0], 't1':
 r = requests.post(BASE + '/check', params=prm, data=open(path, 'rb').read(), headers={'Content-Type': 'application/octet-stream'}, timeout=900)
 out = r.json()
 if r.status_code != 200: sys.exit(f'server said {r.status_code}: {out}')
-if os.environ.get('TRUST'):   # weights to try (a json from bench/trust.py), on an answer from a server that does not rate its notes yet
+if os.environ.get('TRUST') or not out.get('vowels_trust'):   # an answer from a server that does not rate its notes yet: rated here (TRUST=<json from bench/trust.py>: with weights being tried)
     import vowels as VW
-    VW.TRUST_W = json.load(open(os.environ['TRUST']))['w']; rule.rate_notes(out)
+    if os.environ.get('TRUST'): VW.TRUST_W = json.load(open(os.environ['TRUST']))['w']
+    rule.rate_notes(out); print('  (the notes rated here, not by the server)')
 if os.environ.get('VP'): rule.RULE['vp'] = float(os.environ['VP'])
 sm = rule.summarize(out); TW = out['take']['words']
 print(f"{os.path.basename(path)}  ({n}:{ps})  server {out.get('version', '?')}")

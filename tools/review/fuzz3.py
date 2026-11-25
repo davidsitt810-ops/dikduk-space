@@ -52,7 +52,7 @@ for L in range(N_LINES):
     # (v6.0) vowel notes with their trust: none given (an older server: the key missing, or null), and values around the bar
     def note():
         d = {'you': random.choice('AEIOU'), 'ref': random.choice('AEIOU')}
-        if random.random() < 0.85: d['p'] = random.choice([None, 0, 0.0, 0.01, round(ns['RULE']['vp'] - 0.0001, 4), ns['RULE']['vp'], round(ns['RULE']['vp'] + 0.0001, 4), 0.99, 1, 1.0, random.random()])
+        if random.random() < 0.85: d['p'] = random.choice([None, 0, 0.0, 0.01, 0.99, 1, 1.0, random.random()] + [round(ns['RULE'][b] + e, 4) for b in ('vp', 'vpu') for e in (-0.0001, 0, 0.0001)])
         return d
     lines.append({'TW': TW, 'F': F, 'gap': gap, 'phones': phones, 'dur': dur, 'nik': random.random() < 0.75, 'notes': [note() for _ in range(random.choice([0, 1, 2, 4]))]})
 

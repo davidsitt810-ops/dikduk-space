@@ -365,7 +365,11 @@ def opinion_of(d):
 # noise: his correct reading's notes false, the planted mistakes' notes true — tools/bench/trust.py, LAB_NOTES §43);
 # note_trust gives the note its number ('p'), and the page shows the notes over rule.RULE['vp'].
 TRUST_NAMES = ['bias', 'gate', 'hskel', 'vskel', 'm', 'you', 'you*c', 'ref', 'ref*c', 'none', 'you far', 'ref far', 'head', 'gap']
-TRUST_W = None   # set when fitted: a server without it gives no 'p', and the page keeps the take's gate
+# Fitted Nov 25 on Hazzan Faraj Samra's Tehillim 1-55 (never heard by the heads), 450 pesukim as recorded, on a phone
+# and with noise: 5,074 notes on planted mistakes, 210 false notes on 11,034 right words, a true note weighed as if a
+# reader misread 5 words in 100. The take's own facts (gate, head, gap) added nothing and are left at 0: under the
+# old gate the page asks for more trust instead (rule.RULE['vpu']). None: no 'p' is given, the page keeps the gate.
+TRUST_W = [-3.369, 0.0, 1.179, 0.535, 2.035, 0.919, 1.059, -0.625, -1.248, -0.154, -0.082, -1.147, 0.0, 0.0]
 
 def note_features(d, word, gate, head, gap):
     """d: the note with its second opinion ('ph', 'phc'); word: the take's word it sits on ('hskel', 'vskel');

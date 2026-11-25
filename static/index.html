@@ -381,15 +381,15 @@ function markOf(y,f){const n=y&&y.n||0,sk=y&&y.skel!=null?y.skel:null,ft=f&&f.fi
    this word (nats; only the line's largest drop may flag, and only when it stands clear of the second); swap = how
    much it prefers the two neighbours the other way round; gap = what the written line costs per frame against the
    free path (a different text costs ~1 nat/frame, the right line under 0.1). Thresholds from exam_alouf.py. */
-const RULE={drop:20,margin:4,swap:8,rival:0.3,altFit:0.4,hear:0.3,share:0.35,half:0.5,swap2:12,vhead:0.62,vgap:0.17,noisy:26,vp:0.5};
+const RULE={drop:20,margin:4,swap:8,rival:0.3,altFit:0.4,hear:0.3,share:0.35,half:0.5,swap2:12,vhead:0.62,vgap:0.17,noisy:26,vp:0.4,vpu:0.6};
 /* v4.4: the letter head's median score over the line's words (2+ consonants), the lowest word left out when there are
    three or more — one wrong word must not make a good recording look poor. Clean = median >= .7 (the finer signals
    are trusted); under .3 the head barely hears the words: nothing goes red, the doubtful words stay "not sure". */
 function headMedian(TW){let hs=TW.filter(t=>(t.n||0)>=2&&t.hskel!=null).map(t=>t.hskel).sort((a,b)=>a-b);if(!hs.length)return null;if(hs.length>=3)hs=hs.slice(1);return hs[Math.floor((hs.length-1)/2)];}   /* the lower middle: one well-heard word does not make a short line clean */
 /* v5.7: the vowel notes also on a take the head hears fairly well (median ≥ .62) whose line the audio follows closely (gap ≤ .17) — the phone's takes — where the line has nikud (nik); the word marks keep .70. Server: rule.vclean_of */
 function vcleanOf(TW,gap,nik){if(CLEAN)return true;if(!nik)return false;const m=headMedian(TW);return m!=null&&m>=RULE.vhead&&gap!=null&&gap<=RULE.vgap;}
-/* v6.0: each vowel note of a line with nikud comes with its own trust (d.p, 0..1, from the server: how well the heads heard the note's word, how much of the slot the vowel holds, whether the phone ear — another network — wrote the same vowel there) and shows at RULE.vp or more — so a word heard well is checked also in a take that is not clear overall. No d.p (a server before v6.0) or no nikud: the take's gate, as before. Server: rule.note_shown */
-function noteShown(d,vclean,nik){return (d.p==null||!nik)?!!vclean:d.p>=RULE.vp;}
+/* v6.0: each vowel note of a line with nikud comes with its own trust (d.p, 0..1, from the server: how well the heads heard the note's word, how much of the slot the vowel holds, whether the phone ear — another network — wrote the same vowel there) and shows at RULE.vp or more (RULE.vpu, a higher bar, on a take under the gate) — so a word heard well is checked also in a take that is not clear overall. No d.p (a server before v6.0) or no nikud: the take's gate, as before. Server: rule.note_shown */
+function noteShown(d,vclean,nik){return (d.p==null||!nik)?!!vclean:d.p>=(vclean?RULE.vp:RULE.vpu);}
 function marksOf(TW,F,gap,rival){const marks=TW.map((t,i)=>markOf(t,F&&F[i]));const why=TW.map(()=>null);let lineWrong=false,cantHear=false;
  if(CLEAN){const ds=TW.map(t=>t.drop==null?-1e9:t.drop);const top=ds.indexOf(Math.max(...ds));const second=Math.max(...ds.filter((d,i)=>i!==top),-1e9);
   const dropped=top>=0&&(TW[top].n||0)>=2&&ds[top]>=RULE.drop&&ds[top]-second>=RULE.margin;const heard=dropped&&(TW[top].skel||0)>=.8&&(TW[top].kept||0)>=.6;   /* consonants found in place, most letters kept: doubtful at most */

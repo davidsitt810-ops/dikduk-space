@@ -13,6 +13,7 @@ a phone, with noise), with the hazzan, holds everything for
 
 usage: replay.py <exam name> [...]                 the correct reading and the five planted kinds under rule.summarize
        replay.py --check <exam name> <planted exam name> <kind>     the replay against a planted run of the server
+       replay.py --live <exam name> [...]      an exam from a server that rates its notes: the same trust here?
 env:   DK_LAB_V = the folder with exam_<name>.full.jsonl[.gz] (default: tools/)
        RULESETS = 'vp=.4;vp=.5'   the same exams under other values of rule.RULE, one report each
        TRUST = <json of weights from bench/trust.py> to try them, or 'off' for the take's gate alone (v5.9)"""
@@ -78,17 +79,21 @@ def tally(rows, kind, summarize=rule.summarize):
         c['P'] += len(P); c['told'] += sum(1 for i in P if i in S or m[i] == 'off'); c['noted_p'] += len(P & S)
         c['W'] += sum(1 for i, x in enumerate(m) if x and i not in P); c['noted'] += len(S - P)
         c['red'] += sum(1 for i, x in enumerate(m) if x == 'off' and i not in P); c['unsure'] += sum(1 for i, x in enumerate(m) if x == 'unsure' and i not in P)
+        if not sm['vclean']:   # the takes under the gate, where v5.9 showed no vowel note at all (can't-hear and no-speech takes among them)
+            c['P_u'] += len(P); c['told_u'] += sum(1 for i in P if i in S or m[i] == 'off'); c['W_u'] += sum(1 for i, x in enumerate(m) if x and i not in P); c['noted_u'] += len(S - P)
     return c
 
 def report(name, summarize=rule.summarize, label=''):
     rows = load(name); c = tally(rows, None, summarize)
     print(f'== {name}{label}: {c["n"]} takes; vowels checked on {pct(c["vclean"], c["n"])}; the noise line {c["noisy"]}, the not-checked line {c["vlost"]}')
     print(f'   correct reading: words with a vowel note (all false) {pct(c["noted"], c["W"])}; red {c["red"]}, not sure {pct(c["unsure"], c["W"])}')
+    under = f'   on the takes under the gate ({c["n"] - c["vclean"]}): false notes {pct(c["noted_u"], c["W_u"])}'
     tot = collections.Counter()
     for k in ORDER:
-        c = tally(rows, k, summarize); tot.update({x: c[x] for x in ('P', 'told', 'noted_p')})
-        print(f'   planted {k}: told {pct(c["told"], c["P"])} (by a note {c["noted_p"]}); other words noted {pct(c["noted"], c["W"])}')
+        c = tally(rows, k, summarize); tot.update({x: c[x] for x in ('P', 'told', 'noted_p', 'P_u', 'told_u')})
+        if not os.environ.get('BRIEF'): print(f'   planted {k}: told {pct(c["told"], c["P"])} (by a note {c["noted_p"]}); other words noted {pct(c["noted"], c["W"])}')
     print(f'   all five kinds: told {pct(tot["told"], tot["P"])} (by a note {tot["noted_p"]})')
+    print(under + f'; planted told {pct(tot["told_u"], tot["P_u"])}')
 
 def check(name, planted_name, kind):
     """the replay of a planted kind against the server's own run of it (exam_voice.py PLANT=<kind> PLANT_ONE=1 NO_REF=1)"""
@@ -105,6 +110,27 @@ def check(name, planted_name, kind):
     print(f'{name} replayed as {kind} against {planted_name}: {n - bad} of {n} takes the same (the planted line, its words, the nikud notes, and all the page shows: marks, gates, vowel notes)')
     return bad == 0 and n > 0
 
+def live(name):
+    """an exam run on a server that rates its notes (v6.0): does the replay give every note the same second opinion and
+       the same trust? The notes are stripped and rated again here (rule.rate_notes) — the server's own lines, but its
+       numbers went through JSON and this checkout may have other weights: this is the check that they are the same"""
+    import copy
+    n = bad = notes = 0
+    for r in load(name):
+        out = r['out']
+        if not out.get('vowels_trust'): continue
+        n += 1; mine = copy.deepcopy(out)
+        for k in ('vowels', 'vowels_nikud'):
+            for ds in (mine.get(k) or {}).values():
+                for d in ds:
+                    for f in ('ph', 'phc', 'phd', 'p'): d.pop(f, None)
+        rule.rate_notes(mine); same = all(mine.get(k) == out.get(k) for k in ('vowels', 'vowels_nikud')); notes += sum(len(ds) for k in ('vowels', 'vowels_nikud') for ds in (out.get(k) or {}).values())
+        if not same:
+            bad += 1
+            if bad <= 3: print(f"  differs {r['per']}:{r['ps'] + 1}: server {out.get('vowels_nikud')}\n      replay {mine.get('vowels_nikud')}")
+    print(f'{name}: {n - bad} of {n} takes rated by the server carry the replay\'s opinions and trust on every note ({notes} notes)')
+    return bad == 0 and n > 0
+
 def ruleset(spec):
     """'vp=.4' -> rule.RULE changed for this run"""
     for kv in (spec or '').split(','):
@@ -112,6 +138,7 @@ def ruleset(spec):
 
 if __name__ == '__main__':
     if sys.argv[1] == '--check': sys.exit(0 if check(*sys.argv[2:5]) else 1)
+    if sys.argv[1] == '--live': sys.exit(0 if all([live(nm) for nm in sys.argv[2:]]) else 1)
     sets = os.environ['RULESETS'].split(';') if os.environ.get('RULESETS') else ['']   # e.g. RULESETS='vp=.4;vp=.5;vp=.6'
     if os.environ.get('TRUST'):   # TRUST=<json from bench/trust.py> (weights to try before they are written into vowels.py); TRUST=off: no trust, the take's gate as in v5.9
         VW.TRUST_W = None if os.environ['TRUST'] == 'off' else json.load(open(os.environ['TRUST']))['w']
