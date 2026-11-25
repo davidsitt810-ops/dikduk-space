@@ -149,7 +149,12 @@ def summarize(out):
     # remedy. The take's own estimate (app.snr_of) under 26 dB: 93 of the 94 such takes on the phone, 182 of 182 with
     # the noise 10 dB under, 4 of the 26 as recorded (LAB_NOTES §40)
     snr = out['take'].get('snr'); noisy = bool(snr is not None and snr < RULE['noisy'] and not no_speech and (not vclean or cant_hear))
-    return {'marks': marks, 'why': why, 'line_wrong': line_wrong, 'cant_hear': cant_hear, 'no_speech': no_speech, 'rival': out['take'].get('rival'), 'gap': out['take'].get('gap'), 'throat': throat, 'vowels': vow, 'shva': shv, 'miss': miss, 'clean': clean, 'vclean': vclean and not (cant_hear or no_speech), 'noisy': noisy, 'snr': snr, 'head': head_median(TW), 'hazzan': bool(F), 'dur': out['take'].get('dur')}
+    # vowels not checked (v6.0): the take had vowels to check (a hazzan or a nikud to compare with) and was not clear
+    # enough for them, and nothing else on the page says so — no noise line, no "can't hear", not another line. The
+    # page then says it, instead of looking as if the vowels had passed: David's own phone takes of Tehillim 23:2 (the
+    # letter head at .54 and .56, 42-44 dB) showed nothing about vowels, a real "menohot" in one of them (LAB_NOTES §43)
+    vlost = bool(not vclean and not noisy and not (no_speech or cant_hear or line_wrong) and (out.get('vowels') is not None or out.get('vowels_nikud') is not None))
+    return {'marks': marks, 'why': why, 'line_wrong': line_wrong, 'cant_hear': cant_hear, 'no_speech': no_speech, 'rival': out['take'].get('rival'), 'gap': out['take'].get('gap'), 'throat': throat, 'vowels': vow, 'shva': shv, 'miss': miss, 'clean': clean, 'vclean': vclean and not (cant_hear or no_speech), 'noisy': noisy, 'vlost': vlost, 'snr': snr, 'head': head_median(TW), 'hazzan': bool(F), 'dur': out['take'].get('dur')}
 
 # ---------------------------------------------------------------- the line's score (v5.1)
 # A score out of 100 for a take, and how sure the checker is of it (the reader scores of LAB_NOTES §31, per line):
@@ -166,7 +171,9 @@ def score_parts(out, sm, n_shva=0):
     throat = (sum(1.0 if t['v'] == 'throat' else .5 if t['v'] == 'unsure' else 0.0 for t in th) / len(th)) if th else None
     n_vow = sum(len(w.get('vow') or []) for w in out['take']['words'])
     has_vow = out.get('vowels') is not None or out.get('vowels_nikud') is not None
-    vowels = max(0.0, 1 - len({(v['w'], v['k']) for v in sm['vowels']}) / n_vow) if (sm['clean'] and has_vow and n_vow) else None
+    # (v6.0) judged wherever the vowel notes were checked — since v5.7 that is vclean, not only clean: until now a take the
+    # page showed vowel notes on (a phone's, under the .70 bar) had them left out of its score
+    vowels = max(0.0, 1 - len({(v['w'], v['k']) for v in sm['vowels']}) / n_vow) if (sm.get('vclean', sm['clean']) and has_vow and n_vow) else None
     shva = max(0.0, 1 - len(sm['shva']) / n_shva) if (sm['clean'] and n_shva and out.get('shva') is not None) else None
     h = head_median(out['take']['words'])
     clarity = min(1.0, h / .85) if h is not None else None

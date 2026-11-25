@@ -142,6 +142,7 @@ textarea{width:100%;min-height:80px;font:12px/1.4 ui-monospace,Menlo,monospace;c
    <h2><span class="n">4</span>How it went</h2>
    <p class="say" id="say"></p>
    <p class="hint" id="noisy" hidden></p>
+   <p class="hint" id="vlost" hidden>Your vowels were not checked this time: the recording was not clear enough for that. Try again with the phone close to your mouth.</p>
    <label class="strict"><input type="checkbox" id="strict"><span>Strict check: only what is clearly right counts</span></label>
    <label class="strict"><input type="checkbox" id="learn"><span>Learn my voice: my clear takes teach the checker how I sound (their sound features are kept on the server)</span></label>
    <div class="words" id="res"></div>
@@ -464,6 +465,8 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
  /* v5.7: background noise where the take lost its vowel check (or its words): say so, with the remedy (server: rule.summarize 'noisy') */
  const NOISY=!noSpeech&&j.take.snr!=null&&j.take.snr<RULE.noisy&&(!VCLEAN||cantHear);$('#noisy').hidden=!NOISY;
  if(NOISY)$('#noisy').textContent='There is background noise in this recording'+(cantHear?'':', so your vowels were not checked this time')+'. Try a quieter spot, with the phone close to your mouth.';
+ /* v6.0: the vowels were not checked — the take was not clear enough for them — and nothing above says so: say it (server: rule.summarize 'vlost'; the strict line already asks for a clearer take) */
+ const VLOST=!VCLEAN&&!NOISY&&!noSpeech&&!cantHear&&!lineWrong&&(j.vowels!=null||j.vowels_nikud!=null);$('#vlost').hidden=!VLOST||strictUnclear;
  $('#notes').innerHTML=lines.join('');
  meShow(j.student||null);
  /* throat letters: the verdict per ע / ח, you and the hazzan */
@@ -477,7 +480,7 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
  const vrows=[];const addV=(src,label)=>{for(const i in (src||{}))for(const d of src[i])vrows.push({w:W[i],d,label});};
  if(VCLEAN&&!cantHear&&!noSpeech){addV(j.vowels,'the hazzan');addV(j.vowels_nikud,'the nikud');}
  if(j.vowel_names){$('#vw').innerHTML=vrows.length?vrows.map(x=>`<div class="tr"><div class="hd"><span class="lt">${esc(heL(x.w)[x.d.k]||'')}</span><span>in ${he(x.w)}</span></div><div><span class="k">you</span><span class="v warn">${esc(VN[x.d.you]||x.d.you)}</span></div><div><span class="k">${esc(x.label)}</span><span class="v">${esc(VN[x.d.ref]||x.d.ref)}</span></div></div>`).join('')
-   :'<p class="hint" style="margin:0">No clear vowel differences from the hazzan'+(j.vowels_nikud?' or the nikud':'')+'.</p>';$('#vwP').hidden=false;}else $('#vwP').hidden=true;
+   :'<p class="hint" style="margin:0">'+((VCLEAN&&!cantHear&&!noSpeech)?'No clear vowel differences from the hazzan'+(j.vowels_nikud?' or the nikud':'')+'.':'The vowels were not checked on this take: it was not clear enough for them.')+'</p>';$('#vwP').hidden=false;}else $('#vwP').hidden=true;
  /* shva na / nah (v4.9 servers): every sheva of a pointed line — the rule, what was heard in you and in the hazzan */
  const SVH=j.shva_heard||null,SVR=(j.ref&&j.ref.shva)||{};
  if(SVH){const rows=[];W.forEach((w,i)=>{(SVH[i]||[]).forEach(s=>{const r=(SVR[i]||[]).find(x=>x.k===s.k);const note=((j.shva&&j.shva[i])||[]).find(x=>x.k===s.k);

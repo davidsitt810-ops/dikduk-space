@@ -119,6 +119,7 @@ const T = {   /* every piece of text, so a site can translate or reword (Dikduk.
  strictUnclear: 'This take is not clear enough for a strict check. Record again in a quiet room, phone close to your mouth — or turn the strict check off.',
  noisyVowels: 'There is background noise in this recording, so your vowels were not checked this time. Try a quieter spot, with the phone close to your mouth.',
  noisyWords: 'There is background noise in this recording. Try a quieter spot, with the phone close to your mouth.',
+ unclearVowels: 'Your vowels were not checked this time: the recording was not clear enough for that. Try again with the phone close to your mouth.',
  practice: 'practice {c} ›', shvaNa: 'say a short “e” after the {c} (shva na)', shvaNah: 'no vowel after the {c} — its shva is silent (shva nah)',
  shvaWhy: {start: 'a shva at the start of a word is said', second: 'the second of two shvas in a row is said', twin: 'a shva under the first of two identical letters is said',
   dagesh: 'a shva under a doubled letter (dagesh) is said', short: 'after a short vowel the shva closes the syllable', first: 'the first of two shvas in a row is silent',
@@ -193,6 +194,7 @@ const HTML = `
   <h3><span class="dk-n">4</span><span data-t="s4"></span></h3>
   <p class="dk-say" data-r="say"></p>
   <p class="dk-hint" data-r="noisy" hidden></p>
+  <p class="dk-hint" data-r="vlost" data-t="unclearVowels" hidden></p>
   <p class="dk-score" data-r="score" hidden></p>
   <label class="dk-strict"><input type="checkbox" data-r="strict"><span data-t="strictL"></span></label>
   <div class="dk-opts"><span data-t="notesL"></span><label class="dk-strict"><input type="checkbox" data-r="nLet"><span data-t="notesLetters"></span></label><label class="dk-strict"><input type="checkbox" data-r="nVow"><span data-t="notesVowels"></span></label></div>
@@ -420,6 +422,8 @@ function mount(root, opts) {
   else { say.className = 'dk-say warn'; say.textContent = S.few; }
   /* v5.7: background noise where the take lost its vowel check (or its words): say so, with the remedy (server: rule.summarize 'noisy') */
   const NOISY = !noSpeech && j.take.snr != null && j.take.snr < RULE.noisy && (!VCLEAN || cantHear); $('noisy').hidden = !NOISY; if (NOISY) $('noisy').textContent = cantHear ? S.noisyWords : S.noisyVowels;
+  /* v6.0: the vowels were not checked — the take was not clear enough for them — and nothing above says so: say it (server: rule.summarize 'vlost'); not when the person turned the vowel notes off, nor under the strict line, which already asks for a clearer take */
+  const VLOST = !VCLEAN && !NOISY && !noSpeech && !cantHear && !lineWrong && (j.vowels != null || j.vowels_nikud != null); $('vlost').hidden = !(VLOST && NOTES.v) || strictUnclear;
   $('notes').innerHTML = lines.join('');
   $('notes').querySelectorAll('.dk-x').forEach(b => b.onclick = () => { const li = b.closest('li'); HIDDEN.add(li.dataset.key); li.remove(); if (!SHARED && TAKE && SRV && SRV.reviews) $('share').hidden = false; });
   $('askBtn').hidden = !(SRV && SRV.reviews) || !$('askForm').hidden;   /* a server before v5 has no /review or /feedback */
