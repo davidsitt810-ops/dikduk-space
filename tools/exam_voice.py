@@ -5,12 +5,15 @@ every ✕ is a false alarm, every "not sure" a word the checker could not confir
 shva note a claim to look at (a fault of the checker, or a real difference of his reading from the nikud).
 usage: exam_voice.py <align dir> <audio> <name> [N=150] [seed=7]
   <audio>: the book file (perakim carry book_t0), or a per-perek file pattern with {n} (e.g. .../hbofPsa_{n:03d}.mp3)
-writes exam_<name>.json next to this script and prints the summary"""
+writes exam_<name>.json next to this script (or in DK_LAB_V) and prints the summary. DK_LAB: the lab folder with Rabbi
+Alouf's index (default: the folder above this script); DK_URL: the server; DK_REPO: the code whose rule.py is used"""
 import sys, os, json, random, subprocess, time, collections
 import requests
 REPO = os.environ.get('DK_REPO', '/home/claude/dikduk-space'); sys.path.insert(0, REPO)   # DK_REPO: the code whose rule.py makes the page's marks
 import rule
-HERE = os.path.dirname(os.path.abspath(__file__)); S = os.path.dirname(HERE)
+HERE = os.path.dirname(os.path.abspath(__file__))
+S = os.environ.get('DK_LAB') or os.path.dirname(HERE)   # the lab folder: out/tehillim-alouf/tehillim_alouf.json (tools/bench/bench_index.py makes it)
+OUT = os.environ.get('DK_LAB_V') or HERE                # where the exams are written (tools/big and tools/bench read them from there)
 AL, SRC, NAME = sys.argv[1:4]; N = int(sys.argv[4]) if len(sys.argv) > 4 else 150; SEED = int(sys.argv[5]) if len(sys.argv) > 5 else 7
 BASE = os.environ.get('DK_URL', 'http://127.0.0.1:7861')
 IDX = json.load(open(os.path.join(S, 'out', 'tehillim-alouf', 'tehillim_alouf.json'), encoding='utf-8'))['perakim']
@@ -80,59 +83,10 @@ def degrade(wav, seed):
     return subprocess.run(['ffmpeg', '-v', 'error', '-f', 's16le', '-ar', '16000', '-ac', '1', '-i', 'pipe:0', '-f', 'wav', 'pipe:1'], input=raw, capture_output=True, timeout=120).stdout
 FINALS = str.maketrans('ךםןףץ', 'כמנפצ')   # the alignment writes every letter in its plain form, and the Name as אדני
 if PLANT and not SKIP:
-    assert PLANT in ('OU', 'IE', 'EI', 'EA', 'UO'), 'PLANT=OU, IE, EI, EA, UO or SKIP'
-    import nikud as NK
-    O_MARKS = {NK.HOLAM, NK.HOLAM_VAV, NK.QAMATS_QATAN, NK.HAT_QAM}
-    def plant_word(w):
-        if NK.NAME.search(w): return w
-        groups = []
-        for ch in w:
-            if 'א' <= ch <= 'ת' or not groups: groups.append([ch, []])
-            else: groups[-1][1].append(ch)
-        out = []
-        for c, ms in groups:
-            if any(m in O_MARKS for m in ms):
-                male = c == 'ו' and NK.DAGESH not in ms and not any(m in NK.VOWEL_MARKS and m not in O_MARKS for m in ms)
-                ms = [(NK.DAGESH if male else NK.QUBUTS) if m in O_MARKS else m for m in ms]
-            out.append(c + ''.join(ms))
-        return ''.join(out)
-    if PLANT == 'IE':   # the page's hiriq written tsere, the Name kept: the correct reader now "says i where the page says e"
-        def plant_word(w): return w if NK.NAME.search(w) else w.replace(NK.HIRIQ, NK.TSERE)
-    # the other way round, for the next kinds of false note (LAB_NOTES §39): EI = the page's e (tsere, segol, hataf segol)
-    # written hiriq, so the correct reader "says e where the page says i"; EA = written patah (hataf segol -> hataf
-    # patah; not an e before a bare yod, which would turn it into the diphthong ay); UO = the page's u written o (kubutz
-    # -> holam, shuruk -> holam male). The Name kept.
-    TARGET = {'EI': {NK.TSERE: NK.HIRIQ, NK.SEGOL: NK.HIRIQ, NK.HAT_SEG: NK.HIRIQ},
-              'EA': {NK.TSERE: NK.PATAH, NK.SEGOL: NK.PATAH, NK.HAT_SEG: NK.HAT_PAT}, 'UO': {NK.QUBUTS: NK.HOLAM}}
-    if PLANT in TARGET:
-        def plant_word(w):
-            if NK.NAME.search(w): return w
-            groups = []
-            for ch in w:
-                if 'א' <= ch <= 'ת' or not groups: groups.append([ch, []])
-                else: groups[-1][1].append(ch)
-            out = []
-            for j, (c, ms) in enumerate(groups):
-                nxt = groups[j + 1] if j + 1 < len(groups) else None
-                bare_yod = nxt is not None and nxt[0] == 'י' and not any(m in NK.VOWEL_MARKS or m == NK.DAGESH for m in nxt[1])
-                if PLANT == 'UO' and c == 'ו' and NK.DAGESH in ms and not any(m in NK.VOWEL_MARKS for m in ms):
-                    ms = [NK.HOLAM if m == NK.DAGESH else m for m in ms]   # shuruk -> holam male
-                elif not (PLANT == 'EA' and bare_yod):
-                    ms = [TARGET[PLANT].get(m, m) for m in ms]
-                out.append(c + ''.join(ms))
-            return ''.join(out)
-    def plant(nik, one=None):
-        words = nik.split(' '); news = [plant_word(w) for w in words]
-        if one is not None:   # PLANT_ONE=1: one planted word per pasuk, chosen at random (a student rarely misreads more,
-            # and a mistake made everywhere would also look like the reader's own way of speaking to a rule that weighs the take)
-            cand = [j for j, (a, b) in enumerate(zip(words, news)) if a != b]
-            pick = one.choice(cand) if cand else None
-            news = [b if j == pick else a for j, (a, b) in enumerate(zip(words, news))]
-        new = ' '.join(news)
-        a, b = NK.parse_verse(nik), NK.parse_verse(new)
-        assert len(a) == len(b)
-        idx = [j for j, ((_, _, ua), (_, _, ub)) in enumerate(zip(a, b)) if [u['c'] for u in ua] != [u['c'] for u in ub]]
-        return new, idx, len(a)
+    sys.path.insert(0, HERE)
+    from plant import planter, KINDS
+    assert PLANT in KINDS, 'PLANT=OU, IE, EI, EA, UO or SKIP'
+    plant = planter(PLANT)   # tools/plant.py: the page rewritten so that the correct reader "says" another vowel
 CACHE = {}
 def align(n):
     if n not in CACHE: CACHE[n] = json.load(open(os.path.join(AL, f'{n}.json'), encoding='utf-8'))
@@ -160,7 +114,7 @@ def cut_skip(n, a, b, wa, wb):
     pcm = np.clip(y, -32768, 32767).astype(np.int16).tobytes()
     return b'RIFF' + struct.pack('<I', 36 + len(pcm)) + b'WAVEfmt ' + struct.pack('<IHHIIHH', 16, 1, 1, 16000, 32000, 2, 16) + b'data' + struct.pack('<I', len(pcm)) + pcm
 # rows are kept as they come (exam_<name>.jsonl), so a stopped run picks up where it was
-JL = os.path.join(HERE, f'exam_{NAME}.jsonl'); rows = []
+JL = os.path.join(OUT, f'exam_{NAME}.jsonl'); rows = []
 if os.path.exists(JL):
     rows = [json.loads(l) for l in open(JL, encoding='utf-8') if l.strip()]
 have = {(r['per'], r['ps']) for r in rows}; jl = open(JL, 'a', encoding='utf-8'); t_start = time.time()
@@ -199,11 +153,11 @@ for done, (n, i) in enumerate(jobs, 1):
                              'rw': [[(v['k'], v['heard'], v['mass'], v['p']) for v in (w.get('vow') or [])] for w in ((out.get('ref') or {}).get('words') or [])],
                              'sv': out.get('vowels'), 'svn': out.get('vowels_nikud'),
                              # the word rule's inputs (rule.marks_of), to try other drop / swap bars offline
-                             'rule_in': {'tw': [{k: w.get(k) for k in ('n', 'skel', 'kept', 'pw', 'hskel', 'drop', 'swap')} for w in out['take']['words']],
+                             'rule_in': {'tw': [{k: w.get(k) for k in ('n', 'skel', 'kept', 'pw', 'hskel', 'vskel', 'drop', 'swap')} for w in out['take']['words']],   # vskel (v6.0): the vowel head's own letter score, for a word-level vowel gate
                                          'fit': [(f or {}).get('fit') for f in (out.get('fit') or [])]}}} if RAW else {})})
     if done % 10 == 0: print(f'  {done}/{len(jobs)}  [{int(time.time() - t_start)} s]', flush=True)
 jl.close(); want = set(jobs); rows = [r for r in rows if (r['per'], r['ps']) in want]
-json.dump(rows, open(os.path.join(HERE, f'exam_{NAME}.json'), 'w', encoding='utf-8'), ensure_ascii=False)
+json.dump(rows, open(os.path.join(OUT, f'exam_{NAME}.json'), 'w', encoding='utf-8'), ensure_ascii=False)
 
 ok = [r for r in rows if 'err' not in r]
 W = sum(len(r['marks']) for r in ok); C = collections.Counter(m for r in ok for m in r['marks'])

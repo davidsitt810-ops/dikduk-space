@@ -26,5 +26,5 @@ for x in sm['shva']: print('  shva:', x)
 if '--words' in flags:
     for i, w in enumerate(TW):
         vow = ' '.join(f"{v['heard']}@{v['k']}({max(v['mass'].values()) / max(1e-6, sum(v['mass'].values())):.2f})" for v in (w.get('vow') or []))
-        print(f"    {out['words'][i]:12s} n {w.get('n')} skel {w.get('skel')} hskel {w.get('hskel')} kept {w.get('kept')} pw {w.get('pw')} | {vow}")
+        print(f"    {out['words'][i]:12s} n {w.get('n')} skel {w.get('skel')} hskel {w.get('hskel')} vskel {w.get('vskel')} kept {w.get('kept')} pw {w.get('pw')} | {vow}")
     print('  raw hazzan notes:', json.dumps(out.get('vowels'), ensure_ascii=False)); print('  raw nikud notes:', json.dumps(out.get('vowels_nikud'), ensure_ascii=False))
