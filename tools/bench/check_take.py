@@ -1,6 +1,7 @@
 """One recording through a server as the lab page checks a pasuk of Tehillim — Rabbi Alouf's line as the hazzan, the
 perek's other lines as rivals (pid), the nikud — and what the page would show (rule.summarize).
 usage: check_take.py <perek> <pasuk> <audio file> [--noref] [--words]     DK_URL: the server (default the local one)
+       TRUST=<weights json> VP=<bar>: rate the notes here with weights being tried (bench/trust.py)
        --words: each word's letter-head score, vowel slots and marks"""
 import sys, os, json, requests
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))); sys.path.insert(0, ROOT)
@@ -15,12 +16,20 @@ if '--noref' not in flags and k in t: prm.update({'ref': f, 't0': t[k][0], 't1':
 r = requests.post(BASE + '/check', params=prm, data=open(path, 'rb').read(), headers={'Content-Type': 'application/octet-stream'}, timeout=900)
 out = r.json()
 if r.status_code != 200: sys.exit(f'server said {r.status_code}: {out}')
+if os.environ.get('TRUST'):   # weights to try (a json from bench/trust.py), on an answer from a server that does not rate its notes yet
+    import vowels as VW
+    VW.TRUST_W = json.load(open(os.environ['TRUST']))['w']; rule.rate_notes(out)
+if os.environ.get('VP'): rule.RULE['vp'] = float(os.environ['VP'])
 sm = rule.summarize(out); TW = out['take']['words']
 print(f"{os.path.basename(path)}  ({n}:{ps})  server {out.get('version', '?')}")
 print(f"  clean {sm['clean']}, vowels checked {sm.get('vclean')}, head median {rule.head_median(TW)}, gap {sm['gap']}, noise estimate {sm.get('snr')} dB, noisy line {sm.get('noisy')}, vowels-not-checked line {sm.get('vlost')}, "
       f"line wrong {sm['line_wrong']}, can't hear {sm['cant_hear']}, no speech {sm['no_speech']}")
 print('  words: ' + '  '.join(f"{w}{ {'ok': '✓', 'unsure': '?', 'off': '✕'}.get(m, '·') }" for w, m in zip(out['words'], sm['marks'])))
 for v in sm['vowels']: print(f"  vowel: {v['w']}: you {v['you']} where the {v['against']} has {v['ref']}")
+for key in ('vowels', 'vowels_nikud'):   # every note the ear gave, shown or held back, with its second opinion and trust
+    for i, ds in (out.get(key) or {}).items():
+        for d in ds:
+            if 'ph' in d or 'p' in d: print(f"     ({key}: {out['words'][int(i)]} you {d['you']} ref {d['ref']} m {d.get('m')} | phone ear {d.get('ph')!r} {d.get('phc')} | trust {d.get('p')} -> {'shown' if rule.note_shown(d, sm['vclean'], out.get('vowels_nikud') is not None) and sm['marks'][int(i)] != 'off' else 'held back'})")
 for x in sm['throat']: print(f"  throat: {x['c']} in {x['w']}: {x['v']} (hazzan {x.get('hazzan')})")
 for x in sm['shva']: print('  shva:', x)
 if '--words' in flags:

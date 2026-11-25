@@ -12,5 +12,6 @@ R=$(cd "$(dirname "$0")/../.." && pwd); mkdir -p "$LAB/v"; N=5000
 for kv in "$@"; do case $kv in N=*) N=${kv#N=};; esac; done
 curl -s -m 10 http://127.0.0.1:7861/health | grep -q '"version"' || { echo "exam $NAME not run: the dev server is not up"; exit 1; }
 [ "$DG" != - ] && set -- "DEGRADE=$DG" "$@"
-env DK_LAB="$LAB" DK_LAB_V="$LAB/v" DK_REPO="$R" RAW=1 FULLOUT=1 PERAKIM="$P" "$@" python3 "$R/tools/exam_voice.py" "$LAB/out_$WHO/align" "$LAB/data_$WHO/{n:03d}.mp3" "$NAME" "$N" 7 > "$LAB/v/exam_$NAME.log" 2>&1
+# BUDGET_S=<seconds>: the run stops by itself after that long (it goes on where it ended the next time)
+${BUDGET_S:+timeout $BUDGET_S} env DK_LAB="$LAB" DK_LAB_V="$LAB/v" DK_REPO="$R" RAW=1 FULLOUT=1 PERAKIM="$P" "$@" python3 "$R/tools/exam_voice.py" "$LAB/out_$WHO/align" "$LAB/data_$WHO/{n:03d}.mp3" "$NAME" "$N" 7 > "$LAB/v/exam_$NAME.log" 2>&1
 echo "$(date +%H:%M) exam $NAME: $(grep -m1 '^== ' "$LAB/v/exam_$NAME.log" || tail -n 1 "$LAB/v/exam_$NAME.log")" | tee -a "$LAB/v/chain.log"

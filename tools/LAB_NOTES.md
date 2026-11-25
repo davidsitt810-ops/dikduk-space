@@ -1842,3 +1842,47 @@ is at 1.00). Not measurable yet: a > i on closed unstressed vowels (15 of 23 und
 change (`v59_fix2`): the replay's notes on 15 of 15 (32 notes → 2). Server only; the pages do not change. David:
 "Merge" (Nov 9).
 
+
+## 43. v6.0: each vowel note on its own — what was not checked is said, and a second ear (Nov 25)
+
+David (Nov 25): "Keeep cooking up with this improve make better". The machine the bench lived on was gone (the
+exams, the caches, the readers' alignments: all in a scratch folder), so this section starts with the bench.
+
+**The bench, rebuilt to last** (`tools/bench/`, its `README.md`): `server.sh` (the dev server of a checkout),
+`bench_index.py` (Rabbi Alouf's lines and times as the page uses them, from `lyrics_tehillim.json` — until now the
+exams used an alignment of their own), `align.sh` (a never-heard reader's Tehillim lined up: Hazzan Faraj Samra's 128
+perakim, 99 minutes on two cores), `exam.sh` / `chain.sh`, `save.sh` (the alignments and the exams copied somewhere
+durable after every exam). Two things are new:
+
+- **An exam keeps the server's whole answer for every take** (`exam_voice.py FULLOUT=1`, about 20 KB a take, 4 KB
+  gzipped). Anything the page could show is then replayed offline with `rule.summarize` itself (`bench/replay.py`) —
+  not with a copy of the rule written for the bench, as `tools/big/` did.
+- **One run of the server per kind of recording serves every planted mistake.** The take's vowel slots come from the
+  audio and the line's letters alone (`app.analyse`); the nikud only says which vowel each slot should be. So the
+  five planted kinds (`tools/plant.py`, moved out of `exam_voice.py`: EI EA IE OU UO, one planted word per pasuk) are
+  made offline from the correct reading's answers: the answer rewritten as the server gives it for the planted line
+  with no hazzan. Checked against real planted runs of the server (`replay.py --check`): 10 of 10 takes the same for
+  EI and for OU, as recorded and with noise — the planted line, its words, the nikud notes, and all the page shows.
+  Six exams of 25 minutes became one.
+
+The numbers below are on the new index (the page's own times), so they are not to be set beside §39–§42's to the
+decimal; the same takes under the old rule are always given next to the new one.
+
+**David's own five recordings of Nov 1, through v5.9** (`bench/check_take.py`; his phone, a quiet room):
+
+| take | he said | v5.9 |
+|---|---|---|
+| 1 | 23:1 right | clear (letter head .81), all ✓ |
+| 2 | 23:1, "lo ahsar" | clear (.87): "ah where the hazzan / the nikud has eh" on אחסר ✓ |
+| 3 | 23:2 right | **not clear (.56, gap .23), 42 dB — far from noisy. No vowel check, and nothing on the page says so** |
+| 4 | 23:2, "yarbesseni", "menohot" | **not clear (.54, gap .17), 44 dB. Nothing about vowels. The server's answer holds "oh where the page has oo" on מנחות (.99) — hidden by the take's gate** |
+| 5 | 23:1, ע like א, ח like כ | clear (.86): both "plain" ✓ |
+
+Two of his five real takes got no vowel check and no word about it; one of them held a real mistake that the ear had
+heard. Louder does not help (the same take 10 dB up: .564 → .565; the models normalise their input), nor is it speed
+(Rabbi Alouf's 23:1 played 1.8 times faster is still heard at .99): the letter head just hears these two takes of his
+less well, on every word (דשא .30, על .48, בנאות .50), and the vowel head's own letter score falls with it (דשא .46,
+על .50). The "yarbesseni" is another matter: the vowel head placed no vowel slot after the ב at all (it put an "i"
+after the ר instead, and the counts came out even), while the phone ear wrote `r b e t e n i` — it heard his "be".
+And it wrote `e l` (.84) for his עַל in the same take, where the vowel head also heard "eh": that note, which looked
+like a false one, has two ears behind it.

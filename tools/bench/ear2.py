@@ -38,7 +38,7 @@ def phone_notes(out, nik):
                 for s in t.get('vow') or []:
                     if s.get('t0') is None: continue
                     d = abs((s['t0'] + s['t1']) / 2 - pt)
-                    if d <= VW.PHONE_WIN and (best is None or d < best[0]): best = (d, s)
+                    if d <= VW.PHONE_NEAR and (best is None or d < best[0]): best = (d, s)
                 head = 'none' if best is None else 'ref' if best[1]['heard'] == e['heard'] else 'you' if best[1]['heard'] in pc else 'other'
                 res.setdefault(i, []).append({'k': e['k'], 'ref': e['heard'], 'ph': pc, 'c': conf, 't': pt, 'head': head, 'stress': e.get('stress')})
     return res

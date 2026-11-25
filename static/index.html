@@ -381,15 +381,15 @@ function markOf(y,f){const n=y&&y.n||0,sk=y&&y.skel!=null?y.skel:null,ft=f&&f.fi
    this word (nats; only the line's largest drop may flag, and only when it stands clear of the second); swap = how
    much it prefers the two neighbours the other way round; gap = what the written line costs per frame against the
    free path (a different text costs ~1 nat/frame, the right line under 0.1). Thresholds from exam_alouf.py. */
-const RULE={drop:20,margin:4,swap:8,rival:0.3,altFit:0.4,hear:0.3,share:0.35,half:0.5,swap2:12,vhead:0.62,vgap:0.17,noisy:26,phNo:0.3,phYes:0};
+const RULE={drop:20,margin:4,swap:8,rival:0.3,altFit:0.4,hear:0.3,share:0.35,half:0.5,swap2:12,vhead:0.62,vgap:0.17,noisy:26,vp:0.5};
 /* v4.4: the letter head's median score over the line's words (2+ consonants), the lowest word left out when there are
    three or more — one wrong word must not make a good recording look poor. Clean = median >= .7 (the finer signals
    are trusted); under .3 the head barely hears the words: nothing goes red, the doubtful words stay "not sure". */
 function headMedian(TW){let hs=TW.filter(t=>(t.n||0)>=2&&t.hskel!=null).map(t=>t.hskel).sort((a,b)=>a-b);if(!hs.length)return null;if(hs.length>=3)hs=hs.slice(1);return hs[Math.floor((hs.length-1)/2)];}   /* the lower middle: one well-heard word does not make a short line clean */
 /* v5.7: the vowel notes also on a take the head hears fairly well (median ≥ .62) whose line the audio follows closely (gap ≤ .17) — the phone's takes — where the line has nikud (nik); the word marks keep .70. Server: rule.vclean_of */
 function vcleanOf(TW,gap,nik){if(CLEAN)return true;if(!nik)return false;const m=headMedian(TW);return m!=null&&m>=RULE.vhead&&gap!=null&&gap<=RULE.vgap;}
-/* v6.0: a second opinion on each vowel note — the vowel the phone ear (another network) wrote at the same moment (d.ph: its classes, '' = none; d.phc: how sure). On a line with nikud: a take clear enough for the notes drops a note when the phone ear heard the page's vowel there; a take that is not shows the notes it confirms. No d.ph (a server before v6.0) or no nikud: the take's gate alone. Server: rule.note_shown */
-function noteShown(d,vclean,nik){const ph=d.ph;if(ph==null||!nik)return !!vclean;const y=ph.includes(d.you),r=ph.includes(d.ref),c=d.phc||0;if(vclean)return !(r&&!y&&c>=RULE.phNo);return y&&!r&&c>=RULE.phYes;}
+/* v6.0: each vowel note of a line with nikud comes with its own trust (d.p, 0..1, from the server: how well the heads heard the note's word, how much of the slot the vowel holds, whether the phone ear — another network — wrote the same vowel there) and shows at RULE.vp or more — so a word heard well is checked also in a take that is not clear overall. No d.p (a server before v6.0) or no nikud: the take's gate, as before. Server: rule.note_shown */
+function noteShown(d,vclean,nik){return (d.p==null||!nik)?!!vclean:d.p>=RULE.vp;}
 function marksOf(TW,F,gap,rival){const marks=TW.map((t,i)=>markOf(t,F&&F[i]));const why=TW.map(()=>null);let lineWrong=false,cantHear=false;
  if(CLEAN){const ds=TW.map(t=>t.drop==null?-1e9:t.drop);const top=ds.indexOf(Math.max(...ds));const second=Math.max(...ds.filter((d,i)=>i!==top),-1e9);
   const dropped=top>=0&&(TW[top].n||0)>=2&&ds[top]>=RULE.drop&&ds[top]-second>=RULE.margin;const heard=dropped&&(TW[top].skel||0)>=.8&&(TW[top].kept||0)>=.6;   /* consonants found in place, most letters kept: doubtful at most */
@@ -466,8 +466,8 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
  else{say.className='say warn';say.textContent='The words are there, with a few things to hear.';}
  /* v5.7: background noise where the take lost its vowel check (or its words): say so, with the remedy (server: rule.summarize 'noisy') */
  const NOISY=!noSpeech&&j.take.snr!=null&&j.take.snr<RULE.noisy&&(!VCLEAN||cantHear);$('#noisy').hidden=!NOISY;
- /* v6.0: a take under the gate on a line with nikud is partly checked — the notes the phone ear confirms show (noteShown; server: rule.summarize 'vpart') */
- const VPART=!VCLEAN&&NIK&&!!j.vowels_2nd&&!noSpeech&&!cantHear&&!lineWrong;
+ /* v6.0: a take under the gate on a line with nikud is partly checked — the notes that stand on their own show (noteShown; server: rule.summarize 'vpart') */
+ const VPART=!VCLEAN&&NIK&&!!j.vowels_trust&&!noSpeech&&!cantHear&&!lineWrong;
  if(NOISY)$('#noisy').textContent='There is background noise in this recording'+(cantHear?'':VPART?', so your vowels were only partly checked this time':', so your vowels were not checked this time')+'. Try a quieter spot, with the phone close to your mouth.';
  /* v6.0: the vowels were not checked, or only partly — the take was not clear enough for them — and nothing above says so: say it (server: rule.summarize 'vlost' / 'vpart'; the strict line already asks for a clearer take) */
  const VLOST=!VCLEAN&&!VPART&&!NOISY&&!noSpeech&&!cantHear&&!lineWrong&&(j.vowels!=null||j.vowels_nikud!=null);
@@ -482,10 +482,14 @@ function render(j){const W=j.words,TW=j.take.words,RW=j.ref?j.ref.words:null,F=(
  /* lab details: the numbers per word, the vowel comparison, every sound heard */
  const f2=x=>x==null?'–':(+x).toFixed(2);
  $('#nums').innerHTML='<tr><th>word</th><th>cons</th><th>fit</th><th>head</th><th>kept</th><th>pw</th><th>drop</th><th>swap→</th><th>not heard</th></tr>'+W.map((w,i)=>{const t=TW[i],f=F&&F[i];return `<tr><td class="he" lang="he">${esc(w)}</td><td>${f2(t.skel)}</td><td>${f2(f&&f.fit)}</td><td>${f2(t.hskel)}</td><td>${f2(t.kept)}</td><td>${f2(t.pw)}</td><td>${t.drop==null?'–':t.drop.toFixed(0)}</td><td>${t.swap==null?'–':t.swap.toFixed(0)}</td><td class="he" lang="he">${esc((t.miss||[]).join(' '))}</td></tr>`;}).join('')+`<tr><td colspan="9">clean take: ${CLEAN?'yes':'no'} (head ${HM==null?'–':HM.toFixed(2)}) · line gap ${j.take.gap==null?'–':j.take.gap.toFixed(2)}${j.take.rival?` · best other line ${j.take.rival.gain>=0?'+':''}${j.take.rival.gain.toFixed(2)} (${esc(j.take.rival.line)})`:''} · took ${j.take.ms} ms</td></tr>`;
- const vrows=[];const addV=(src,label)=>{for(const i in (src||{}))for(const d of src[i])if(noteShown(d,VCLEAN,NIK))vrows.push({w:W[i],d,label});};
+ /* the lab's vowel panel: the notes shown, each with its trust (v6.0), then the ones held back — heard by the ear, not sure enough to show */
+ const vrows=[],vheld=[];const addV=(src,label)=>{for(const i in (src||{}))for(const d of src[i]){if(marks[i]==='off')continue;(noteShown(d,VCLEAN,NIK)?vrows:vheld).push({w:W[i],d,label});}};
  if(!cantHear&&!noSpeech){addV(j.vowels,'the hazzan');addV(j.vowels_nikud,'the nikud');}
- if(j.vowel_names){$('#vw').innerHTML=vrows.length?vrows.map(x=>`<div class="tr"><div class="hd"><span class="lt">${esc(heL(x.w)[x.d.k]||'')}</span><span>in ${he(x.w)}</span></div><div><span class="k">you</span><span class="v warn">${esc(VN[x.d.you]||x.d.you)}</span></div><div><span class="k">${esc(x.label)}</span><span class="v">${esc(VN[x.d.ref]||x.d.ref)}</span></div></div>`).join('')
-   :'<p class="hint" style="margin:0">'+((VCLEAN&&!cantHear&&!noSpeech)?'No clear vowel differences from the hazzan'+(j.vowels_nikud?' or the nikud':'')+'.':VPART?'This take was not clear enough for a full vowel check; nothing that both ears heard.':'The vowels were not checked on this take: it was not clear enough for them.')+'</p>';$('#vwP').hidden=false;}else $('#vwP').hidden=true;
+ const trust=d=>d.p!=null&&NIK?` <span class="ears hint" style="margin:0">· trust ${Math.round(100*d.p)}%</span>`:'';
+ const vrow=(x,held)=>`<div class="tr"${held?' style="opacity:.6"':''}><div class="hd"><span class="lt">${esc(heL(x.w)[x.d.k]||'')}</span><span>in ${he(x.w)}</span>${trust(x.d)}</div><div><span class="k">you</span><span class="v ${held?'':'warn'}">${esc(VN[x.d.you]||x.d.you)}</span></div><div><span class="k">${esc(x.label)}</span><span class="v">${esc(VN[x.d.ref]||x.d.ref)}</span></div></div>`;
+ if(j.vowel_names){$('#vw').innerHTML=(vrows.length?vrows.map(x=>vrow(x,false)).join('')
+   :'<p class="hint" style="margin:0">'+((VCLEAN&&!cantHear&&!noSpeech)?'No clear vowel differences from the hazzan'+(j.vowels_nikud?' or the nikud':'')+'.':VPART?'This take was not clear enough for a full vowel check; no vowel difference stood out.':'The vowels were not checked on this take: it was not clear enough for them.')+'</p>')
+   +(vheld.length?`<p class="hint" id="vheld" style="margin:10px 0 4px">Heard, but not sure enough to show (${vheld.length}):</p>`+vheld.map(x=>vrow(x,true)).join(''):'');$('#vwP').hidden=false;}else $('#vwP').hidden=true;
  /* shva na / nah (v4.9 servers): every sheva of a pointed line — the rule, what was heard in you and in the hazzan */
  const SVH=j.shva_heard||null,SVR=(j.ref&&j.ref.shva)||{};
  if(SVH){const rows=[];W.forEach((w,i)=>{(SVH[i]||[]).forEach(s=>{const r=(SVR[i]||[]).find(x=>x.k===s.k);const note=((j.shva&&j.shva[i])||[]).find(x=>x.k===s.k);

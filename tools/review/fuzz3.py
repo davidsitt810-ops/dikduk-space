@@ -2,7 +2,7 @@
 (cut out of index.html / embed.js, run in node). Compares marks, why, line_wrong, cant_hear, clean, and the noSpeech
 expression, on synthetic boundary inputs that recorded data never covers; and (v5.7) whether the take gets its vowel notes
 (vclean_of / vcleanOf: the head median at .62 and the gap at .17, on lines with nikud and without); and (v6.0) which
-vowel notes show (note_shown / noteShown: the phone ear's second opinion, with and without one, at its two bars)."""
+vowel notes show (note_shown / noteShown: the note's own trust against the bar, or the take's gate when it has none)."""
 import json, os, sys, subprocess, random, itertools
 HERE = os.path.dirname(os.path.abspath(__file__))
 SPACE = os.path.join(HERE, '..', '..')
@@ -49,11 +49,10 @@ for L in range(N_LINES):
     else: F = [{'fit': random.choice(FT)} for _ in range(nw)]
     gap = random.choice(GP)
     phones = random.choice([None, [], ['a'], ['a'] * 3, ['a'] * 10]); dur = random.choice([None, 0, 2.0, 6.0, 7.0, 30.0])
-    # (v6.0) vowel notes with the phone ear's opinion: none given (an older server), nothing written, a vowel, two (ɑ, a diphthong)
+    # (v6.0) vowel notes with their trust: none given (an older server: the key missing, or null), and values around the bar
     def note():
         d = {'you': random.choice('AEIOU'), 'ref': random.choice('AEIOU')}
-        if random.random() < 0.8: d['ph'] = random.choice(['', '', 'A', 'E', 'I', 'O', 'U', 'AO', 'AI', 'EI', 'OU', d['you'], d['ref'], d['you'] + d['ref']])
-        if random.random() < 0.8: d['phc'] = random.choice([None, 0, 0.0, 0.29, 0.3, 0.31, 0.5, 1.0])
+        if random.random() < 0.85: d['p'] = random.choice([None, 0, 0.0, 0.01, round(ns['RULE']['vp'] - 0.0001, 4), ns['RULE']['vp'], round(ns['RULE']['vp'] + 0.0001, 4), 0.99, 1, 1.0, random.random()])
         return d
     lines.append({'TW': TW, 'F': F, 'gap': gap, 'phones': phones, 'dur': dur, 'nik': random.random() < 0.75, 'notes': [note() for _ in range(random.choice([0, 1, 2, 4]))]})
 
@@ -77,7 +76,7 @@ ok=[p for p in py if 'err' not in p]
 print('  coverage: cant_hear', sum(p['cant'] for p in ok), '| cant_hear with an off->unsure flip', sum(1 for p,l in zip(py,lines) if 'err' not in p and p['cant'] and any(ns['mark_of'](t, (l['F'][i] if l['F'] and i < len(l['F']) else None), p['clean'])=='off' for i,t in enumerate(l['TW']))),
       '| dropped', sum('dropped' in p['why'] for p in ok), '| swapped', sum('swapped' in p['why'] for p in ok), '| swapped&dropped', sum('swapped' in p['why'] and 'dropped' in p['why'] for p in ok),
       '| line_wrong', sum(p['lw'] for p in ok), '| clean', sum(p['clean'] for p in ok), '| vowels checked', sum(p['vclean'] for p in ok), '(not clean', sum(p['vclean'] and not p['clean'] for p in ok), end=') ')
-print('| notes', sum(len(p['notes']) for p in ok), 'shown', sum(sum(p['notes']) for p in ok), '(on a shut take', sum(sum(p['notes']) for p in ok if not p['vclean']), '; dropped on an open one', sum(len(p['notes']) - sum(p['notes']) for p in ok if p['vclean']), end=') ')
+print('| notes', sum(len(p['notes']) for p in ok), 'shown', sum(sum(p['notes']) for p in ok), '(on a take under the gate', sum(sum(p['notes']) for p in ok if not p['vclean']), '; hidden on one over it', sum(len(p['notes']) - sum(p['notes']) for p in ok if p['vclean']), end=') ')
 print( '| nosp', sum(p['nosp'] for p in ok), '| 1-word', sum(len(l['TW'])==1 for l in lines), '| 0-word', sum(len(l['TW'])==0 for l in lines))
 from collections import Counter
 print('  python exception kinds:', Counter((e[1], e[2][:60]) for e in py_err).most_common(8))

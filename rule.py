@@ -30,7 +30,7 @@ def mark_of(y, f, clean):
 # Israeli exam (LAB_NOTES §39).
 # The skip-vs-swap guard below also reads this bar, but cannot move with it: a swap that could fire has swap >= 8, and
 # the guard needs swap < 0.35 x the drop, so a drop above 22.9 — over both bars.
-RULE = {'drop': 20, 'margin': 4, 'swap': 8, 'rival': 0.3, 'altFit': 0.4, 'hear': 0.3, 'share': 0.35, 'half': 0.5, 'swap2': 12, 'vhead': 0.62, 'vgap': 0.17, 'noisy': 26, 'phNo': 0.3, 'phYes': 0.0}   # kept in step with static/index.html and embed.js
+RULE = {'drop': 20, 'margin': 4, 'swap': 8, 'rival': 0.3, 'altFit': 0.4, 'hear': 0.3, 'share': 0.35, 'half': 0.5, 'swap2': 12, 'vhead': 0.62, 'vgap': 0.17, 'noisy': 26, 'vp': 0.5}   # kept in step with static/index.html and embed.js
 
 def head_median(TW):
     """the letter head's score on the line's words (2+ consonants), the median — with the lowest word left out when
@@ -66,23 +66,35 @@ def vclean_of(TW, gap, clean, nikud=True):
     m = head_median(TW)
     return m is not None and m >= RULE['vhead'] and gap is not None and gap <= RULE['vgap']
 
-# A second opinion on each vowel note (v6.0). The server puts on every note the vowel the PHONE ear — the IPA recognizer,
-# another network than the vowel head — wrote at the same moment ('ph': its classes, '' = none; 'phc': how sure;
-# vowels.second_opinion). On a line with nikud, where it was measured (LAB_NOTES §43):
-#  - the take is clear enough for the vowel notes: a note is dropped when the phone ear heard the PAGE's vowel there
-#    (and not the one the note says), at least 'phNo' sure — the two ears err differently, and a false note is far
-#    more often contradicted than a real mistake is;
-#  - the take is not clear enough: until now it showed no vowel note at all. Now a note shows when the phone ear
-#    heard the SAME wrong vowel (at least 'phYes' sure): two networks agreeing is worth more than the take's gate.
-# A server before v6.0 gives no 'ph', and a line without nikud is not measured: the take's gate alone, as before.
+# How far to trust each vowel note (v6.0). Until v5.9 the TAKE alone decided (vclean_of): under the gate no vowel note,
+# over it all of them. Now the server gives every note of a line with nikud its own number ('p', 0..1:
+# vowels.note_trust — how well the two heads heard the note's word, how much of the slot the vowel holds, and whether
+# the phone ear, another network, wrote the same vowel at that moment), and a note shows when it is at least 'vp'.
+# So a word heard well is checked also in a take that is not clear overall (David's own phone takes of Tehillim 23:2,
+# Nov 1: nothing shown, a real "menohot" among them), and a doubtful note on a clear take is left out.
+# No 'p' (a server before v6.0) or a line without nikud, where it is not measured: the take's gate, as before.
 def note_shown(d, vclean, nikud=True):
-    """is this vowel note shown? d: {'you', 'ref', 'ph'?, 'phc'?}; vclean: the take's gate (vclean_of).
+    """is this vowel note shown? d: the note ('p' when the server rated it); vclean: the take's gate (vclean_of).
        Kept in step with noteShown in index.html and embed.js"""
-    ph = d.get('ph')
-    if ph is None or not nikud: return bool(vclean)
-    y = d['you'] in ph; r = d['ref'] in ph; c = d.get('phc') or 0
-    if vclean: return not (r and not y and c >= RULE['phNo'])
-    return y and not r and c >= RULE['phYes']
+    p = d.get('p')
+    if p is None or not nikud: return bool(vclean)
+    return p >= RULE['vp']
+
+def rate_notes(out):
+    """the server's last step on a take's vowel notes (app.run_check; the bench replays answers through the same
+       lines): on every note the phone ear's second opinion ('ph', 'phc': vowels.second_opinion) and, on a line with
+       nikud, its trust ('p': vowels.note_trust)"""
+    import vowels as VW
+    take = out['take']; TW = take['words']
+    for k in ('vowels', 'vowels_nikud'): VW.second_opinion(out.get(k), TW, take.get('phones'))
+    out['vowels_2nd'] = True
+    if VW.TRUST_W is not None and out.get('vowels_nikud') is not None:
+        gate = vclean_of(TW, take.get('gap'), clean_of(TW), True); hm = head_median(TW)
+        for k in ('vowels', 'vowels_nikud'):
+            for i, ds in (out.get(k) or {}).items():
+                for d in ds: d['p'] = VW.note_trust(d, TW[int(i)], gate, hm, take.get('gap'))
+        out['vowels_trust'] = True
+    return out
 
 def marks_of(TW, F, gap, clean, rival=None):
     """the page's verdict per word (markOf + the whole-line evidence on a clean take; the line gap on every take;
@@ -155,8 +167,8 @@ def summarize(out):
     vow = []
     has_nik = out.get('vowels_nikud') is not None
     vclean = vclean_of(TW, out['take'].get('gap'), clean, has_nik)
-    # vowel notes: on a take clear enough for them (vclean_of, v5.7; another voice with instruments gave one note per 4.5
-    # right words), less the ones the phone ear contradicts; on a take that is not, the ones it confirms (note_shown, v6.0)
+    # vowel notes: each by its own trust where the server gives one (note_shown, v6.0); else on a take clear enough for
+    # them (vclean_of, v5.7; another voice with instruments gave one note per 4.5 right words)
     for src, against in ((out.get('vowels'), 'hazzan'), (out.get('vowels_nikud'), 'nikud')):
         for i, ds in (src or {}).items():
             if marks[int(i)] == 'off': continue   # a word that was not there has no vowels to speak of
@@ -175,9 +187,9 @@ def summarize(out):
     # enough for them, and nothing else on the page says so — no noise line, no "can't hear", not another line. The
     # page then says it, instead of looking as if the vowels had passed: David's own phone takes of Tehillim 23:2 (the
     # letter head at .54 and .56, 42-44 dB) showed nothing about vowels, a real "menohot" in one of them (LAB_NOTES §43)
-    # ... only partly checked (v6.0): on a line with nikud a take under the gate now shows the notes the phone ear
-    # confirms (note_shown) — the page says "only partly checked" there (also in the noise line), "not checked" elsewhere
-    vpart = bool(not vclean and has_nik and out.get('vowels_2nd') and not (no_speech or cant_hear or line_wrong))
+    # ... only partly checked (v6.0): on a line with nikud a take under the gate now shows the notes that stand on
+    # their own (note_shown) — the page says "only partly checked" there (also in the noise line), "not checked" elsewhere
+    vpart = bool(not vclean and has_nik and out.get('vowels_trust') and not (no_speech or cant_hear or line_wrong))
     vlost = bool(not vclean and not vpart and not noisy and not (no_speech or cant_hear or line_wrong) and (out.get('vowels') is not None or out.get('vowels_nikud') is not None))
     return {'marks': marks, 'why': why, 'line_wrong': line_wrong, 'cant_hear': cant_hear, 'no_speech': no_speech, 'rival': out['take'].get('rival'), 'gap': out['take'].get('gap'), 'throat': throat, 'vowels': vow, 'shva': shv, 'miss': miss, 'clean': clean, 'vclean': vclean and not (cant_hear or no_speech), 'noisy': noisy, 'vlost': vlost, 'vpart': vpart, 'snr': snr, 'head': head_median(TW), 'hazzan': bool(F), 'dur': out['take'].get('dur')}
 

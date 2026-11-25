@@ -211,10 +211,10 @@ except Exception as e:
 # and reads which vowel class was sung in each slot; the student's vowels are compared with the hazzan's (or with the
 # nikud when the line has it). Loaded when the file is there.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from vowels import vowel_place, compare_vowels, vowel_notes, letters_kept, expected_vowels, vowel_context, second_opinion, VOWEL_NAME, VOWELS
+from vowels import vowel_place, compare_vowels, vowel_notes, letters_kept, expected_vowels, vowel_context, VOWEL_NAME, VOWELS
 from order import order_evidence, order_from_tokens, rival_evidence
 import shva as SH
-from rule import RULE, mark_of, head_median, no_speech_in, clean_of, marks_of, strict_of, summarize, score_parts, score_of   # the word rule (rule.py)
+from rule import RULE, mark_of, head_median, no_speech_in, clean_of, marks_of, strict_of, summarize, score_parts, score_of, rate_notes   # the word rule (rule.py)
 FULL = None; FULL_SYM = []; FULL_LAYER = 12
 try:
     ck = torch.load(os.environ.get('DK_FULL_HEAD') or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'full_head.pt'), map_location='cpu')   # DK_FULL_HEAD: another vowel head (experiments)
@@ -1348,12 +1348,9 @@ def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None, alt
         for k in ('vowels', 'vowels_nikud'):
             if k in out: out[k], d = drop_card(out[k], VC); n += d
         out['voice_card'] = {'pairs': sorted(VC), 'dropped': n}
-    # (v6.0) a second opinion on every vowel note: the vowel the phone ear — another network — wrote at the slot's time
-    # ('ph', 'phc' on the note; vowels.second_opinion). The page's rule drops a note it contradicts and, on a take not
-    # clear enough for the vowel notes, shows the ones it confirms (rule.note_shown)
-    try:
-        for k in ('vowels', 'vowels_nikud'): second_opinion(out.get(k), take['words'], take.get('phones'))
-        out['vowels_2nd'] = True
+    # (v6.0) every vowel note gets the phone ear's second opinion ('ph', 'phc') and, on a line with nikud, its own trust
+    # ('p'): the page shows the notes over rule.RULE['vp'] instead of all or none by the take (rule.rate_notes, note_shown)
+    try: rate_notes(out)
     except Exception as e:
         out['opinion_err'] = str(e)[:200]
     out['vowel_names'] = VOWEL_NAME

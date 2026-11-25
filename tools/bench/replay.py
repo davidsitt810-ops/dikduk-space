@@ -14,7 +14,8 @@ a phone, with noise), with the hazzan, holds everything for
 usage: replay.py <exam name> [...]                 the correct reading and the five planted kinds under rule.summarize
        replay.py --check <exam name> <planted exam name> <kind>     the replay against a planted run of the server
 env:   DK_LAB_V = the folder with exam_<name>.full.jsonl[.gz] (default: tools/)
-       RULESETS = 'phNo=9,phYes=9;phNo=.3,phYes=0'   the same exams under other values of rule.RULE, one report each"""
+       RULESETS = 'vp=.4;vp=.5'   the same exams under other values of rule.RULE, one report each
+       TRUST = <json of weights from bench/trust.py> to try them, or 'off' for the take's gate alone (v5.9)"""
 import sys, os, json, gzip, math, random, collections
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, ROOT); sys.path.insert(0, os.path.dirname(HERE))
@@ -56,11 +57,9 @@ def planted(row, kind):
     return opinion(out), idx, nik
 
 def opinion(out):
-    """the phone ear's opinion on every vowel note, as a v6.0 server attaches it (an older answer has none; the same
-       function, vowels.second_opinion, from what the answer holds: the take's phones and the slots' times)"""
-    for k in ('vowels', 'vowels_nikud'):
-        if out.get(k): VW.second_opinion(out[k], out['take']['words'], out['take'].get('phones'))
-    out['vowels_2nd'] = True; return out
+    """the server's last step on the vowel notes, on an answer kept before the server did it, or rewritten for a planted
+       line: the phone ear's opinion and the note's trust (rule.rate_notes — the same lines app.run_check runs)"""
+    return rule.rate_notes(out)
 
 def answer(row, kind=None):
     """-> (the server's answer for this kind, the planted words)"""
@@ -107,13 +106,15 @@ def check(name, planted_name, kind):
     return bad == 0 and n > 0
 
 def ruleset(spec):
-    """'phNo=9,phYes=9' -> rule.RULE changed for this run (9 = never: the rule as before v6.0)"""
+    """'vp=.4' -> rule.RULE changed for this run"""
     for kv in (spec or '').split(','):
         if kv: k, v = kv.split('='); assert k in rule.RULE, k; rule.RULE[k] = float(v)
 
 if __name__ == '__main__':
     if sys.argv[1] == '--check': sys.exit(0 if check(*sys.argv[2:5]) else 1)
-    sets = os.environ['RULESETS'].split(';') if os.environ.get('RULESETS') else ['']   # e.g. RULESETS='phNo=9,phYes=9;phNo=.3,phYes=0'
+    sets = os.environ['RULESETS'].split(';') if os.environ.get('RULESETS') else ['']   # e.g. RULESETS='vp=.4;vp=.5;vp=.6'
+    if os.environ.get('TRUST'):   # TRUST=<json from bench/trust.py> (weights to try before they are written into vowels.py); TRUST=off: no trust, the take's gate as in v5.9
+        VW.TRUST_W = None if os.environ['TRUST'] == 'off' else json.load(open(os.environ['TRUST']))['w']
     base = dict(rule.RULE)
     for name in sys.argv[1:]:
         for sp in sets:

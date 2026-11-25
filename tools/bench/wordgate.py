@@ -17,15 +17,17 @@ pct = RP.pct; KINDS = RP.ORDER
 
 def load(exam): return json.load(open(os.path.join(RP.V, f'table_{exam}.json'), encoding='utf-8'))
 
-def live(x): return x['shown']
 def cand(x): return x['note'] and x['mark'] != 'off' and not x['cant']          # a note that could be shown at all
+def live(x): return cand(x) and x['vclean']                                      # v5.9: the take's gate alone
+def now(x): return x['shown']                                                    # this checkout's rule.summarize
 def open_(x): return x['vclean']                                                 # the take's gate (already without can't-hear)
 def ph_you(c): return lambda x: x.get('pha') == 'you' and (x.get('phc') or 0) >= c
 def ph_ref(c): return lambda x: x.get('pha') == 'ref' and (x.get('phc') or 0) >= c
 def wscore(key, t): return lambda x: (x.get(key) or 0) >= t
 
 RULES = collections.OrderedDict()
-RULES['live'] = live
+RULES['v5.9 (the take gate alone)'] = live
+RULES['rule.py now'] = now
 for c in (0, .3, .5, .7):
     RULES[f'drop-ref{c}'] = (lambda c: lambda x: live(x) and not ph_ref(c)(x))(c)                       # the phone ear contradicts: dropped
 for c in (0, .3, .5):

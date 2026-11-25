@@ -313,28 +313,38 @@ def vowel_notes(student, hazzan, expected, letters, ctx=None):
 PHONE_VOWEL = {'a': 'A', 'aː': 'A', 'æ': 'A', 'ɐ': 'A', 'ɑ': 'AO', 'ɑː': 'AO', 'e': 'E', 'eː': 'E', 'ɛ': 'E', 'i': 'I', 'iː': 'I', 'ɪ': 'I',
                'o': 'O', 'oː': 'O', 'ɔ': 'O', 'ɔː': 'O', 'u': 'U', 'uː': 'U', 'ʊ': 'U', 'aɪ': 'AI', 'eɪ': 'EI', 'aʊ': 'AU', 'oʊ': 'OU', 'ɔɪ': 'OI',
                'y': 'IU', 'ø': 'EO', 'œ': 'EO'}
-PHONE_WIN = 0.08   # seconds around the slot (the two models' frames are 20 ms; their peaks fall within 20-40 ms of each other)
+PHONE_MURMUR = {'ə', 'ʌ', 'ɜ', 'ɜː', 'ɨ', 'ɵ'}   # a vowel with no class: it does not speak, and it does not stand in the way
+PHONE_WIN = 0.25   # seconds: as far as the phone ear's vowel may be from the slot — with no consonant of its own in between
+PHONE_NEAR = 0.08  # within this the two networks marked the same moment; farther is the same syllable, a weaker word
 
-def phone_vowel_at(phones, t, win=PHONE_WIN):
-    """the phone ear's vowel nearest time t, within win seconds. phones: the take's phones [{'p', 't', 'c'}].
-       -> (its classes, e.g. 'E' or 'AO'; its confidence) or ('', None) when it wrote no vowel there"""
-    best = None
-    for p in phones or []:
+def phone_vowel_at(phones, t, win=None):
+    """the phone ear's vowel that belongs to the vowel slot at time t: the nearest one it wrote with none of its own
+       consonants between the two moments (the two networks put their marks at different points of a long vowel — 90 ms
+       apart on David's long "aah-sar" — but not across a consonant), within win seconds.
+       phones: the take's phones [{'p', 't', 'c'}] in time order. -> (its classes, e.g. 'E' or 'AO'; its confidence; how
+       far its mark is from t, in seconds), or ('', None, None) when it wrote no vowel there"""
+    ph = [p for p in (phones or []) if p.get('t') is not None]
+    best = None; win = PHONE_WIN if win is None else win
+    for j, p in enumerate(ph):
         c = PHONE_VOWEL.get(p.get('p'))
-        if not c or p.get('t') is None: continue
+        if not c: continue
         d = abs(p['t'] - t)
-        if d <= win and (best is None or d < best[0]): best = (d, c, p.get('c'))
-    return (best[1], best[2]) if best else ('', None)
+        if d > win or (best is not None and d >= best[0]): continue
+        lo, hi = min(p['t'], t), max(p['t'], t)
+        if any(lo < q['t'] < hi and q.get('p') not in PHONE_VOWEL and q.get('p') not in PHONE_MURMUR for q in ph): continue
+        best = (d, c, p.get('c'))
+    return (best[1], best[2], round(best[0], 3)) if best else ('', None, None)
 
 def second_opinion(notes, take_words, phones):
     """every vowel note ({word: [{k, you, ref, m}]}, as vowel_notes gives them) gets the phone ear's vowel at its slot:
-       'ph' (classes, '' = none written there) and 'phc' (confidence). In place; a note whose slot has no time is left."""
+       'ph' (classes, '' = none written there), 'phc' (confidence) and 'phd' (how far its mark is from the slot, in
+       seconds). In place; a note whose slot has no time is left."""
     for i, ds in (notes or {}).items():
         sl = {s['k']: s for s in (take_words[int(i)].get('vow') or [])} if int(i) < len(take_words) else {}
         for d in ds:
             s = sl.get(d['k'])
             if s is None or s.get('t0') is None: continue
-            d['ph'], d['phc'] = phone_vowel_at(phones, (s['t0'] + s['t1']) / 2)
+            d['ph'], d['phc'], d['phd'] = phone_vowel_at(phones, (s['t0'] + s['t1']) / 2)
     return notes
 
 def opinion_of(d):
@@ -345,6 +355,33 @@ def opinion_of(d):
     if not ph: return 'none'
     y, r = d['you'] in ph, d['ref'] in ph
     return 'you' if (y and not r) else 'ref' if (r and not y) else 'other'
+
+# ---------------------------------------------------------------- how far to trust a vowel note (v6.0)
+# Until v5.9 a vowel note was shown or not by the TAKE alone (rule.vclean_of): a take under the gate showed none, also
+# on a word that was heard well, and a take over it showed all, also on a word that was not. What is known about the
+# note itself says more: how well the two heads heard its WORD (the letter head's score, the vowel head's own letter
+# score), how much of the SLOT the winning vowel holds, and the phone ear's second opinion. note_features puts them
+# in a row; TRUST_W weighs them (a logistic fitted on a never-heard reader's takes as recorded, on a phone and with
+# noise: his correct reading's notes false, the planted mistakes' notes true — tools/bench/trust.py, LAB_NOTES §43);
+# note_trust gives the note its number ('p'), and the page shows the notes over rule.RULE['vp'].
+TRUST_NAMES = ['bias', 'gate', 'hskel', 'vskel', 'm', 'you', 'you*c', 'ref', 'ref*c', 'none', 'you far', 'ref far', 'head', 'gap']
+TRUST_W = None   # set when fitted: a server without it gives no 'p', and the page keeps the take's gate
+
+def note_features(d, word, gate, head, gap):
+    """d: the note with its second opinion ('ph', 'phc'); word: the take's word it sits on ('hskel', 'vskel');
+       gate: the take's vowel gate (rule.vclean_of); head: the take's letter-head median; gap: its line gap"""
+    o = opinion_of(d); c = d.get('phc') or 0.0; near = (d.get('phd') or 0.0) <= PHONE_NEAR
+    you, ref = o == 'you', o == 'ref'
+    return [1.0, 1.0 if gate else 0.0, word.get('hskel') or 0.0, word.get('vskel') or 0.0, d.get('m') or 0.0,
+            1.0 if (you and near) else 0.0, c if (you and near) else 0.0, 1.0 if (ref and near) else 0.0, c if (ref and near) else 0.0, 1.0 if o == 'none' else 0.0,
+            1.0 if (you and not near) else 0.0, 1.0 if (ref and not near) else 0.0, head or 0.0, min(1.0, max(0.0, gap)) if gap is not None else 1.0]
+
+def note_trust(d, word, gate, head, gap, w=None):
+    """-> the note's trust, 0..1 (None while no weights are set)"""
+    w = TRUST_W if w is None else w
+    if w is None: return None
+    z = sum(a * b for a, b in zip(w, note_features(d, word, gate, head, gap)))
+    return round(1 / (1 + np.exp(-z)), 4)
 
 def letters_kept(lp, words, s2i, he_read, skip_cost=4.0, pairs=(('ע', 'א'), ('ח', 'כ'))):
     """Which letters of the line were actually heard: the line's letters aligned on the head with EVERY letter

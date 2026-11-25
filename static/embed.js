@@ -356,12 +356,12 @@ function mount(root, opts) {
   const sure = CLEAN && kp != null && kp >= .75 && hs != null && hs >= .6 && (pw == null || pw < .8);
   if (n >= 2) { if (sk < .2 && (ft == null || ft < .15)) { if (ft == null && CLEAN && !(kp != null && kp < .75)) return 'unsure'; if (!CLEAN && kp != null && kp >= .5) return 'unsure'; return 'off'; } if (CLEAN && pw != null && pw >= .95 && (ft == null || ft < .5)) return 'off'; if (sure) return 'ok'; if (sk < .4 || (ft != null && ft < .2) || (kp != null && kp < .5) || (pw != null && pw >= .8)) return 'unsure'; return 'ok'; } return sk < .2 && !sure ? 'unsure' : 'ok'; }
  /* whole-line evidence on a clean take (server: order.py); thresholds from exam_alouf.py — kept in step with index.html */
- const RULE = {drop: 20, margin: 4, swap: 8, rival: 0.3, altFit: 0.4, hear: 0.3, share: 0.35, half: 0.5, swap2: 12, vhead: 0.62, vgap: 0.17, noisy: 26, phNo: 0.3, phYes: 0};
+ const RULE = {drop: 20, margin: 4, swap: 8, rival: 0.3, altFit: 0.4, hear: 0.3, share: 0.35, half: 0.5, swap2: 12, vhead: 0.62, vgap: 0.17, noisy: 26, vp: 0.5};
  function headMedian(TW) { let hs = TW.filter(t => (t.n || 0) >= 2 && t.hskel != null).map(t => t.hskel).sort((a, b) => a - b); if (!hs.length) return null; if (hs.length >= 3) hs = hs.slice(1); return hs[Math.floor((hs.length - 1) / 2)]; }
  /* v5.7: the vowel notes also on a take the head hears fairly well (median >= .62) whose line the audio follows closely (gap <= .17) — the phone's takes — where the line has nikud (nik); the word marks keep .70. Server: rule.vclean_of */
  function vcleanOf(TW, gap, nik) { if (CLEAN) return true; if (!nik) return false; const m = headMedian(TW); return m != null && m >= RULE.vhead && gap != null && gap <= RULE.vgap; }
- /* v6.0: a second opinion on each vowel note — the vowel the phone ear (another network) wrote at the same moment (d.ph: its classes, '' = none; d.phc: how sure). On a line with nikud: a take clear enough for the notes drops a note when the phone ear heard the page's vowel there; a take that is not shows the notes it confirms. No d.ph (a server before v6.0) or no nikud: the take's gate alone. Server: rule.note_shown */
- function noteShown(d, vclean, nik) { const ph = d.ph; if (ph == null || !nik) return !!vclean; const y = ph.includes(d.you), r = ph.includes(d.ref), c = d.phc || 0; if (vclean) return !(r && !y && c >= RULE.phNo); return y && !r && c >= RULE.phYes; }
+ /* v6.0: each vowel note of a line with nikud comes with its own trust (d.p, 0..1, from the server: how well the heads heard the note's word, how much of the slot the vowel holds, whether the phone ear — another network — wrote the same vowel there) and shows at RULE.vp or more — so a word heard well is checked also in a take that is not clear overall. No d.p (a server before v6.0) or no nikud: the take's gate, as before. Server: rule.note_shown */
+ function noteShown(d, vclean, nik) { return (d.p == null || !nik) ? !!vclean : d.p >= RULE.vp; }
  function marksOf(TW, F, gap, rival) { const marks = TW.map((t, i) => markOf(t, F && F[i])); const why = TW.map(() => null); let lineWrong = false, cantHear = false;
   if (CLEAN) { const ds = TW.map(t => t.drop == null ? -1e9 : t.drop); const top = ds.indexOf(Math.max(...ds)); const second = Math.max(...ds.filter((d, i) => i !== top), -1e9);
    const dropped = top >= 0 && (TW[top].n || 0) >= 2 && ds[top] >= RULE.drop && ds[top] - second >= RULE.margin; const heard = dropped && (TW[top].skel || 0) >= .8 && (TW[top].kept || 0) >= .6;
@@ -426,8 +426,8 @@ function mount(root, opts) {
   else { say.className = 'dk-say warn'; say.textContent = S.few; }
   /* v5.7: background noise where the take lost its vowel check (or its words): say so, with the remedy (server: rule.summarize 'noisy') */
   const NOISY = !noSpeech && j.take.snr != null && j.take.snr < RULE.noisy && (!VCLEAN || cantHear); $('noisy').hidden = !NOISY;
-  /* v6.0: a take under the gate on a line with nikud is partly checked — the notes the phone ear confirms show (noteShown; server: rule.summarize 'vpart') */
-  const VPART = !VCLEAN && NIK && !!j.vowels_2nd && !noSpeech && !cantHear && !lineWrong;
+  /* v6.0: a take under the gate on a line with nikud is partly checked — the notes that stand on their own show (noteShown; server: rule.summarize 'vpart') */
+  const VPART = !VCLEAN && NIK && !!j.vowels_trust && !noSpeech && !cantHear && !lineWrong;
   if (NOISY) $('noisy').textContent = cantHear ? S.noisyWords : VPART ? S.noisyPart : S.noisyVowels;
   /* v6.0: the vowels were not checked, or only partly — the take was not clear enough for them — and nothing above says so: say it (server: rule.summarize 'vlost' / 'vpart'); not when the person turned the vowel notes off, nor under the strict line, which already asks for a clearer take */
   const VLOST = !VCLEAN && !VPART && !NOISY && !noSpeech && !cantHear && !lineWrong && (j.vowels != null || j.vowels_nikud != null);
