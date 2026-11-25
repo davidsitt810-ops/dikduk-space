@@ -4,7 +4,9 @@ where it lost its vowel check or its words). Each take is checked on the demo si
 test works out what the page must show, and compares: the hint shown or not, the vowel notes present only when the
 gate is open. The takes: Rabbi Alouf's 23:1 as recorded, through a phone in a room, with the noise 10 dB under, and
 5 dB under (exam_voice.py's DEGRADE, seed 23001: room,snr=5,kbps=24) — the last one loses its vowel check, so the line
-must show there and only there. Needs the local server on 7861 and the demo site on 8099."""
+must show there and only there. (v6.0: on a line with nikud such a take is partly checked — the notes the phone ear
+confirms show — and the line says "only partly checked".) Needs the local server on 7861 and the demo site on 8099
+(tools/bench/demo_site.sh)."""
 import asyncio, os, sys
 from playwright.async_api import async_playwright
 HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, os.path.join(HERE, '..'))
@@ -37,8 +39,10 @@ async def one(pw, page, take):
     if snr is None: fails.append((take, 'no snr in the take (server before v5.7?)'))
     if bool(v['noisy']) != sm['noisy']: fails.append((take, 'the page and the server disagree on the noise hint', v['noisy'], sm['noisy']))
     shown.append(bool(v['noisy']))
-    if v['noisy'] and not vclean and not sm['cant_hear'] and 'vowels were not checked' not in v['noisy']: fails.append((take, 'the line does not say the vowels were not checked', v['noisy']))
-    if not vclean and sm['vowels']: fails.append((take, 'vowel notes with the gate shut'))
+    # (v6.0) a take under the gate on a line with nikud is partly checked (the notes the phone ear confirms show): the line says so
+    want = 'vowels were only partly checked' if sm.get('vpart') else 'vowels were not checked'
+    if v['noisy'] and not vclean and not sm['cant_hear'] and want not in v['noisy']: fails.append((take, f'the line does not say the {want}', v['noisy']))
+    if not vclean and not sm.get('vpart') and sm['vowels']: fails.append((take, 'vowel notes with the gate shut'))
     if sm['vowels'] and 'where the' not in v['notes']: fails.append((take, 'server vowel notes not shown', sm['vowels']))
     if not sm['vowels'] and 'where the hazzan sings' in v['notes'] or (not sm['vowels'] and 'where the nikud says' in v['notes']): fails.append((take, 'a vowel note the server did not give'))
     await b.close()

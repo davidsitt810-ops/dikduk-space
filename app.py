@@ -211,7 +211,7 @@ except Exception as e:
 # and reads which vowel class was sung in each slot; the student's vowels are compared with the hazzan's (or with the
 # nikud when the line has it). Loaded when the file is there.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from vowels import vowel_place, compare_vowels, vowel_notes, letters_kept, expected_vowels, vowel_context, VOWEL_NAME, VOWELS
+from vowels import vowel_place, compare_vowels, vowel_notes, letters_kept, expected_vowels, vowel_context, second_opinion, VOWEL_NAME, VOWELS
 from order import order_evidence, order_from_tokens, rival_evidence
 import shva as SH
 from rule import RULE, mark_of, head_median, no_speech_in, clean_of, marks_of, strict_of, summarize, score_parts, score_of   # the word rule (rule.py)
@@ -1348,6 +1348,14 @@ def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None, alt
         for k in ('vowels', 'vowels_nikud'):
             if k in out: out[k], d = drop_card(out[k], VC); n += d
         out['voice_card'] = {'pairs': sorted(VC), 'dropped': n}
+    # (v6.0) a second opinion on every vowel note: the vowel the phone ear — another network — wrote at the slot's time
+    # ('ph', 'phc' on the note; vowels.second_opinion). The page's rule drops a note it contradicts and, on a take not
+    # clear enough for the vowel notes, shows the ones it confirms (rule.note_shown)
+    try:
+        for k in ('vowels', 'vowels_nikud'): second_opinion(out.get(k), take['words'], take.get('phones'))
+        out['vowels_2nd'] = True
+    except Exception as e:
+        out['opinion_err'] = str(e)[:200]
     out['vowel_names'] = VOWEL_NAME
     # (v5.1) the line's score out of 100 and how sure: the parts other than the words here, the words part from the
     # marks the page shows (strict moves it) — rule.score_parts / score_of, embed.js scoreOf

@@ -30,7 +30,7 @@ def mark_of(y, f, clean):
 # Israeli exam (LAB_NOTES §39).
 # The skip-vs-swap guard below also reads this bar, but cannot move with it: a swap that could fire has swap >= 8, and
 # the guard needs swap < 0.35 x the drop, so a drop above 22.9 — over both bars.
-RULE = {'drop': 20, 'margin': 4, 'swap': 8, 'rival': 0.3, 'altFit': 0.4, 'hear': 0.3, 'share': 0.35, 'half': 0.5, 'swap2': 12, 'vhead': 0.62, 'vgap': 0.17, 'noisy': 26}   # kept in step with static/index.html and embed.js
+RULE = {'drop': 20, 'margin': 4, 'swap': 8, 'rival': 0.3, 'altFit': 0.4, 'hear': 0.3, 'share': 0.35, 'half': 0.5, 'swap2': 12, 'vhead': 0.62, 'vgap': 0.17, 'noisy': 26, 'phNo': 0.3, 'phYes': 0.0}   # kept in step with static/index.html and embed.js
 
 def head_median(TW):
     """the letter head's score on the line's words (2+ consonants), the median — with the lowest word left out when
@@ -65,6 +65,24 @@ def vclean_of(TW, gap, clean, nikud=True):
     if not nikud: return False
     m = head_median(TW)
     return m is not None and m >= RULE['vhead'] and gap is not None and gap <= RULE['vgap']
+
+# A second opinion on each vowel note (v6.0). The server puts on every note the vowel the PHONE ear — the IPA recognizer,
+# another network than the vowel head — wrote at the same moment ('ph': its classes, '' = none; 'phc': how sure;
+# vowels.second_opinion). On a line with nikud, where it was measured (LAB_NOTES §43):
+#  - the take is clear enough for the vowel notes: a note is dropped when the phone ear heard the PAGE's vowel there
+#    (and not the one the note says), at least 'phNo' sure — the two ears err differently, and a false note is far
+#    more often contradicted than a real mistake is;
+#  - the take is not clear enough: until now it showed no vowel note at all. Now a note shows when the phone ear
+#    heard the SAME wrong vowel (at least 'phYes' sure): two networks agreeing is worth more than the take's gate.
+# A server before v6.0 gives no 'ph', and a line without nikud is not measured: the take's gate alone, as before.
+def note_shown(d, vclean, nikud=True):
+    """is this vowel note shown? d: {'you', 'ref', 'ph'?, 'phc'?}; vclean: the take's gate (vclean_of).
+       Kept in step with noteShown in index.html and embed.js"""
+    ph = d.get('ph')
+    if ph is None or not nikud: return bool(vclean)
+    y = d['you'] in ph; r = d['ref'] in ph; c = d.get('phc') or 0
+    if vclean: return not (r and not y and c >= RULE['phNo'])
+    return y and not r and c >= RULE['phYes']
 
 def marks_of(TW, F, gap, clean, rival=None):
     """the page's verdict per word (markOf + the whole-line evidence on a clean take; the line gap on every take;
@@ -135,11 +153,15 @@ def summarize(out):
             if th['v'] == 'plain': th['raw'] = 'plain'; th['v'] = 'unsure'
     VN = out.get('vowel_names') or {}; nm = lambda k: (VN.get(k) or k).split(' ')[0]
     vow = []
-    vclean = vclean_of(TW, out['take'].get('gap'), clean, out.get('vowels_nikud') is not None)
-    for src, against in (((out.get('vowels'), 'hazzan'), (out.get('vowels_nikud'), 'nikud')) if vclean else ()):   # vowel notes on a take clear enough for them (vclean_of, v5.7; another voice with instruments gave one note per 4.5 right words)
+    has_nik = out.get('vowels_nikud') is not None
+    vclean = vclean_of(TW, out['take'].get('gap'), clean, has_nik)
+    # vowel notes: on a take clear enough for them (vclean_of, v5.7; another voice with instruments gave one note per 4.5
+    # right words), less the ones the phone ear contradicts; on a take that is not, the ones it confirms (note_shown, v6.0)
+    for src, against in ((out.get('vowels'), 'hazzan'), (out.get('vowels_nikud'), 'nikud')):
         for i, ds in (src or {}).items():
             if marks[int(i)] == 'off': continue   # a word that was not there has no vowels to speak of
-            for d in ds: vow.append({'w': W[int(i)], 'k': d['k'], 'you': nm(d['you']), 'ref': nm(d['ref']), 'against': against})
+            for d in ds:
+                if note_shown(d, vclean, has_nik): vow.append({'i': int(i), 'w': W[int(i)], 'k': d['k'], 'you': nm(d['you']), 'ref': nm(d['ref']), 'against': against})
     miss = {W[i]: t['miss'] for i, t in enumerate(TW) if t.get('miss')}
     # shva na / nah notes (v4.9): as the vowels, only on a clean take and only in words that were there
     shv = [{'w': W[int(i)], 'k': d['k'], 'c': d['c'], 'you': d['you'], 'want': d['want'], 'rule': d['rule'], 'by': d['by']}
@@ -153,8 +175,11 @@ def summarize(out):
     # enough for them, and nothing else on the page says so — no noise line, no "can't hear", not another line. The
     # page then says it, instead of looking as if the vowels had passed: David's own phone takes of Tehillim 23:2 (the
     # letter head at .54 and .56, 42-44 dB) showed nothing about vowels, a real "menohot" in one of them (LAB_NOTES §43)
-    vlost = bool(not vclean and not noisy and not (no_speech or cant_hear or line_wrong) and (out.get('vowels') is not None or out.get('vowels_nikud') is not None))
-    return {'marks': marks, 'why': why, 'line_wrong': line_wrong, 'cant_hear': cant_hear, 'no_speech': no_speech, 'rival': out['take'].get('rival'), 'gap': out['take'].get('gap'), 'throat': throat, 'vowels': vow, 'shva': shv, 'miss': miss, 'clean': clean, 'vclean': vclean and not (cant_hear or no_speech), 'noisy': noisy, 'vlost': vlost, 'snr': snr, 'head': head_median(TW), 'hazzan': bool(F), 'dur': out['take'].get('dur')}
+    # ... only partly checked (v6.0): on a line with nikud a take under the gate now shows the notes the phone ear
+    # confirms (note_shown) — the page says "only partly checked" there (also in the noise line), "not checked" elsewhere
+    vpart = bool(not vclean and has_nik and out.get('vowels_2nd') and not (no_speech or cant_hear or line_wrong))
+    vlost = bool(not vclean and not vpart and not noisy and not (no_speech or cant_hear or line_wrong) and (out.get('vowels') is not None or out.get('vowels_nikud') is not None))
+    return {'marks': marks, 'why': why, 'line_wrong': line_wrong, 'cant_hear': cant_hear, 'no_speech': no_speech, 'rival': out['take'].get('rival'), 'gap': out['take'].get('gap'), 'throat': throat, 'vowels': vow, 'shva': shv, 'miss': miss, 'clean': clean, 'vclean': vclean and not (cant_hear or no_speech), 'noisy': noisy, 'vlost': vlost, 'vpart': vpart, 'snr': snr, 'head': head_median(TW), 'hazzan': bool(F), 'dur': out['take'].get('dur')}
 
 # ---------------------------------------------------------------- the line's score (v5.1)
 # A score out of 100 for a take, and how sure the checker is of it (the reader scores of LAB_NOTES §31, per line):
@@ -173,7 +198,7 @@ def score_parts(out, sm, n_shva=0):
     has_vow = out.get('vowels') is not None or out.get('vowels_nikud') is not None
     # (v6.0) judged wherever the vowel notes were checked — since v5.7 that is vclean, not only clean: until now a take the
     # page showed vowel notes on (a phone's, under the .70 bar) had them left out of its score
-    vowels = max(0.0, 1 - len({(v['w'], v['k']) for v in sm['vowels']}) / n_vow) if (sm.get('vclean', sm['clean']) and has_vow and n_vow) else None
+    vowels = max(0.0, 1 - len({(v.get('i', v['w']), v['k']) for v in sm['vowels']}) / n_vow) if (sm.get('vclean', sm['clean']) and has_vow and n_vow) else None
     shva = max(0.0, 1 - len(sm['shva']) / n_shva) if (sm['clean'] and n_shva and out.get('shva') is not None) else None
     h = head_median(out['take']['words'])
     clarity = min(1.0, h / .85) if h is not None else None

@@ -304,6 +304,48 @@ def vowel_notes(student, hazzan, expected, letters, ctx=None):
     return vh, vn
 
 
+# ---------------------------------------------------------------- a second opinion on a vowel note (v6.0)
+# The phone ear — the IPA recognizer the words are placed with, another network than the heads — writes vowels too.
+# It is no vowel checker of its own (it hears a short "i" as "e" often enough), but it errs differently from the vowel
+# head, and that makes it a second opinion on a note the vowel head gives: at the slot's time, did it write the vowel
+# the note says the reader said, the vowel the page has, or nothing? Its IPA vowels as the five classes; a diphthong is
+# both of its vowels, ɑ may be an "a" or an "o"; ə and ʌ are a murmur, no class.
+PHONE_VOWEL = {'a': 'A', 'aː': 'A', 'æ': 'A', 'ɐ': 'A', 'ɑ': 'AO', 'ɑː': 'AO', 'e': 'E', 'eː': 'E', 'ɛ': 'E', 'i': 'I', 'iː': 'I', 'ɪ': 'I',
+               'o': 'O', 'oː': 'O', 'ɔ': 'O', 'ɔː': 'O', 'u': 'U', 'uː': 'U', 'ʊ': 'U', 'aɪ': 'AI', 'eɪ': 'EI', 'aʊ': 'AU', 'oʊ': 'OU', 'ɔɪ': 'OI',
+               'y': 'IU', 'ø': 'EO', 'œ': 'EO'}
+PHONE_WIN = 0.08   # seconds around the slot (the two models' frames are 20 ms; their peaks fall within 20-40 ms of each other)
+
+def phone_vowel_at(phones, t, win=PHONE_WIN):
+    """the phone ear's vowel nearest time t, within win seconds. phones: the take's phones [{'p', 't', 'c'}].
+       -> (its classes, e.g. 'E' or 'AO'; its confidence) or ('', None) when it wrote no vowel there"""
+    best = None
+    for p in phones or []:
+        c = PHONE_VOWEL.get(p.get('p'))
+        if not c or p.get('t') is None: continue
+        d = abs(p['t'] - t)
+        if d <= win and (best is None or d < best[0]): best = (d, c, p.get('c'))
+    return (best[1], best[2]) if best else ('', None)
+
+def second_opinion(notes, take_words, phones):
+    """every vowel note ({word: [{k, you, ref, m}]}, as vowel_notes gives them) gets the phone ear's vowel at its slot:
+       'ph' (classes, '' = none written there) and 'phc' (confidence). In place; a note whose slot has no time is left."""
+    for i, ds in (notes or {}).items():
+        sl = {s['k']: s for s in (take_words[int(i)].get('vow') or [])} if int(i) < len(take_words) else {}
+        for d in ds:
+            s = sl.get(d['k'])
+            if s is None or s.get('t0') is None: continue
+            d['ph'], d['phc'] = phone_vowel_at(phones, (s['t0'] + s['t1']) / 2)
+    return notes
+
+def opinion_of(d):
+    """what the phone ear says about a note: 'you' (it heard the vowel the note says the reader said, and not the
+       page's), 'ref' (the page's / the hazzan's vowel, and not that one), 'none' (no vowel written there, or a server
+       before v6.0), 'other' (a third vowel, or one that could be either)"""
+    ph = d.get('ph')
+    if not ph: return 'none'
+    y, r = d['you'] in ph, d['ref'] in ph
+    return 'you' if (y and not r) else 'ref' if (r and not y) else 'other'
+
 def letters_kept(lp, words, s2i, he_read, skip_cost=4.0, pairs=(('ע', 'א'), ('ח', 'כ'))):
     """Which letters of the line were actually heard: the line's letters aligned on the head with EVERY letter
        optional at a cost, so a letter is kept only where the head's evidence for it beats the cost of skipping it.

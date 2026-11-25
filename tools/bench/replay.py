@@ -1,25 +1,28 @@
-"""Vowel notes replayed offline from an exam's kept rows (tools/exam_voice.py with RAW=1), with this checkout's own
-code (vowels.vowel_notes, rule.py) — no server, seconds instead of hours.
+"""The page's verdicts replayed offline from an exam's kept answers (tools/exam_voice.py with FULLOUT=1: the server's
+whole answer for every take), with this checkout's own code — rule.summarize, vowels.vowel_notes — no server, seconds
+instead of hours.
 
-Why it works: the take's vowel slots come from the audio and the line's letters alone (app.analyse); the nikud only
-says which vowel each slot should be. So ONE run of the server per kind of recording (as recorded, on a phone, with
-noise), with the hazzan, holds everything for
-  - the reader's correct reading: every note is false (kind "right", with the hazzan's cross-checks as on the site)
+Why one run serves many exams: the take's vowel slots come from the audio and the line's letters alone (app.analyse);
+the nikud only says which vowel each slot should be. So ONE run of the server per kind of recording (as recorded, on
+a phone, with noise), with the hazzan, holds everything for
+  - the reader's correct reading: every note is false (kind "right": the answer as it is, hazzan and all)
   - each planted mistake (tools/plant.py: EI EA IE OU UO, one planted word per pasuk, no hazzan — he says the vowel
-    right, as the reader does, and the cross-check would hide the planted word): what `exam_voice.py PLANT=<kind>
-    PLANT_ONE=1 NO_REF=1` gives through the server, take for take (--check compares the two)
-  - any gate on top: the take's own (rule.vclean_of), or a rule per word (bench/wordgate.py)
+    right, as the reader does, and the cross-check would hide the planted word): the answer rewritten as `exam_voice.py
+    PLANT=<kind> PLANT_ONE=1 NO_REF=1` gets it from the server (--check compares the two, take for take)
+  - any rule on top: pass another summarize() to tally(), or change rule.py and run this again
 
-usage: replay.py <exam name> [...]                 the correct reading and the five planted kinds under the live gate
+usage: replay.py <exam name> [...]                 the correct reading and the five planted kinds under rule.summarize
        replay.py --check <exam name> <planted exam name> <kind>     the replay against a planted run of the server
-env:   DK_LAB_V = the folder with exam_<name>.json / .jsonl (default: tools/)"""
-import sys, os, json, math, random, collections
+env:   DK_LAB_V = the folder with exam_<name>.full.jsonl[.gz] (default: tools/)
+       RULESETS = 'phNo=9,phYes=9;phNo=.3,phYes=0'   the same exams under other values of rule.RULE, one report each"""
+import sys, os, json, gzip, math, random, collections
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, ROOT); sys.path.insert(0, os.path.dirname(HERE))
 import rule, vowels as VW, nikud as NK
 from plant import planter, KINDS
 V = os.environ.get('DK_LAB_V') or os.path.dirname(HERE)
 PLANT = {k: planter(k) for k in KINDS}
+ORDER = ('EI', 'EA', 'IE', 'OU', 'UO')
 
 def wilson(k, n, z=1.96):
     if not n: return (0.0, 0.0)
@@ -29,88 +32,89 @@ def pct(k, n):
     lo, hi = wilson(k, n); return f'{k}/{n} = {100 * k / max(1, n):.1f}% ({lo:.1f}–{hi:.1f})'
 
 def load(name):
-    """an exam's rows that carry the raw slots and the word rule's inputs (finished .json, or the .jsonl of a run still going)"""
-    p = os.path.join(V, f'exam_{name}.json')
-    if os.path.exists(p): rows = json.load(open(p, encoding='utf-8'))
-    else: rows = [json.loads(l) for l in open(os.path.join(V, f'exam_{name}.jsonl'), encoding='utf-8') if l.strip()]
-    return [r for r in rows if 'err' not in r and 'raw' in r and 'rule_in' in r['raw']]
+    """an exam's takes with the server's whole answer: [{'per', 'ps', 'nikud', 'out', ...}] (a run still going: what it has)"""
+    p = os.path.join(V, f'exam_{name}.full.jsonl'); op = open
+    if not os.path.exists(p): p += '.gz'; op = gzip.open
+    rows, seen = [], set()
+    for l in op(p, 'rt', encoding='utf-8'):
+        if not l.strip(): continue
+        try: r = json.loads(l)
+        except ValueError: continue   # the line being written
+        if (r['per'], r['ps']) not in seen: seen.add((r['per'], r['ps'])); rows.append(r)
+    return rows
 
-def slots_of(lst):
-    return {i: [{'k': k, 'heard': h, 'mass': m, 'p': p} for k, h, m, p in w] for i, w in enumerate(lst or [])}
-
-def notes(r, kind=None, ref=None):
-    """the take's vowel notes as app.run_check makes them. kind None: the page's own nikud (the correct reading);
-       a planted kind: the nikud with one word rewritten (seeded by perek and pasuk, as exam_voice.py PLANT_ONE=1).
-       ref: with the hazzan's slots (default: yes for the correct reading, no for a planted kind).
-       -> {'vh': against the hazzan {word: [..]}, 'vn': against the nikud, 'planted': [word indices], 'nik': the line}
-       or None when the nikud's words do not match the line's (the server gives no nikud notes then)"""
-    raw = r['raw']; nik = raw['nikud']; planted = []
-    if ref is None: ref = kind is None
-    if kind:
-        assert 'planted' not in r, 'replay a planted kind from a run of the correct reading'
-        nik, planted, _ = PLANT[kind](nik, random.Random(r['per'] * 1000 + r['ps']))
+def planted(row, kind):
+    """the server's answer as it would be for the line with one word rewritten and no hazzan -> (answer, [planted word])"""
+    assert 'planted' not in row, 'replay a planted kind from a run of the correct reading'
+    out = dict(row['out']); nik, idx, _ = PLANT[kind](row['nikud'], random.Random(row['per'] * 1000 + row['ps']))
+    for k in ('ref', 'fit', 'ref_err', 'vowels', 'vowels_nikud'): out.pop(k, None)
     pv = NK.parse_verse(nik)
-    if len(pv) != len(r['words']): return None
-    ctx = VW.vowel_context(pv); exp = {i: VW.expected_vowels(us, ctx['stress'][i]) for i, (_, _, us) in enumerate(pv)}
-    haz = slots_of(raw['rw']) if (ref and raw.get('rw')) else None
-    vh, vn = VW.vowel_notes(slots_of(raw['tw']), haz, exp, {i: l for i, (_, l, _) in enumerate(pv)}, ctx)
-    return {'vh': vh or {}, 'vn': vn or {}, 'planted': planted, 'nik': nik}
+    if len(pv) == len(out['words']):   # as app.run_check
+        ctx = VW.vowel_context(pv); exp = {i: VW.expected_vowels(us, ctx['stress'][i]) for i, (_, _, us) in enumerate(pv)}
+        _, vn = VW.vowel_notes({i: w.get('vow', []) for i, w in enumerate(out['take']['words'])}, None, exp, {i: l for i, (_, l, _) in enumerate(pv)}, ctx)
+        out['vowels_nikud'] = {str(i): v for i, v in vn.items()}
+    return opinion(out), idx, nik
 
-def marks(r, ref=True):
-    """the page's word marks from the kept inputs -> (marks, clean, vclean, cant_hear, line_wrong); ref False: as a run
-       with no hazzan gives them (no fit)"""
-    ri = r['raw']['rule_in']; TW = ri['tw']; F = ([({'fit': x} if x is not None else None) for x in ri['fit']] or None) if ref else None
-    clean = rule.clean_of(TW); m, why, lw, ch = rule.marks_of(TW, F, r['gap'], clean, r['rival'])
-    if r.get('no_speech'): m = ['unsure' if x else x for x in m]; lw = False; ch = False
-    return m, clean, rule.vclean_of(TW, r['gap'], clean, True), ch, lw
+def opinion(out):
+    """the phone ear's opinion on every vowel note, as a v6.0 server attaches it (an older answer has none; the same
+       function, vowels.second_opinion, from what the answer holds: the take's phones and the slots' times)"""
+    for k in ('vowels', 'vowels_nikud'):
+        if out.get(k): VW.second_opinion(out[k], out['take']['words'], out['take'].get('phones'))
+    out['vowels_2nd'] = True; return out
 
-def noted(N):
-    """the words with a note, against the hazzan or the nikud (the page shows both, one line per word)"""
-    return set(N['vh']) | set(N['vn'])
+def answer(row, kind=None):
+    """-> (the server's answer for this kind, the planted words)"""
+    if kind is None: return opinion(row['out']), []
+    out, idx, _ = planted(row, kind); return out, idx
 
-def shown_live(r, N, M):
-    """the words whose vowel notes the page shows today: the take's gate (rule.summarize)"""
-    m, clean, vclean, ch, lw = M
-    if not vclean or ch or r.get('no_speech'): return set()
-    return {i for i in noted(N) if m[i] != 'off'}
-
-def tally(rows, kind, shown=shown_live):
-    """-> Counter: takes n, vclean; for the correct reading the words W and those noted (all false); for a planted kind
-       the planted words P, told (a note on it, or red), and the other words W with a note"""
+def tally(rows, kind, summarize=rule.summarize):
+    """-> Counter: takes n, those with the vowels checked; the planted words P and those told (a vowel note on the
+       word, or the word red); the other words W and those with a vowel note (all false; for the correct reading
+       every word is "other")"""
     c = collections.Counter()
     for r in rows:
-        N = notes(r, kind)
-        if N is None: c['skipped'] += 1; continue
-        M = marks(r, ref=kind is None); S = shown(r, N, M); P = set(N['planted'])
-        c['n'] += 1; c['vclean'] += bool(M[2] and not M[3] and not r.get('no_speech'))
+        out, P = answer(r, kind); P = set(P); sm = summarize(out); S = {v['i'] for v in sm['vowels']}; m = sm['marks']
+        c['n'] += 1; c['vclean'] += bool(sm['vclean']); c['vlost'] += bool(sm.get('vlost')); c['noisy'] += bool(sm.get('noisy'))
         if kind and not P: c['no_plant'] += 1; continue
-        c['P'] += len(P); c['told'] += sum(1 for i in P if i in S or M[0][i] == 'off'); c['noted_p'] += sum(1 for i in P if i in S)
-        c['W'] += len(M[0]) - len(P); c['noted'] += len(S - P)
+        c['P'] += len(P); c['told'] += sum(1 for i in P if i in S or m[i] == 'off'); c['noted_p'] += len(P & S)
+        c['W'] += sum(1 for i, x in enumerate(m) if x and i not in P); c['noted'] += len(S - P)
+        c['red'] += sum(1 for i, x in enumerate(m) if x == 'off' and i not in P); c['unsure'] += sum(1 for i, x in enumerate(m) if x == 'unsure' and i not in P)
     return c
+
+def report(name, summarize=rule.summarize, label=''):
+    rows = load(name); c = tally(rows, None, summarize)
+    print(f'== {name}{label}: {c["n"]} takes; vowels checked on {pct(c["vclean"], c["n"])}; the noise line {c["noisy"]}, the not-checked line {c["vlost"]}')
+    print(f'   correct reading: words with a vowel note (all false) {pct(c["noted"], c["W"])}; red {c["red"]}, not sure {pct(c["unsure"], c["W"])}')
+    tot = collections.Counter()
+    for k in ORDER:
+        c = tally(rows, k, summarize); tot.update({x: c[x] for x in ('P', 'told', 'noted_p')})
+        print(f'   planted {k}: told {pct(c["told"], c["P"])} (by a note {c["noted_p"]}); other words noted {pct(c["noted"], c["W"])}')
+    print(f'   all five kinds: told {pct(tot["told"], tot["P"])} (by a note {tot["noted_p"]})')
 
 def check(name, planted_name, kind):
     """the replay of a planted kind against the server's own run of it (exam_voice.py PLANT=<kind> PLANT_ONE=1 NO_REF=1)"""
     A = {(r['per'], r['ps']): r for r in load(name)}; n = bad = 0
+    key = lambda sm: (sm['marks'], sm['why'], sm['clean'], sm['vclean'], sm['noisy'], sm.get('vlost'), sorted((v['i'], v['k'], v['you'], v['ref'], v['against']) for v in sm['vowels']))
     for q in load(planted_name):
         r = A.get((q['per'], q['ps']))
         if r is None: continue
-        N = notes(r, kind); n += 1
-        want = {int(i): [(d['k'], d['you'], d['ref']) for d in ds] for i, ds in (q['raw'].get('svn') or {}).items()}
-        got = {i: [(d['k'], d['you'], d['ref']) for d in ds] for i, ds in N['vn'].items()}
-        M = marks(r, ref=False)
-        same = N['nik'] == q['raw']['nikud'] and N['planted'] == q['planted'] and want == got and M[0] == q['marks'] and M[2] == bool(rule.vclean_of(q['raw']['rule_in']['tw'], q['gap'], q['clean'], True))
+        out, idx, nik = planted(r, kind); n += 1; opinion(q['out'])   # (an answer from before v6.0 gets the opinions the same way)
+        same = nik == q['nikud'] and idx == q['planted'] and key(rule.summarize(out)) == key(rule.summarize(q['out'])) and out.get('vowels_nikud') == q['out'].get('vowels_nikud')
         if not same:
             bad += 1
-            if bad <= 5: print(f"  differs {q['per']}:{q['ps'] + 1}: planted {q['planted']} / {N['planted']}; server notes {want}; replay {got}; marks same {M[0] == q['marks']}")
-    print(f'{name} replayed as {kind} against {planted_name}: {n - bad} of {n} takes the same (the planted line, its words, the nikud notes, the marks, the gate)')
+            if bad <= 5: print(f"  differs {q['per']}:{q['ps'] + 1}: planted {q['planted']} / {idx}; server {q['out'].get('vowels_nikud')}; replay {out.get('vowels_nikud')}")
+    print(f'{name} replayed as {kind} against {planted_name}: {n - bad} of {n} takes the same (the planted line, its words, the nikud notes, and all the page shows: marks, gates, vowel notes)')
     return bad == 0 and n > 0
+
+def ruleset(spec):
+    """'phNo=9,phYes=9' -> rule.RULE changed for this run (9 = never: the rule as before v6.0)"""
+    for kv in (spec or '').split(','):
+        if kv: k, v = kv.split('='); assert k in rule.RULE, k; rule.RULE[k] = float(v)
 
 if __name__ == '__main__':
     if sys.argv[1] == '--check': sys.exit(0 if check(*sys.argv[2:5]) else 1)
+    sets = os.environ['RULESETS'].split(';') if os.environ.get('RULESETS') else ['']   # e.g. RULESETS='phNo=9,phYes=9;phNo=.3,phYes=0'
+    base = dict(rule.RULE)
     for name in sys.argv[1:]:
-        rows = load(name); c = tally(rows, None)
-        print(f'== {name}: {c["n"]} takes, vowels checked on {pct(c["vclean"], c["n"])}')
-        print(f'   correct reading: words with a vowel note (all false) {pct(c["noted"], c["W"])}')
-        for k in ('EI', 'EA', 'IE', 'OU', 'UO'):
-            c = tally(rows, k)
-            print(f'   planted {k}: told {pct(c["told"], c["P"])} (by a note {c["noted_p"]}); other words noted {pct(c["noted"], c["W"])}; pesukim with none to plant {c["no_plant"]}')
+        for sp in sets:
+            rule.RULE.clear(); rule.RULE.update(base); ruleset(sp); report(name, label=f'  [{sp}]' if sp else '')

@@ -45,6 +45,10 @@ print(f'{NAME}: {len(jobs)} pesukim', flush=True)
 # drops a nikud note the hazzan shares) would hide every planted mistake. Rows get 'planted' (word indices) and 'nw'.
 PLANT = os.environ.get('PLANT'); NO_REF = bool(os.environ.get('NO_REF'))
 RAW = bool(os.environ.get('RAW'))   # RAW=1: each row also keeps the vowel ear's slots (take and hazzan) and the server's notes, to try other note rules offline
+# FULLOUT=1 (v6.0): the server's whole answer for every take is kept too (exam_<name>.full.jsonl, about 20 KB a take),
+# so that anything the page could show — today's rule or a new one, a planted line, another gate — can be replayed
+# offline with rule.summarize itself (tools/bench/replay.py), without another run of the server
+FULLOUT = bool(os.environ.get('FULLOUT'))
 # PLANT=SKIP: a skipped word — one word of two letters or more, chosen at random (seeded by perek and pasuk), cut out of
 # the take's audio (its aligned span, a 10 ms crossfade at the join); the page and the hazzan unchanged, so run it
 # WITHOUT NO_REF. Rows get 'planted' [the word] and 'skip_t'; with RAW=1 also each word's drop / swap evidence.
@@ -118,6 +122,7 @@ JL = os.path.join(OUT, f'exam_{NAME}.jsonl'); rows = []
 if os.path.exists(JL):
     rows = [json.loads(l) for l in open(JL, encoding='utf-8') if l.strip()]
 have = {(r['per'], r['ps']) for r in rows}; jl = open(JL, 'a', encoding='utf-8'); t_start = time.time()
+fl = open(os.path.join(OUT, f'exam_{NAME}.full.jsonl'), 'a', encoding='utf-8') if FULLOUT else None
 def keep(r):
     rows.append(r); jl.write(json.dumps(r, ensure_ascii=False) + '\n'); jl.flush()
 for done, (n, i) in enumerate(jobs, 1):
@@ -141,6 +146,7 @@ for done, (n, i) in enumerate(jobs, 1):
     except Exception as e:
         keep({'per': n, 'ps': i, 'err': str(e)[:200]}); continue
     sm = rule.summarize(out)
+    if fl: fl.write(json.dumps({'per': n, 'ps': i, 'nikud': nik, 'dur': round(p['t1'] - p['t0'] + .5, 2), 'align_p': p['p'], **({'planted': planted} if PLANT else {}), **({'skip_t': skip_t} if SKIP else {}), 'out': out}, ensure_ascii=False) + '\n'); fl.flush()
     keep({'per': n, 'ps': i, 'words': out['words'], 'dur': round(p['t1'] - p['t0'] + .5, 2), 'align_p': p['p'], 'marks': sm['marks'], 'why': sm['why'],
                  'line_wrong': sm['line_wrong'], 'cant_hear': sm['cant_hear'], 'no_speech': sm['no_speech'], 'clean': sm['clean'], 'head': rule.head_median(out['take']['words']),
                  'throat': sm['throat'], 'vowels': sm['vowels'], 'shva': sm['shva'], 'rival': sm['rival'], 'gap': sm['gap'],
@@ -156,7 +162,8 @@ for done, (n, i) in enumerate(jobs, 1):
                              'rule_in': {'tw': [{k: w.get(k) for k in ('n', 'skel', 'kept', 'pw', 'hskel', 'vskel', 'drop', 'swap')} for w in out['take']['words']],   # vskel (v6.0): the vowel head's own letter score, for a word-level vowel gate
                                          'fit': [(f or {}).get('fit') for f in (out.get('fit') or [])]}}} if RAW else {})})
     if done % 10 == 0: print(f'  {done}/{len(jobs)}  [{int(time.time() - t_start)} s]', flush=True)
-jl.close(); want = set(jobs); rows = [r for r in rows if (r['per'], r['ps']) in want]
+jl.close(); want = set(jobs)
+if fl: fl.close(); rows = [r for r in rows if (r['per'], r['ps']) in want]
 json.dump(rows, open(os.path.join(OUT, f'exam_{NAME}.json'), 'w', encoding='utf-8'), ensure_ascii=False)
 
 ok = [r for r in rows if 'err' not in r]
