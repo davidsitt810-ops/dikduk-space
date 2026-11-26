@@ -194,7 +194,7 @@ Base: `https://davidsitt-pizmonim-dikduk.hf.space`. All JSON, CORS `*`. No keys.
   site's copy of `embed.js` needs copying again** (one number in its rule); if the site loads it from jsDelivr
   `@main`, it updates by itself once v5.6 is merged.
 
-## v6.0 (Nov 25; on branch `v60` until David says merge)
+## v6.0 (merged Nov 26)
 - **The site's copy of `embed.js` needs copying again.** Its rule object gained two numbers (`vp`, `vpu`), a small
   function (`noteShown`) and a second hint line; three new strings if the site gives the embed its own wording
   (Hebrew): `unclearVowels` ("Your vowels were not checked this time: the recording was not clear enough for that. Try

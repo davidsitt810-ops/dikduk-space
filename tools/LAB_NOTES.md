@@ -2032,3 +2032,9 @@ old machine; they are a download away (archive.org; Miqra) if David says so. The
 vowels it wrote, not from what it weighed (its frames are not in the answer): a finer second opinion is there to be
 had. A line without nikud — the pizmonim — keeps the take's gate: there is no planted exam for a sung line. And a
 vowel the vowel head never placed (the "yarbesseni") is still out of reach.
+
+**David, Nov 26** (three tapped answers): merge — v6.0 is `main`. The audio already in the repo (Rabbi Alouf's
+Tehillim in `static/tehillim/`, the letter clips, the eleven test takes in `tools/`) stays, and none is added. Next,
+of four offered: the missed vowels, the pizmonim lines, a third reader (not his own phone takes). And a minute later,
+unasked, the thing that goes first: *"only tell me i didnt say a word if u know i didnt say it your wrong with that
+alot for some reason"* — the word marks (§44).
