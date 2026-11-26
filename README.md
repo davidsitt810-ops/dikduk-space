@@ -271,8 +271,9 @@ the weights never saw (Faraj 56–150, 450 pesukim; v5.9 → v6.0), false vowel 
 mistakes told: as recorded 2.2% → 1.2% and 88.2% → 86.3%; on a phone 1.6% → 1.1% and 78.5% → 85.3%; with noise
 0.6% → 1.2% and 36.9% → 74.2% (all three: 1.5% → 1.2%, 67.9% → 81.9%). A second reader the heads never heard, whose
 recordings the letter head hears less well (LearnTefillah's haftarot, 300 pesukim, no hazzan, the gate open on 56% of
-his takes): 1.5% → 1.6% and 49.1% → 78.3%. The dev server's own answers carry the replay's opinions and trust on
-every note (83 of 83) and its planted runs are the replay's (80 of 80 takes). **The Name read "Elohim"**: where it is
+his takes): 1.5% → 1.6% and 49.1% → 78.3%; the same through a phone (the gate open on 23%): 0.6% → 1.7% and
+19.6% → 72.4%. The dev server's own answers carry the replay's opinions and trust on every note (720 takes, 358
+notes) and its planted runs are the replay's (80 of 80 takes). **The Name read "Elohim"**: where it is
 pointed so (אֲדֹנָי יֱהֹוִה — eight pesukim of Tehillim) the parser and the ears now read אלהים (`nikud.read_name`,
 `app.read_by_nikud`); a correct reader's Name there was ✓ once in 9 (Rabbi Alouf's own recordings and Faraj's) and
 is now 9 in 9, with no vowel note (6 before); the haftarot reader's 0 → 21 of 24. Also: the line score counts the

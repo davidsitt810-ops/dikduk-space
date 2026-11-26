@@ -1980,14 +1980,20 @@ hazzan (`bench/lt_jobs.py`, `exam_items.py`; nothing was fitted on him). The let
 less well than Faraj's — the gate is open on 56% of his takes as recorded — which is the case the old gate was made
 for (§40: Daya), and the one the trust had to be tried on:
 
-| LearnTefillah's haftarot, as recorded | false notes per right word | planted mistakes told | under the gate (133 takes) |
+| LearnTefillah's haftarot, v5.9 → v6.0 | false notes per right word | planted mistakes told | under the gate |
 |---|---|---|---|
-| v5.9 → v6.0 | 1.48% (56) → 1.56% (59) | **49.1% → 78.3%** | false 0 → 1.5% (25 of 1,693 words), told 0 → 75.1% |
+| as recorded (gate open on 56%) | 1.48% (56) → 1.56% (59) | **49.1% → 78.3%** | 133 takes: false 0 → 1.5% (25 of 1,693 words), told 0 → 75.1% |
+| on a phone (23%) | 0.61% (23) → 1.72% (65) | **19.6% → 72.4%** | 232 takes: false 0 → 1.7% (51 of 2,992 words), told 0.3% → 71.2% |
 
 By kind, told: e for i 48 → 81%, e for a 47 → 79%, i for e 49 → 72%, o for u 53 → 88%, u for o 49 → 71%. The same
 number of false notes — fewer on his clear takes (56 → 34), 25 on the ones that showed nothing — and three planted
 mistakes told in four instead of one in two. The phone ear on him: a catch confirmed 84–86%, contradicted 6–7%; a
-false note confirmed 39% / 59%, contradicted 27% / 27% (gate open / shut).
+false note confirmed 39% / 59%, contradicted 27% / 27% (gate open / shut). Through a phone in a room — the worst
+case here: another voice, another kind of recording, the room and the noise on top; v5.9 opened 68 takes of 300 and
+told one planted mistake in five — v6.0 tells seven in ten at 1.7 false notes per 100 right words, the rate of his
+clear takes (v5.9 on the takes it opened: 23 on 795 words, 2.9%; v6.0 on the same takes: 14, 1.8%). With the bar
+under the gate at .7 instead of .6: 1.43% and 67.2%. Both of his exams ran on the v6.0 server: its opinions and trust
+are the replay's on all 600 takes (275 notes).
 
 **The server's own numbers.** The dev server of this code, on 120 held-out phone takes of Faraj (his correct reading,
 planted e-for-i, planted o-for-u): its opinions and trust equal the replay's on every note (83 of 83,
