@@ -26,6 +26,8 @@ jobs:
         run: python -B tools/review/fuzz3.py 7 20000
       - name: a vowel note's second opinion, its trust and the rule that shows it (v6.0)
         run: python -B tools/t_trust.py
+      - name: the Name's two readings on the site's Tehillim text (v6.0)
+        run: python -B tools/t_name.py
       - name: the line score agrees in rule.py and embed.js
         run: python -B tools/t_score.py 3 20000
       - name: the measured numbers did not move (tools/rule_baseline.json)

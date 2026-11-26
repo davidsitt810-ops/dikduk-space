@@ -312,17 +312,44 @@ def name_prefix(hl):
     m = NAME_RE.match(hl)
     return (m.group(1) or '') if m else None
 
+class ReadAs(str):
+    """a word of the line with the letters it is READ with, where the nikud says they are not the usual ones: the Name
+       pointed for "Elohim" (אֲדֹנָי יֱהֹוִה; read_by_nikud, v6.0). The word itself stays as written (the page shows it)"""
+    read = None
+
 def he_read(w):
-    """the letters as they are READ: the Name (יי / יהוה) is said אדני, also after a prefix (ליהוה -> לאדני)"""
+    """the letters as they are READ: the Name (יי / יהוה) is said אדני, also after a prefix (ליהוה -> לאדני) — or as
+       the pointed line says (ReadAs)"""
+    r = getattr(w, 'read', None)
+    if r: return r
     hl = he_letters(w); p = name_prefix(hl)
     return p + 'אדני' if p is not None else hl
+
+def read_by_nikud(W, nikud):
+    """the line's words with the reading its nikud gives the Name: pointed for "Elohim" (nikud.name_elohim) it is said
+       אלהים, and the ears are asked for those letters. Until v6.0 every Name was "Adonai", so a reader who said
+       "Adonai Elohim" as written got a doubtful word and two false vowel notes (8 pesukim of Tehillim).
+       -> the same list, those words as ReadAs; unchanged when there is no nikud or it does not match the words"""
+    if not nikud or parse_verse is None: return W
+    try:
+        from nikud import name_elohim
+        pv = parse_verse(nikud)
+    except Exception: return W
+    if len(pv) != len(W): return W
+    out = []
+    for w, (pw, letters, _) in zip(W, pv):
+        if name_elohim(pw) and name_prefix(he_letters(w)) is not None:
+            x = ReadAs(w); x.read = letters; out.append(x)
+        else: out.append(w)
+    return out
 
 def he_words(text):
     return [w for w in re.split(r"[\s,.;:!?\"'״׳()\[\]{}|/\\־-]+", str(text or '')) if he_letters(w)]
 
 def skeleton(w):
     """[(letter index, letter, [its possible sounds])] for the word's consonants; the Name reads adonay -> d n"""
-    hl = he_letters(w); p = name_prefix(hl)
+    r = getattr(w, 'read', None)   # the letters the nikud says it is read with (the Name said "Elohim": l h m)
+    hl = r or he_letters(w); p = None if r else name_prefix(hl)
     if p is not None:   # the Name, with or without a prefix: the prefix's consonants, then adonay's d n
         return [(k, c, ALT[c]) for k, c in enumerate(p) if c in ALT and ALT[c]] + [(len(p), 'ד', ALT['ד']), (len(p) + 1, 'נ', ALT['נ'])]
     out = []
@@ -1279,6 +1306,7 @@ def drop_card(vn, VC):
 
 def run_check(x, W, ref, t0, t1, emb, drill, nikud, progress=lambda s: None, alts=None, VC=None, student=None, enroll=False):
     if isinstance(alts, str): alts = other_lines(alts, W)   # the text's id -> its other lines (may fetch the site's lyrics: not on the event loop)
+    W = read_by_nikud(W, nikud)   # (v6.0) the Name pointed for "Elohim" is listened for as it is said
     progress('listening to your take')
     # (v5.7) a student with a head of his own is heard with it (the hazzan keeps the shipped one); while he enrolls,
     # the take's Arabic layer is kept aside, to be saved if the take turns out clear and every word right

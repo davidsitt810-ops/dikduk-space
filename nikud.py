@@ -39,12 +39,21 @@ def clean_verse(v):
     v = v.replace('[', ' ').replace(']', ' ').replace('׃', ' ').replace('׆', ' ').replace('־', ' ')
     return re.sub(r'\s+', ' ', v).strip()
 
+def name_elohim(w):
+    """the Name pointed for the reading "Elohim" (a hiriq under its vav: אֲדֹנָי יֱהֹוִה — eight times in Tehillim:
+       68:21, 69:7, 71:5, 71:16, 73:28, 109:21, 140:8, 141:8; often in the prophets)"""
+    m = NAME.search(w)
+    return bool(m and HIRIQ in m.group(0))
+
 def read_name(w):
-    """the Name is read אדני: at the start of a word with its own hataf, after a prefix without it"""
+    """the Name is read אדני: at the start of a word with its own hataf, after a prefix without it — and אלהים where
+       it is pointed so (name_elohim; v6.0: until then a reader who said "Adonai Elohim", as written, differed from
+       the page as parsed: the word doubtful and two false vowel notes)"""
     m = NAME.search(w)
     if not m: return w
-    before = w[:m.start()]
-    repl = 'אֲדֹנָי' if not re.search('[א-ת]', before) else 'אדֹנָי'
+    before = w[:m.start()]; first = not re.search('[א-ת]', before)
+    if HIRIQ in m.group(0): repl = 'אֱלֹהִים' if first else 'אלֹהִים'
+    else: repl = 'אֲדֹנָי' if first else 'אדֹנָי'
     return before + repl + w[m.end():]
 
 def parse_word(w):

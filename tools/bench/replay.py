@@ -58,8 +58,15 @@ def planted(row, kind):
     return opinion(out), idx, nik
 
 def opinion(out):
-    """the server's last step on the vowel notes, on an answer kept before the server did it, or rewritten for a planted
-       line: the phone ear's opinion and the note's trust (rule.rate_notes — the same lines app.run_check runs)"""
+    """the server's last step on the vowel notes, done here: on an answer kept before the server did it, or rewritten for
+       a planted line, or rated by the server with other weights than this checkout's (TRUST=off, a json to try) — the
+       notes are stripped of what a server gave them and rated again (rule.rate_notes, the lines app.run_check runs).
+       --live checks that a rating server and these lines give the same numbers"""
+    for k in ('vowels', 'vowels_nikud'):
+        for ds in (out.get(k) or {}).values():
+            for d in ds:
+                for f in ('ph', 'phc', 'phd', 'p'): d.pop(f, None)
+    out.pop('vowels_trust', None); out.pop('vowels_2nd', None)
     return rule.rate_notes(out)
 
 def answer(row, kind=None):

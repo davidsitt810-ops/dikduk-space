@@ -257,12 +257,36 @@ the one large kind of false note where the ear is mostly unsure while a real "u 
 (LAB_NOTES §42). Replayed: Faraj's false vowel notes 2.25% → 2.05% and 2.16% → 1.93%, Shmuelof's 0.79% → 0.47%; a
 real u for o told 92.7% → 92.3% (Faraj), 90.6% → 90.3% (Shmuelof); every other kind as in v5.8. Server only.
 
+v6.0 (Nov 25): **each vowel note is judged on its own, and the page says what it did not check** (LAB_NOTES §43).
+Until v5.9 the take decided: under the gate no vowel note at all, and nothing on the page said so — two of David's
+own five phone takes of Nov 1, a real "menohot" in one of them — and over it every note, also a doubtful one. Now, on
+a line with nikud, the server gives every vowel note a **second opinion** — the vowel the phone ear, another network,
+wrote in the same syllable (`ph`, `phc`, `phd`: `vowels.second_opinion`) — and a **trust** (`p`, 0–1: how well the
+two heads heard the note's word, how much of the slot the vowel holds, the second opinion; `vowels.note_trust`,
+fitted on Faraj's Tehillim 1–55 as recorded, on a phone and with noise). The page shows the notes at .4 or more, and
+on a take under the old gate at .6, where both ears must agree (`rule.note_shown`; the page and the embed alike,
+fuzz3). Such a take is "only partly checked", and the page says so; a line without nikud, or a server before v6.0,
+keeps the gate and now says "Your vowels were not checked this time". Replayed through `rule.summarize` on pesukim
+the weights never saw (Faraj 56–150, 450 pesukim; v5.9 → v6.0), false vowel notes per right word and planted
+mistakes told: as recorded 2.2% → 1.2% and 88.2% → 86.3%; on a phone 1.6% → 1.1% and 78.5% → 85.3%; with noise
+0.6% → 1.2% and 36.9% → 74.2% (all three: 1.5% → 1.2%, 67.9% → 81.9%). A second reader the heads never heard, whose
+recordings the letter head hears less well (LearnTefillah's haftarot, 300 pesukim, no hazzan, the gate open on 56% of
+his takes): 1.5% → 1.6% and 49.1% → 78.3%. The dev server's own answers carry the replay's opinions and trust on
+every note (83 of 83) and its planted runs are the replay's (80 of 80 takes). **The Name read "Elohim"**: where it is
+pointed so (אֲדֹנָי יֱהֹוִה — eight pesukim of Tehillim) the parser and the ears now read אלהים (`nikud.read_name`,
+`app.read_by_nikud`); a correct reader's Name there was ✓ once in 9 (Rabbi Alouf's own recordings and Faraj's) and
+is now 9 in 9, with no vowel note (6 before); the haftarot reader's 0 → 21 of 24. Also: the line score counts the
+vowel notes wherever they were checked; the lab page's details show each note's trust and the notes held back.
+`embed.js` changed (the site chat copies it); a v6.0 server with an older embed behaves as v5.9. The test bench was
+rebuilt after its machine was lost and now lives in `tools/bench/` (its README): one run of the server per kind of
+recording, the whole answers kept, every planted mistake and every rule replayed offline.
+
 
 - `GET /` — the lab page (record on the phone, see the word-by-word result, keep a scorecard).
 - `GET /letters` — the letter checker; `POST /letter?c=<letter>[&want=…][&strict=1]` with a short take as the body; `GET /letters.json`, `GET /letters/audio/<name>.mp3` — Rabbi Alouf's example words.
 - `GET /health`, `GET /info`, `GET /lyrics` (the site's lyrics.json + the Tehillim perakim, with CORS).
 - `GET /ref?f=<archive mp3 | tehillim-NNN.mp3>&t0=&t1=&words=<line>` — the hazzan's line, analysed and cached.
-- `POST /check?words=<line>[&ref=<f>&t0=&t1=][&nikud=<pointed line>][&pid=<text id>][&job=1][&drill=throat|plain&key=][&student=<id>[&enroll=1]]` with the audio as the body — the take (v5.7: `take.snr`, the noise estimate; with `student`, heard with his own vowel head when it is made, and kept for it while `enroll=1`).
+- `POST /check?words=<line>[&ref=<f>&t0=&t1=][&nikud=<pointed line>][&pid=<text id>][&job=1][&drill=throat|plain&key=][&student=<id>[&enroll=1]]` with the audio as the body — the take (v5.7: `take.snr`, the noise estimate; with `student`, heard with his own vowel head when it is made, and kept for it while `enroll=1`; v6.0: each note in `vowels` / `vowels_nikud` carries `ph`, `phc`, `phd` — the phone ear's vowel in the same syllable, its confidence, its distance in seconds — and, on a line with nikud, `p`, its trust; `vowels_trust` says the notes are rated).
 - `GET /student?id=`, `POST /student/train?id=`, `POST /student/use?id=&on=0|1`, `POST /student/forget?id=` — a student's own vowel ear (v5.7, `student.py`): how far it is, make it, switch it, forget all of it.
 - `GET /drill?key=`, `GET /drill/export?key=` — the throat-drill recordings kept here (features, audio, labels) for the next classifier.
 - `GET /record?set=<name>`, `POST /submit`, `GET /takes?key=`, `GET /score` — the recording booth and its scoreboard.

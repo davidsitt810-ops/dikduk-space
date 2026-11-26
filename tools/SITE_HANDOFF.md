@@ -194,6 +194,22 @@ Base: `https://davidsitt-pizmonim-dikduk.hf.space`. All JSON, CORS `*`. No keys.
   site's copy of `embed.js` needs copying again** (one number in its rule); if the site loads it from jsDelivr
   `@main`, it updates by itself once v5.6 is merged.
 
+## v6.0 (Nov 25; on branch `v60` until David says merge)
+- **The site's copy of `embed.js` needs copying again.** Its rule object gained two numbers (`vp`, `vpu`), a small
+  function (`noteShown`) and a second hint line; three new strings if the site gives the embed its own wording
+  (Hebrew): `unclearVowels` ("Your vowels were not checked this time: the recording was not clear enough for that. Try
+  again with the phone close to your mouth."), `partVowels` ("…were only partly checked this time…") and `noisyPart`
+  (the noise line, saying "only partly checked").
+- What a person sees on a pointed line (Tehillim): fewer wrong vowel notes on a clear take; on a take that is not
+  clear overall — most phone takes in a noisy room — the vowel mistakes that two different ears both heard are now
+  shown, with the line "only partly checked"; before, such a take showed nothing about vowels and did not say so.
+  Pizmonim (no nikud): the notes as before, plus the line "not checked" when they were not.
+- It needs a v6.0 server for the new notes (each vowel note comes with a number, `p`). A v6.0 embed on an older
+  server, or an older embed on a v6.0 server, behaves as v5.9 — nothing breaks in either order.
+- Tehillim only: the Name pointed for "Elohim" (אֲדֹנָי יֱהֹוִה, eight pesukim) is now heard as "Elohim"; before, a
+  correct reader got "not sure" on it and a wrong vowel note. Server only.
+- The red / "not sure" marks on the words are exactly as before (apart from that Name).
+
 ## v5.8 (merged Nov 9)
 
 Server only: two vowel-note rules (a kamats katan said "a" accepted in some words; fewer "eh" notes on unstressed

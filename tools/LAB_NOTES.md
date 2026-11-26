@@ -1957,3 +1957,72 @@ nikud's between the consonants it placed; a vowel of another class is a note, un
 vowel there). It would have caught David's "yarbesseni" — and on Faraj as recorded, at .7 sure, it adds 40 false
 notes (1.1% of the right words, as many as everything v6.0 shows) for 1.5 points of catches; at .8, 22 for 0.9.
 Its short "i" written "e" is the same mistake the vowel head makes, without the cross-checks.
+
+**On pesukim the weights never saw** (Faraj 56–150, 450 pesukim, 3,427 right words, 1,921 planted words; the
+same three kinds of recording), v5.9 → v6.0:
+
+| | false notes per right word | planted mistakes told | on the takes under the gate: false / told |
+|---|---|---|---|
+| as recorded (gate open on 97%) | 2.22% (76) → **1.23%** (42) | 88.2% → 86.3% | 12 takes: 0 → 1 of 92 words / 0 → 40 of 51 |
+| on a phone (85%) | 1.63% (56) → **1.14%** (39) | 78.5% → **85.3%** | 66 takes: 0 → 1.1% / 0 → 76.8% |
+| with noise (42%) | 0.61% (21) → 1.20% (41) | 36.9% → **74.2%** | 261 takes: 0 → 1.2% / 0.7% → 68.2% |
+| all three | 1.49% (153) → **1.19%** (122) | 67.9% → **81.9%** | |
+
+As on the pesukim they were set on. Where the old gate was open nearly always, a third to a half of the false notes
+go for two points of catches; where it was shut — the phone, the noise — the mistakes are told at last, at the
+false-note rate of a clear take. Other bars, all three kinds together: .3/.6 134 false, 83.1% told; .5/.6 111, 79.2%;
+.4/.4 127, 83.1%.
+
+**A second reader the heads never heard** — the haftarot of LearnTefillah (one reader, Brazil; nv6, which learned
+him, was not shipped: §36). The Mac batch of Nov 2 had lined up 1,622 of his pesukim; 300 of them, up to 20 seconds
+(37 haftarot, 3,787 words), each with its nikud as the page, the haftarah's other pesukim as the rival lines, and no
+hazzan (`bench/lt_jobs.py`, `exam_items.py`; nothing was fitted on him). The letter head hears his recordings
+less well than Faraj's — the gate is open on 56% of his takes as recorded — which is the case the old gate was made
+for (§40: Daya), and the one the trust had to be tried on:
+
+| LearnTefillah's haftarot, as recorded | false notes per right word | planted mistakes told | under the gate (133 takes) |
+|---|---|---|---|
+| v5.9 → v6.0 | 1.48% (56) → 1.56% (59) | **49.1% → 78.3%** | false 0 → 1.5% (25 of 1,693 words), told 0 → 75.1% |
+
+By kind, told: e for i 48 → 81%, e for a 47 → 79%, i for e 49 → 72%, o for u 53 → 88%, u for o 49 → 71%. The same
+number of false notes — fewer on his clear takes (56 → 34), 25 on the ones that showed nothing — and three planted
+mistakes told in four instead of one in two. The phone ear on him: a catch confirmed 84–86%, contradicted 6–7%; a
+false note confirmed 39% / 59%, contradicted 27% / 27% (gate open / shut).
+
+**The server's own numbers.** The dev server of this code, on 120 held-out phone takes of Faraj (his correct reading,
+planted e-for-i, planted o-for-u): its opinions and trust equal the replay's on every note (83 of 83,
+`replay.py --live`), and the replay of the two planted kinds from the correct reading's answers equals the server's
+own planted runs on 40 of 40 and 40 of 40 — the planted line, the notes with their trust, the marks, the lines the
+page shows. `rule.note_shown` in the three copies: fuzz3 (20,000 lines, 35,000 notes). `tools/t_trust.py` (in CI, no
+models): which of the phone ear's vowels belongs to a slot, the opinion's names, the two bars, a server without
+weights (it gives no `p`, the page keeps the gate), a line without nikud, and David's three notes with the server's
+numbers. Page tests on the v6.0 server — `t_vlost_ui` (new: partly / not checked on both pages, the second by sending
+the check without its nikud), `t_noisy_ui`, `t_learn_ui`, `t_shva_ui`, `t_rule`, `t_canthear`, `t_wrongline`: all
+good. The new page on a server that does not rate its notes (the Mac's 5.7, the Space's 5.5): the gate as before,
+and "not checked" under it.
+
+**David's five takes on v6.0**: 1, 2, 5 as before ("ahsar" at .53). Take 3: no note, "Your vowels were only partly
+checked this time…". Take 4: **"מנחות: you sang oh where the hazzan sings oo"** (.74) and "על: you sang eh where the
+hazzan sings ah" (.78, the one both ears heard), with the same line. The "yarbesseni" is still not told.
+
+**The Name read "Elohim"** (found on the way: a note on יהוה in the first haftarah take). Where the Name follows or
+precedes אֲדֹנָי it is pointed יֱהֹוִה and read "Elohim" — eight pesukim of Tehillim (68:21, 69:7, 71:5, 71:16, 73:28,
+109:21, 140:8, 141:8), often in the prophets. The parser read every Name "Adonai", and the server listened for those
+letters. `nikud.read_name` now gives אֱלֹהִים for that pointing (`name_elohim`: a hiriq under the vav), and
+`app.read_by_nikud` hands the ears the letters the parse gives (a `ReadAs` word: written as before, read אלהים).
+A correct reader's Name there (`bench/name_check.py`), before → after:
+
+| | ✓ | not sure | red | a vowel note shown |
+|---|---|---|---|---|
+| Tehillim: Rabbi Alouf's own 7 pesukim + Faraj's 2 | 1 → **9** of 9 | 7 → 0 | 1 → 0 | 6 → 0 |
+| the haftarot reader, 24 Names in 23 pesukim | 0 → **21** of 24 | 22 → 3 | 2 → 0 | 21 → 0 |
+
+Until now Rabbi Alouf's own recording of 140:8 had its Name marked "not heard". Nothing else moves: of Tehillim's
+19,586 words, those 8 parse differently (`tools/t_name.py`, in CI), and 40 phone takes without that reading come out
+the same in every mark, score, word number and note on the server before and after.
+
+**Not done, and what would tell more.** Everything here is two readers. Shmuelof and Daya (§31, §40) went with the
+old machine; they are a download away (archive.org; Miqra) if David says so. The phone ear's opinion is read from the
+vowels it wrote, not from what it weighed (its frames are not in the answer): a finer second opinion is there to be
+had. A line without nikud — the pizmonim — keeps the take's gate: there is no planted exam for a sung line. And a
+vowel the vowel head never placed (the "yarbesseni") is still out of reach.
