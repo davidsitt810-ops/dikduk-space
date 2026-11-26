@@ -71,7 +71,7 @@ def vclean_of(TW, gap, clean, nikud=True):
 # vowels.note_trust — how well the two heads heard the note's word, how much of the slot the vowel holds, and whether
 # the phone ear, another network, wrote the same vowel at that moment), and a note shows when it is at least 'vp' —
 # or 'vpu', a higher bar, on a take under the old gate, where until now nothing showed (the bars were set on one
-# never-heard reader; a recording the heads hear poorly is where a second one is still to be measured).
+# never-heard reader and tried on a second, whose recordings the heads hear less well: LAB_NOTES §43).
 # So a word heard well is checked also in a take that is not clear overall (David's own phone takes of Tehillim 23:2,
 # Nov 1: nothing shown, a real "menohot" among them), and a doubtful note on a clear take is left out.
 # No 'p' (a server before v6.0) or a line without nikud, where it is not measured: the take's gate, as before.
